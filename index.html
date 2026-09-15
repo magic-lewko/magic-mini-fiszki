@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b10">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fiszki">
+  <meta name="format-detection" content="telephone=no">
+  <title>Fiszki</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="./ikona-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./ikona-192.png">
+  <link rel="stylesheet" href="./styl.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div id="aplikacja">
+    <header class="gora">
+      <div id="exp" class="licznik">0 EXP</div>
+      <div id="streak" class="licznik">🔥 0</div>
+      <div class="postep" aria-label="Postęp serii">
+        <div class="postep-tor"><i id="pasek"></i></div>
+        <span id="procent">0%</span>
+      </div>
+      <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
+      <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu">⋯</button>
+    </header>
+    <main id="scena" class="scena">
+      <section class="ekran"><p class="przygaszony">Ładowanie…</p></section>
+    </main>
+    <footer id="akcje" class="akcje" hidden></footer>
+  </div>
+
+  <div id="komunikaty" class="komunikaty" aria-live="assertive"></div>
+  <div id="menu" class="nakladka" hidden></div>
+  <div id="dodawanie" class="nakladka" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <input id="plik-slowek" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
+  <input id="plik-kopii" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
+
+  <script>
+    // Gdy modul apki sie nie uruchomi (blad skladni, bardzo stary system), pokaz komunikat zamiast pustego ekranu.
+    window.__pierwszyBlad = ''
+    window.addEventListener('error', function (e) {
+      if (!window.__pierwszyBlad) window.__pierwszyBlad = e.message || String(e.error || '')
+    })
+    setTimeout(function () {
+      if (document.documentElement.dataset.gotowe) return
+      var scena = document.getElementById('scena')
+      if (!scena) return
+      scena.textContent = ''
+      var ekran = document.createElement('section')
+      ekran.className = 'ekran'
+      ekran.innerHTML = '<h2>Aplikacja się nie uruchomiła</h2><p>Zamknij ją i otwórz ponownie. Postęp jest zapisany w telefonie.</p>'
+      if (window.__pierwszyBlad) {
+        var p = document.createElement('p')
+        p.className = 'przygaszony'
+        p.textContent = window.__pierwszyBlad
+        ekran.appendChild(p)
+      }
+      scena.appendChild(ekran)
+    }, 10000)
+  </script>
+</body>
+</html>

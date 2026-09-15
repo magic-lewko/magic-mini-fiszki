@@ -1,0 +1,970 @@
+:root {
+  color-scheme: dark;
+  --tlo: #0b0b10;
+  --powierzchnia: #16161f;
+  --powierzchnia-2: #1c1c27;
+  --linia: #2a2a37;
+  --tekst: #f4f4f7;
+  --przygaszony: #9a9aad;
+  --zielony: #16a34a;
+  --zielony-jasny: #4ade80;
+  --czerwony: #dc2626;
+  --bursztyn: #fbbf24;
+  --margines: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--tlo);
+  color: var(--tekst);
+}
+
+/* Cala strona przyklejona do ekranu: bez przewijania, gumki, zaznaczania i powiekszania. */
+body {
+  position: fixed;
+  inset: 0;
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+label.przycisk {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+
+h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+p {
+  margin: 0;
+}
+
+.przygaszony {
+  color: var(--przygaszony);
+}
+
+#aplikacja {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + var(--margines))
+    calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + var(--margines));
+}
+
+/* Gorny pasek */
+
+.gora {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.licznik {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--powierzchnia);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.licznik.puls {
+  animation: puls 360ms ease-out;
+}
+
+@keyframes puls {
+  40% {
+    transform: scale(1.12);
+    color: var(--zielony-jasny);
+  }
+}
+
+.postep {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.postep-tor {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #23232e;
+  overflow: hidden;
+}
+
+.postep-tor i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #15803d, var(--zielony-jasny));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 700ms cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+
+#procent {
+  width: 36px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--przygaszony);
+  font-variant-numeric: tabular-nums;
+}
+
+.znacznik {
+  padding: 4px 8px;
+  border: 1px solid #5c4410;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--bursztyn);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.znacznik.ok {
+  border-color: #14532d;
+  color: var(--zielony-jasny);
+}
+
+.menu-przycisk {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--powierzchnia);
+  font-size: 22px;
+  line-height: 1;
+}
+
+@media (max-width: 360px) {
+  #procent {
+    display: none;
+  }
+  .licznik {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+}
+
+/* Scena i karta */
+
+.scena {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.karta {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 44px 22px;
+  border: 1px solid #262634;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #191923, #121219);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  overflow: hidden;
+  touch-action: none;
+  will-change: transform;
+}
+
+.karta.wjazd {
+  animation: wjazd 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes wjazd {
+  from {
+    transform: translateY(48px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+.karta.ciagniecie {
+  transition: none !important;
+}
+
+.etykieta {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+
+.etykieta.mowienie {
+  color: #93c5fd;
+}
+
+.slowo {
+  font-size: clamp(34px, 11vw, 60px);
+  font-weight: 800;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.ipa {
+  font-family: 'Charis SIL', 'Doulos SIL', 'Lucida Grande', 'Segoe UI', system-ui, sans-serif;
+  font-size: 18px;
+  color: #a9a9bf;
+}
+
+.chipy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #23232f;
+  color: #c7c7d6;
+  font-size: 12px;
+}
+
+.chip.poziom {
+  background: #173826;
+  color: #86efac;
+  font-weight: 700;
+}
+
+.chip.nowe {
+  background: #3b2f0b;
+  color: #fcd34d;
+}
+
+.glosnik {
+  position: relative;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  border: 1px solid #2f2f3d;
+  border-radius: 50%;
+  background: var(--powierzchnia-2);
+  font-size: 22px;
+}
+
+.glosnik:active {
+  transform: scale(0.92);
+}
+
+.wymowa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tlumaczenie {
+  font-size: clamp(26px, 8vw, 42px);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #bbf7d0;
+  overflow-wrap: anywhere;
+}
+
+.tlumaczenie.duze {
+  font-size: clamp(30px, 9.5vw, 50px);
+  color: var(--tekst);
+}
+
+.zdanie {
+  max-width: 32ch;
+  font-size: 17px;
+  color: #e4e4ec;
+}
+
+.zdanie-pl {
+  max-width: 34ch;
+  font-size: 15px;
+  color: var(--przygaszony);
+}
+
+.podpowiedz {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 20px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 22px;
+  letter-spacing: 0.03em;
+  color: #d4d4e0;
+}
+
+.podpowiedz span {
+  white-space: pre;
+}
+
+.odkrycie {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.karta.odkryta .odkrycie {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.wskazowka {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  font-size: 13px;
+  color: var(--przygaszony);
+  transition: opacity 200ms;
+}
+
+.karta.odkryta .wskazowka {
+  opacity: 0;
+}
+
+.znacznik-swipe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  padding: 8px 18px;
+  border: 3px solid currentColor;
+  border-radius: 14px;
+  font-size: 26px;
+  font-weight: 900;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  pointer-events: none;
+  background: rgba(11, 11, 16, 0.75);
+}
+
+.znacznik-swipe.tak {
+  color: var(--zielony-jasny);
+  opacity: var(--tak, 0);
+}
+
+.znacznik-swipe.nie {
+  color: #f87171;
+  opacity: var(--nie, 0);
+}
+
+/* Niewidoczny przelacznik iOS na calej powierzchni elementu, w ktory sie tapie (haptyka). */
+.haptyka {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.karta.odkryta .haptyka {
+  pointer-events: none;
+}
+
+/* Przyciski oceny pod kciukiem */
+
+.akcje {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: 44px 76px;
+  gap: 10px;
+}
+
+.akcje-gora {
+  display: flex;
+  justify-content: center;
+}
+
+.akcje-dol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.akcje-dol.info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--przygaszony);
+  font-size: 14px;
+}
+
+.ocena {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  font-size: 20px;
+  font-weight: 800;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 90ms ease;
+}
+
+.ocena:active {
+  transform: scale(0.97);
+}
+
+.ocena.nie {
+  background: var(--czerwony);
+  color: #fff;
+}
+
+.ocena.tak {
+  background: var(--zielony);
+  color: #fff;
+}
+
+.ocena.znam {
+  padding: 0 22px;
+  border: 1px solid #34344a;
+  border-radius: 999px;
+  background: var(--powierzchnia);
+  color: #d6d6e6;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Ekrany: koniec serii, pusto, bez slow, odpoczynek */
+
+.ekran {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 4px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.logo {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.koniec-exp {
+  font-size: clamp(46px, 15vw, 76px);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--zielony-jasny);
+  font-variant-numeric: tabular-nums;
+}
+
+.kafelki {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.kafelek {
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--powierzchnia);
+  font-size: 14px;
+  color: var(--przygaszony);
+}
+
+.kafelek b {
+  display: block;
+  font-size: 30px;
+  color: var(--tekst);
+}
+
+.kafelek.tak b {
+  color: var(--zielony-jasny);
+}
+
+.kafelek.nie b {
+  color: #f87171;
+}
+
+.przyciski {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+
+.przycisk {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid #2f2f3d;
+  border-radius: 16px;
+  background: var(--powierzchnia-2);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.przycisk:active {
+  transform: scale(0.98);
+}
+
+.przycisk.glowny {
+  border-color: var(--zielony);
+  background: var(--zielony);
+  color: #fff;
+}
+
+.przycisk.maly {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.przycisk:disabled {
+  opacity: 0.45;
+}
+
+.banery {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.banery:empty {
+  display: none;
+}
+
+.baner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #1e4a6e;
+  border-radius: 14px;
+  background: #0f2436;
+  font-size: 14px;
+  text-align: left;
+}
+
+.baner.kopia {
+  border-color: #5c4410;
+  background: #271f0b;
+}
+
+/* Nakladki: menu (dolny panel) i dodawanie slowek (caly ekran) */
+
+.nakladka {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.nakladka-tlo {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  animation: zanik 200ms ease;
+}
+
+@keyframes zanik {
+  from {
+    opacity: 0;
+  }
+}
+
+.arkusz {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--linia);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  background: #111118;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: wysun 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.arkusz.pelny {
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top);
+}
+
+@keyframes wysun {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.arkusz-naglowek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 8px;
+}
+
+.zamknij {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--powierzchnia-2);
+  font-size: 16px;
+}
+
+.arkusz-tresc {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 4px 18px 24px;
+}
+
+.sekcja {
+  padding: 14px 0;
+  border-top: 1px solid #22222c;
+}
+
+.sekcja:first-child {
+  border-top: 0;
+}
+
+.sekcja h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+
+.sekcja p + p {
+  margin-top: 6px;
+}
+
+.wiersz {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.wiersz .liczba {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wiersz-stat {
+  padding: 6px 0;
+}
+
+.wiersz-stat .wiersz {
+  padding: 0 0 4px;
+}
+
+.mini-tor {
+  height: 6px;
+  border-radius: 999px;
+  background: #23232e;
+  overflow: hidden;
+}
+
+.mini-tor i {
+  display: block;
+  height: 100%;
+  background: var(--zielony);
+  transform-origin: left;
+}
+
+.segmenty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmenty button {
+  min-width: 46px;
+  height: 38px;
+  border: 1px solid #2f2f3d;
+  border-radius: 10px;
+  background: var(--powierzchnia-2);
+  font-weight: 700;
+}
+
+.segmenty button[aria-pressed='true'] {
+  border-color: var(--zielony);
+  background: var(--zielony);
+  color: #fff;
+}
+
+.przelacz {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #33333f;
+}
+
+.przelacz::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+
+.przelacz[aria-checked='true'] {
+  background: var(--zielony);
+}
+
+.przelacz[aria-checked='true']::after {
+  transform: translateX(20px);
+}
+
+.rzad {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pole {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #2f2f3d;
+  border-radius: 14px;
+  background: var(--tlo);
+  color: inherit;
+  font: 16px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+.etykieta-pola {
+  display: block;
+  margin-top: 14px;
+  font-weight: 700;
+}
+
+.opis {
+  font-size: 14px;
+  color: var(--przygaszony);
+}
+
+.podglad {
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+.podglad:empty {
+  display: none;
+}
+
+.podglad .podsumowanie {
+  font-weight: 700;
+}
+
+.podglad .bledy {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: #fca5a5;
+}
+
+.blad-tekst {
+  color: #fca5a5;
+}
+
+.ukryty-plik {
+  position: fixed;
+  top: -100px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* Komunikaty bledow i toast */
+
+.komunikaty {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 54px);
+  left: 12px;
+  right: 12px;
+  z-index: 25;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.komunikat {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #7f1d1d;
+  border-radius: 12px;
+  background: #3b0d0d;
+  color: #fecaca;
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.komunikat span {
+  flex: 1;
+}
+
+.komunikat .zamknij {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+}
+
+/* Toast u gory: na dole zaslanialby przyciski oceny pod kciukiem. Nie przyjmuje tapniec, zeby nie polykal
+   odsloniecia karty ani oceny, nad ktora akurat wisi. */
+.toast {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 58px);
+  z-index: 30;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+  animation: zanik 200ms ease;
+}
+
+.toast.blad {
+  background: #7f1d1d;
+}
+
+/* Niskie ekrany (iPhone SE): ekran konca serii musi sie zmiescic bez przewijania. */
+@media (max-height: 700px) {
+  .ekran {
+    gap: 9px;
+  }
+  .koniec-exp {
+    font-size: 44px;
+  }
+  .kafelek b {
+    font-size: 24px;
+  }
+  .przycisk {
+    min-height: 46px;
+  }
+  .logo {
+    font-size: 42px;
+  }
+  .karta {
+    padding: 40px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karta.wjazd,
+  .arkusz,
+  .nakladka-tlo,
+  .licznik.puls {
+    animation-duration: 1ms;
+  }
+  .postep-tor i,
+  .odkrycie {
+    transition-duration: 1ms;
+  }
+}
