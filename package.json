@@ -1,0 +1,14 @@
+{
+  "name": "magic-mini-fiszki",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline'owa aplikacja PWA do nauki slowek na telefon. Bez zaleznosci.",
+  "main": "testy.mjs",
+  "scripts": {
+    "ikony": "node narzedzia/ikony.mjs",
+    "build": "node zbuduj.mjs",
+    "start": "node zbuduj.mjs && node serwer.mjs",
+    "test": "node --test"
+  }
+}

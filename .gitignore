@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+
+# Zbudowana apka. Publikuje ja wdroz.sh na galaz gh-pages.
+dist/
+
+# Dane talii zostaja lokalnie: wybor slow i poziomy pochodza z listy Oxford 3000 (OUP), a same pliki
+# nie sa potrzebne do zbudowania apki. W repo jest tylko kod, ktory je sklada i wczytuje.
+# Plik z talia masz w talie/ oraz w kopii zapasowej z telefonu (Menu > Zapisz kopie).
+talie/**/*.json
+talie/**/*.csv
+
+# Stan sesji Claude (oh-my-claudecode), lokalny.
+.omc/
