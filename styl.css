@@ -914,7 +914,9 @@ p {
 
 .arkusz-tresc {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -980,19 +982,39 @@ p {
   transform-origin: left;
 }
 
-/* Heatmapa ostatnich 30 dni: 7 kolumn, piec stopni intensywnosci. */
+/* Heatmapa ostatnich 30 dni: kolumny to dni tygodnia, piec stopni intensywnosci.
+   Bez aspect-ratio i bez golego 1fr: Safari na iPhonie rozjezdzalo przez to siatke na kilka tysiecy pikseli. */
+
+.heatmapa-blok {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
 
 .heatmapa {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
+  min-width: 0;
 }
 
-.heatmapa .pole {
+.heatmapa.dni-tygodnia {
+  font-size: 11px;
+  color: var(--przygaszony);
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+.heatmapa .dzien {
   display: block;
-  aspect-ratio: 1;
+  width: 100%;
+  height: 22px;
   border-radius: 5px;
   background: #1d1d28;
+}
+
+.heatmapa .dzien.przed {
+  background: transparent;
 }
 
 .heatmapa .s1 {

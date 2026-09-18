@@ -881,16 +881,34 @@ const dataPoPolsku = (rrrrMmDd) => {
   return new Date(r, m - 1, d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// Heatmapa ostatnich 30 dni: siatka 7 kolumn, od najstarszego dnia.
+// Heatmapa ostatnich 30 dni: kolumny to dni tygodnia, pod spodem liczby, zeby siatka cos mowila
+// takze wtedy, gdy historia dopiero sie zaczela.
+const DNI_TYGODNIA = ['pon', 'wt', 'śr', 'czw', 'pt', 'sob', 'nd']
+
+function podpisHeatmapy({ dzis, najlepszy, pierwszyDzien, dniZNauka }) {
+  if (!dniZNauka) return 'Historia nauki zaczyna się dzisiaj.'
+  const czesci = [`dziś ${liczebnik(dzis, ['karta', 'karty', 'kart'])}`]
+  if (najlepszy > dzis) czesci.push(`najlepszy dzień: ${najlepszy}`)
+  czesci.push(`dni z nauką: ${dniZNauka}`)
+  return czesci.join(' · ')
+}
+
 function heatmapa() {
-  const dni = talia.historiaDni(stan.historia, talia.DNI_HEATMAPY)
+  const siatka = talia.siatkaHeatmapy(stan.historia)
   return el(
     'div',
-    { klasa: 'heatmapa' },
-    dni.map((d) => {
-      const podpis = `${dataPoPolsku(d.data)}: ${liczebnik(d.oceny, ['karta', 'karty', 'kart'])}`
-      return el('i', { klasa: `pole s${d.stopien}`, title: podpis, 'aria-label': podpis })
-    }),
+    { klasa: 'heatmapa-blok' },
+    el('div', { klasa: 'heatmapa dni-tygodnia', 'aria-hidden': 'true' }, DNI_TYGODNIA.map((d) => el('span', { tekst: d }))),
+    el(
+      'div',
+      { klasa: 'heatmapa' },
+      Array.from({ length: siatka.puste }, () => el('i', { klasa: 'dzien przed' })),
+      siatka.pola.map((d) => {
+        const podpis = `${dataPoPolsku(d.data)}: ${liczebnik(d.oceny, ['karta', 'karty', 'kart'])}`
+        return el('i', { klasa: `dzien s${d.stopien}`, title: podpis, 'aria-label': podpis })
+      }),
+    ),
+    el('p', { klasa: 'opis', tekst: podpisHeatmapy(siatka) }),
   )
 }
 

@@ -451,6 +451,24 @@ export function historiaDni(historia, dni = DNI_HEATMAPY, teraz = new Date()) {
   return wynik
 }
 
+// Siatka heatmapy w kolumnach dni tygodnia (poniedzialek pierwszy): przed najstarszym dniem dokladamy puste
+// pola, zeby kazda kolumna byla tym samym dniem tygodnia. Zwraca tez liczby do podpisu pod siatka.
+export function siatkaHeatmapy(historia, dni = DNI_HEATMAPY, teraz = new Date()) {
+  const pola = historiaDni(historia, dni, teraz)
+  const [r, m, d] = pola[0].data.split('-').map(Number)
+  // getDay(): 0 to niedziela, a my chcemy poniedzialek jako pierwsza kolumne
+  const puste = (new Date(r, m - 1, d).getDay() + 6) % 7
+  const zNauka = pola.filter((p) => p.oceny > 0)
+  return {
+    puste,
+    pola,
+    dzis: pola.at(-1).oceny,
+    najlepszy: pola.reduce((max, p) => Math.max(max, p.oceny), 0),
+    pierwszyDzien: zNauka[0]?.data || '',
+    dniZNauka: zNauka.length,
+  }
+}
+
 // Srednia nowych kart dziennie z ostatnich dni. null, gdy w tym okresie nie ma ani jednego wpisu w historii.
 export function sredniaNowych(historia, dni = DNI_TEMPA, teraz = new Date()) {
   const okres = historiaDni(historia, dni, teraz)
