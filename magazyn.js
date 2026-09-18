@@ -36,6 +36,7 @@ const pamiecDomyslna = () => globalThis.localStorage
 export function domyslnyStan() {
   return {
     karty: {},
+    pominiete: {},
     exp: 0,
     streak: { dni: 0, ostatniDzien: '' },
     dzis: { data: '', sekundy: 0, dodatkoweNowe: 0 },
@@ -43,6 +44,7 @@ export function domyslnyStan() {
     zgloszenia: [],
     ustawienia: { ...DOMYSLNE_USTAWIENIA },
     ostatniaKopia: '',
+    rozproszono: 0,
   }
 }
 
@@ -135,6 +137,7 @@ export function spakujStan(stan, teraz = new Date()) {
   return {
     wersja: WERSJA_ZAPISU,
     karty,
+    pominiete: stan.pominiete || {},
     exp: stan.exp,
     streak: stan.streak,
     dzis: stan.dzis,
@@ -142,6 +145,7 @@ export function spakujStan(stan, teraz = new Date()) {
     zgloszenia: stan.zgloszenia || [],
     ustawienia: stan.ustawienia,
     ostatniaKopia: stan.ostatniaKopia,
+    rozproszono: stan.rozproszono || 0,
   }
 }
 
@@ -170,6 +174,18 @@ function historiaPoprawiona(h) {
   return wynik
 }
 
+// Pominiete slowa: { id: 'RRRR-MM-DD' }. Data jest tylko informacja, wiec zly format daje pusty tekst,
+// a samo slowo zostaje poza nauka.
+function pominietePoprawione(p) {
+  if (!jestObiektem(p)) return {}
+  const wynik = {}
+  for (const [id, data] of Object.entries(p)) {
+    if (!id || id.includes('|')) continue
+    wynik[id] = dzienRrrrMmDd(data) ? data : ''
+  }
+  return wynik
+}
+
 function zgloszeniaPoprawione(z) {
   if (!Array.isArray(z)) return []
   const wynik = []
@@ -184,8 +200,9 @@ function zgloszeniaPoprawione(z) {
   return wynik
 }
 
-// Z postaci zapisu do stanu w pamieci. Karta z niepoprawnymi danymi jest pomijana i liczona w `pominiete`, zeby
-// jedna uszkodzona karta nie uniewazniala calego postepu. EXP musi byc poprawne, ustawienia i licznik dnia mozna
+// Z postaci zapisu do stanu w pamieci. Karta z niepoprawnymi danymi jest pomijana i liczona w `pominiete` przy
+// wyniku (to co innego niz `stan.pominiete`, czyli slowa wyrzucone z nauki przyciskiem "Pomijam"), zeby jedna
+// uszkodzona karta nie uniewazniala calego postepu. EXP musi byc poprawne, ustawienia i licznik dnia mozna
 // bezpiecznie zastapic domyslnymi.
 export function walidujStan(dane) {
   if (!jestObiektem(dane)) return nie('To nie jest obiekt JSON.')
@@ -226,6 +243,7 @@ export function walidujStan(dane) {
     pominiete,
     stan: {
       karty,
+      pominiete: pominietePoprawione(dane.pominiete),
       exp: dane.exp,
       streak,
       dzis,
@@ -233,6 +251,7 @@ export function walidujStan(dane) {
       zgloszenia: zgloszeniaPoprawione(dane.zgloszenia),
       ustawienia: ustawieniaPoprawione(dane.ustawienia),
       ostatniaKopia: dataLubPusto(dane.ostatniaKopia) ? dane.ostatniaKopia : '',
+      rozproszono: dane.rozproszono === 1 ? 1 : 0,
     },
   }
 }
@@ -304,6 +323,8 @@ export function scalStany(obecny, zKopii) {
   }
   return {
     karty,
+    // Pominiete slowa to suma obu stron: jesli na ktoryms telefonie slowo wypadlo z nauki, ma zostac poza nia.
+    pominiete: { ...(obecny.pominiete || {}), ...(zKopii.pominiete || {}) },
     exp: Math.max(obecny.exp, zKopii.exp),
     streak: streakZKopii ? b : a,
     dzis: zKopii.dzis.data > obecny.dzis.data ? zKopii.dzis : obecny.dzis,
@@ -311,6 +332,8 @@ export function scalStany(obecny, zKopii) {
     zgloszenia,
     ustawienia: obecny.ustawienia,
     ostatniaKopia: obecny.ostatniaKopia,
+    // Jednorazowe rozlozenie terminow to sprawa tego telefonu, a nie pliku kopii.
+    rozproszono: obecny.rozproszono || 0,
   }
 }
 
