@@ -45,7 +45,7 @@ Ustawienie `Podpowiedź na karcie mówienia`: **brak** (domyślnie), **długoś�
 
 ### Statystyki i przegląd talii (menu)
 
-- heatmapa ostatnich 30 dni (7 kolumn, 5 stopni intensywności, data i liczba kart w podpowiedzi),
+- heatmapa ostatnich 30 dni: kolumny to dni tygodnia, 5 stopni intensywności, data i liczba kart w podpowiedzi, a pod siatką podsumowanie („dziś N kart · najlepszy dzień · dni z nauką"),
 - "Opanowane": karty EN o stabilności co najmniej 21 dni,
 - prognoza ukończenia talii z tempa nowych słów z ostatnich 14 dni ("Przy tym tempie: około 15 lutego 2027 (413 dni)"); gdy nie ma danych, wypisuje "Brak danych o tempie",
 - sekcja **Słówka**: szukanie po angielskim i po polsku (bez rozróżniania wielkości liter i polskich znaków), maksymalnie 50 wierszy z licznikiem "pokazano 50 z 312". Każdy wiersz ma słowo, tłumaczenie, chip poziomu, stan karty EN po polsku (nowa / w nauce / powtórka za N dni / opanowane) oraz przyciski "Znam" (tylko dla nowej karty, ocena bez wchodzenia w serię), "Zresetuj" (kasuje postęp obu kierunków po potwierdzeniu) i "Zgłoś błąd",
