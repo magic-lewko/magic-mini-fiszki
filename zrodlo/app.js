@@ -15,6 +15,7 @@ const PROG_FLICKA = 0.6
 const DNI_DO_PRZYPOMNIENIA_O_KOPII = 7
 const MAKS_BLEDOW_W_PODGLADZIE = 30
 const SEKUNDY_NA_COFNIECIE = 6
+const PODPOWIEDZ_POMIJANIA = 'Pominięte słowa nie wracają. Przywrócisz je w Menu > Słówka.'
 
 const CZESCI_MOWY = {
   noun: 'rzeczownik',
@@ -212,7 +213,7 @@ function nowaSeriaLubPusto() {
     pokazBezSlow()
     return
   }
-  const klucze = talia.zbudujSerie({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz: new Date() })
+  const klucze = talia.zbudujSerie({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz: new Date(), pominiete: stan.pominiete })
   if (!klucze.length) {
     seria = null
     pokazPusto()
@@ -231,7 +232,7 @@ function trudnaSeria() {
     pokazBezSlow()
     return
   }
-  const klucze = talia.trudneKarty({ slowa, karty: stan.karty, ustawienia: stan.ustawienia })
+  const klucze = talia.trudneKarty({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, pominiete: stan.pominiete })
   if (!klucze.length) {
     toast('Brak trudnych słów.')
     return
@@ -242,7 +243,7 @@ function trudnaSeria() {
 }
 
 function przyciskTrudnych(klasa = 'przycisk') {
-  const ile = talia.liczbaTrudnych({ slowa, karty: stan.karty })
+  const ile = talia.liczbaTrudnych({ slowa, karty: stan.karty, pominiete: stan.pominiete })
   return el('button', {
     klasa,
     type: 'button',
@@ -369,13 +370,17 @@ function rysujPodpowiedz(cel, slowo) {
   cel.replaceChildren(...(tekst ? tekst.split('   ').map((wyraz) => el('span', { tekst: wyraz })) : []))
 }
 
-function przyciskOceny(klasa, tekst, ocena) {
-  const przycisk = el('div', { klasa: `ocena ${klasa}`, role: 'button', 'aria-label': tekst, onclick: () => ocenKarte(ocena) }, el('span', { tekst }))
+// Przycisk w rzedzie akcji z ukrytym przelacznikiem haptyki (jedyny sposob na wibracje w iOS).
+function przyciskAkcji(klasa, tekst, dzialanie) {
+  const przycisk = el('div', { klasa: `ocena ${klasa}`, role: 'button', 'aria-label': tekst, onclick: dzialanie }, el('span', { tekst }))
   dodajPrzelacznik(przycisk)
   return przycisk
 }
 
-// Przed odslonieciem nie ma przyciskow oceny, zeby najpierw sprobowac sobie przypomniec. Wyjatek: "Znam juz" dla nowych.
+const przyciskOceny = (klasa, tekst, ocena) => przyciskAkcji(klasa, tekst, () => ocenKarte(ocena))
+
+// Przed odslonieciem nie ma przyciskow oceny, zeby najpierw sprobowac sobie przypomniec. Wyjatki w gornym rzedzie:
+// "Znam" tylko dla nowej karty, "Pomijam" dla kazdej (takze w treningu).
 function odswiezAkcje() {
   const akcje = $('akcje')
   if (ekran !== 'karta' || !seria) {
@@ -389,7 +394,8 @@ function odswiezAkcje() {
       'div',
       { klasa: 'akcje-gora' },
       mozliwoscCofniecia() && el('button', { klasa: 'cofnij', type: 'button', tekst: '↩ Cofnij', onclick: cofnijOcene }),
-      nowa && przyciskOceny('znam', 'Znam już', 4),
+      nowa && przyciskOceny('znam', 'Znam', 4),
+      przyciskAkcji('pomijam', 'Pomijam', pomijajAktualna),
     ),
     odkryta
       ? el(
@@ -413,12 +419,15 @@ function odslon() {
 }
 
 // Nowy obiekt karty zamiast zmiany w miejscu: magazyn trzyma spakowana postac przy obiekcie karty.
-function ocenionaKarta(poprzednia, ocena, teraz) {
+// Termin z FSRS dostaje jeszcze rozrzut, zeby karty ocenione tego samego dnia nie wrocily jedna fala.
+// "Znam" na nowej karcie to osobny przypadek: jedno sprawdzenie za ok. 45 dni zamiast wejscia w cykl nauki.
+function ocenionaKarta(poprzednia, ocena, teraz, klucz) {
   const nowa = { ...poprzednia, ...ocen(poprzednia, ocena, teraz) }
   if (!Number.isFinite(nowa.stabilnosc) || !Number.isFinite(nowa.trudnosc) || Number.isNaN(Date.parse(nowa.termin))) {
     throw new Error('niepoprawny wynik algorytmu powtórek')
   }
-  return nowa
+  if (ocena === 4 && talia.jestNowa(poprzednia)) return talia.kartaZnam(nowa, klucz, teraz)
+  return { ...nowa, termin: talia.rozrzucTermin(klucz, nowa.termin, teraz) }
 }
 
 function ocenKarte(ocena) {
@@ -431,7 +440,7 @@ function ocenKarte(ocena) {
   let nowa = null
   if (!seria.trening) {
     try {
-      nowa = ocenionaKarta(przed || nowaKarta(teraz.toISOString()), ocena, teraz)
+      nowa = ocenionaKarta(przed || nowaKarta(teraz.toISOString()), ocena, teraz, k)
     } catch (blad) {
       // Karta, ktorej nie da sie ocenic, zostaje bez zmian, zeby do zapisu nie trafil NaN.
       toast(`Nie udało się ocenić karty: ${opis(blad)}`, 'blad')
@@ -441,7 +450,7 @@ function ocenKarte(ocena) {
   }
   // Migawka do cofniecia misclicka: wszystko, co ta ocena zmienia. Obiekty stanu sa niemutowalne, wiec starcza
   // zapamietanie referencji.
-  const migawka = { klucz: k, karta: przed, seria, exp: stan.exp, streak: stan.streak, dzis: stan.dzis, historia: stan.historia }
+  const migawka = zrobMigawke(k, przed)
 
   if (nowa) stan.karty[k] = nowa
   const sekundy = talia.czasKarty((performance.now() - startKarty) / 1000)
@@ -468,10 +477,49 @@ function ocenKarte(ocena) {
   })
 }
 
+// "Pomijam": slowo wypada z nauki na dobre. Karty zostaja w pamieci nietkniete, wiec "Przywroc" z przegladu talii
+// oddaje je w to samo miejsce harmonogramu. Nie ma oceny, EXP ani wpisu w celu dnia - to nie jest nauka.
+function pomijajAktualna() {
+  if (ekran !== 'karta' || zajete || !seria) return
+  const k = talia.aktualnaKarta(seria)
+  const { id } = talia.rozbierzKlucz(k)
+  const migawka = zrobMigawke(k, stan.karty[k])
+  const pierwsze = !Object.keys(stan.pominiete).length
+  stan.pominiete = { ...stan.pominiete, [id]: talia.dataLokalna() }
+  // Oba kierunki tego slowa schodza z serii naraz, zeby karta mowienia nie wrocila za chwile.
+  const kolejka = seria.kolejka.filter((klucz) => talia.rozbierzKlucz(klucz).id !== id)
+  seria = { ...seria, kolejka, wszystkie: Math.max(seria.wszystkie - (seria.kolejka.length - kolejka.length), seria.oczyszczone) }
+  zapiszStan()
+  cofniecie = migawka
+  wibruj('prawie')
+  const koniec = talia.koniecSerii(seria)
+  odswiezGore()
+  wylot(-1, () => {
+    if (koniec) pokazKoniec()
+    else pokazKarte()
+    pokazCofnij()
+  })
+  if (pierwsze) toast(PODPOWIEDZ_POMIJANIA, 'wazny')
+}
+
 // Cofniecie ostatniej oceny (misclick). Przycisk siedzi w rzedzie akcji pod karta, a nie nad nia, zeby nigdy
 // nie przejal tapniecia odslaniajacego karte. Znika po 6 sekundach, ale sama migawka jest wazna do nastepnej
 // oceny, wyjscia z serii albo restartu apki (w menu zostaje pozycja "Cofnij ostatnią ocenę").
 const mozliwoscCofniecia = () => !!cofniecie && Date.now() < cofniecieDo
+
+// Migawka do cofniecia: wszystko, co ocena albo pominiecie zmienia. Obiekty stanu sa niemutowalne, wiec starcza
+// zapamietanie referencji. `odkryta` wraca razem ze stanem, zeby cofniecie nie odslonilo karty, ktora byla zakryta.
+const zrobMigawke = (klucz, karta) => ({
+  klucz,
+  karta,
+  seria,
+  odkryta,
+  exp: stan.exp,
+  streak: stan.streak,
+  dzis: stan.dzis,
+  historia: stan.historia,
+  pominiete: stan.pominiete,
+})
 
 function zapomnijCofniecie() {
   cofniecie = null
@@ -495,6 +543,8 @@ function pokazCofnij() {
 function cofnijOcene() {
   if (!cofniecie) return
   const m = cofniecie
+  // Pominiecie tworzy nowa mape, ocena zostawia te sama referencje: stad wiadomo, co wlasciwie cofamy.
+  const byloPominiecie = m.pominiete !== stan.pominiete
   zapomnijCofniecie()
   if (m.karta === undefined) delete stan.karty[m.klucz]
   else stan.karty[m.klucz] = m.karta
@@ -502,13 +552,14 @@ function cofnijOcene() {
   stan.streak = m.streak
   stan.dzis = m.dzis
   stan.historia = m.historia
+  stan.pominiete = m.pominiete
   seria = m.seria
   zapiszStan()
   zamknijMenu()
   poprzednieExp = stan.exp
-  odkryjOdRazu = true
+  odkryjOdRazu = m.odkryta
   pokazKarte()
-  toast('Cofnięto ostatnią ocenę.')
+  toast(byloPominiecie ? 'Cofnięto pominięcie.' : 'Cofnięto ostatnią ocenę.')
 }
 
 const malyRuch = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -626,7 +677,7 @@ function opisDnia({ zalegle, pozniejDzis, noweDostepne }) {
 }
 
 const podsumowanie = (teraz = new Date()) =>
-  talia.podsumowanieDnia({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz })
+  talia.podsumowanieDnia({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz, pominiete: stan.pominiete })
 
 function animujLicznik(element, cel) {
   const czas = malyRuch() ? 1 : 900
@@ -712,6 +763,7 @@ function pokazKoniec() {
 
 function saNoweDoWprowadzenia() {
   return slowa.some((s) => {
+    if (talia.jestPominiete(stan.pominiete, s.id)) return false
     const en = stan.karty[talia.klucz(s.id, 'en')]
     if (talia.jestNowa(en)) return true
     return stan.ustawienia.mowienie && talia.mowienieOdblokowane(en) && talia.jestNowa(stan.karty[talia.klucz(s.id, 'pl')])
@@ -811,7 +863,7 @@ function pokazStart() {
         kafelekLiczby(dzien.zalegle, 'Zaległe'),
         kafelekLiczby(dzien.pozniejDzis, 'Później dziś'),
         kafelekLiczby(dzien.noweDostepne, 'Nowe'),
-        kafelekLiczby(talia.liczbaTrudnych({ slowa, karty: stan.karty }), 'Trudne'),
+        kafelekLiczby(talia.liczbaTrudnych({ slowa, karty: stan.karty, pominiete: stan.pominiete }), 'Trudne'),
       ),
       el('p', { klasa: 'maly', tekst: opisStreaka(teraz) }),
       banery(),
@@ -920,7 +972,7 @@ function tekstPrognozy(pozostale) {
 }
 
 function sekcjaStatystyk() {
-  const st = talia.statystyki({ slowa, karty: stan.karty })
+  const st = talia.statystyki({ slowa, karty: stan.karty, pominiete: stan.pominiete })
   const dzien = podsumowanie()
   const p = talia.poziomZExp(stan.exp)
   return el(
@@ -931,6 +983,7 @@ function sekcjaStatystyk() {
     wiersz('EXP', `${stan.exp.toLocaleString('pl-PL')} (do Lv ${Math.min(p.poziom + 1, talia.MAKS_POZIOM)}: ${p.doNastepnego})`),
     wiersz('Poznane słowa', `${st.poznane} / ${st.wszystkie}`),
     wiersz('Opanowane', `${st.opanowane} / ${st.wszystkie}`),
+    wiersz('Pominięte', st.pominiete),
     wiersz('W powtórkach', `${st.procentPowtorka.toLocaleString('pl-PL')}% listy`),
     wiersz('Odblokowane karty mówienia', st.mowienieOdblokowane),
     wiersz('Zaległe teraz', dzien.pozniejDzis ? `${dzien.zalegle} (+${dzien.pozniejDzis} później dziś)` : dzien.zalegle),
@@ -938,7 +991,7 @@ function sekcjaStatystyk() {
     wiersz('Streak', liczebnik(talia.aktualnyStreak(stan.streak), ['dzień', 'dni', 'dni'])),
     el('h3', { tekst: 'Ostatnie 30 dni', style: 'margin-top: 16px' }),
     heatmapa(),
-    el('p', { klasa: 'opis', style: 'margin-top: 8px', tekst: tekstPrognozy(st.wszystkie - st.poznane) }),
+    el('p', { klasa: 'opis', style: 'margin-top: 8px', tekst: tekstPrognozy(st.doWprowadzenia) }),
     st.talie.length > 0 && el('h3', { tekst: 'Talie', style: 'margin-top: 16px' }),
     st.talie.map((t) => wierszStat(t.nazwa, t.poznane, t.wszystkie)),
     st.poziomy.length > 0 && el('h3', { tekst: 'Poziomy', style: 'margin-top: 16px' }),
@@ -1020,7 +1073,7 @@ function znamZListy(slowo) {
   if (!talia.jestNowa(stan.karty[k])) return
   const teraz = new Date()
   try {
-    stan.karty[k] = ocenionaKarta(nowaKarta(teraz.toISOString()), 4, teraz)
+    stan.karty[k] = ocenionaKarta(nowaKarta(teraz.toISOString()), 4, teraz, k)
   } catch (blad) {
     toast(`Nie udało się ocenić karty: ${opis(blad)}`, 'blad')
     return
@@ -1061,8 +1114,22 @@ function zglosBlad(slowo) {
   toast(`Zgłoszono "${slowo.w}".`)
 }
 
+// Pominiete slowo wraca do nauki dokladnie tam, gdzie bylo: karty nie byly ruszane, wiec wystarczy zdjac je z listy.
+function przywrocSlowo(slowo) {
+  if (!talia.jestPominiete(stan.pominiete, slowo.id)) return
+  const reszta = { ...stan.pominiete }
+  delete reszta[slowo.id]
+  stan.pominiete = reszta
+  zapiszStan()
+  odswiezGore()
+  odswiezSlowka()
+  odswiezMenu()
+  toast(`"${slowo.w}" wraca do nauki.`)
+}
+
 function wierszSlowa(slowo) {
   const en = stan.karty[talia.klucz(slowo.id, 'en')]
+  const pominiete = talia.jestPominiete(stan.pominiete, slowo.id)
   return el(
     'div',
     { klasa: 'slowo-wiersz' },
@@ -1071,13 +1138,14 @@ function wierszSlowa(slowo) {
       { klasa: 'slowo-tresc' },
       el('div', { klasa: 'slowo-naglowek' }, el('b', { tekst: slowo.w }), slowo.poziom && el('span', { klasa: 'chip poziom', tekst: slowo.poziom })),
       el('div', { klasa: 'przygaszony', tekst: slowo.pl }),
-      el('div', { klasa: 'przygaszony maly', tekst: talia.opisStanuKarty(en) }),
+      el('div', { klasa: 'przygaszony maly', tekst: talia.opisStanuKarty(en, new Date(), pominiete) }),
     ),
     el(
       'div',
       { klasa: 'slowo-akcje' },
-      talia.jestNowa(en) && el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Znam', onclick: () => znamZListy(slowo) }),
-      el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Zresetuj', onclick: () => zresetujSlowo(slowo) }),
+      pominiete && el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Przywróć', onclick: () => przywrocSlowo(slowo) }),
+      !pominiete && talia.jestNowa(en) && el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Znam', onclick: () => znamZListy(slowo) }),
+      !pominiete && el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Zresetuj', onclick: () => zresetujSlowo(slowo) }),
       el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Zgłoś błąd', onclick: () => zglosBlad(slowo) }),
     ),
   )
@@ -1663,12 +1731,24 @@ function podepnijZdarzenia() {
   window.addEventListener('unhandledrejection', (e) => toast(`Błąd: ${opis(e.reason)}`, 'blad'))
 }
 
+// Jednorazowa migracja: karty ocenione hurtem ("Znam już" po 8 dni) wrocilyby jednego dnia wielka fala,
+// wiec przy pierwszym starcie po aktualizacji ich terminy dostaja mocniejszy rozrzut.
+function rozprosStareTerminy() {
+  if (stan.rozproszono === 1) return
+  const { karty, przesuniete } = talia.rozprosTerminy(stan.karty)
+  stan.karty = karty
+  stan.rozproszono = 1
+  zapiszStan()
+  if (przesuniete) toast('Terminy powtórek rozłożone na kilka dni, żeby nie wróciły naraz.', 'wazny')
+}
+
 async function start() {
   const { stan: wczytany, ostrzezenie, pominiete } = magazyn.wczytaj()
   stan = wczytany
   ustawKomunikat('wczytanie', ostrzezenie)
   if (pominiete) toast(`${opisPominietych(pominiete)}.`, 'blad')
   magazyn.kopiaDzienna()
+  rozprosStareTerminy()
   magazyn.poprosOTrwalosc().then((wynik) => {
     trwalaPamiec = wynik
     odswiezSekcjeOffline()

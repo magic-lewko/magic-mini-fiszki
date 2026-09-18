@@ -575,14 +575,24 @@ p {
   font-size: 17px;
 }
 
-.ocena.znam {
-  padding: 0 22px;
+/* Gorny rzad: "Cofnij", "Znam" i "Pomijam" musza sie zmiescic obok siebie na 375 px, stad waskie wypelnienie.
+   Wysokosc bierze sie z siatki .akcje (44 px), wiec cel dotyku zostaje duzy. */
+.ocena.znam,
+.ocena.pomijam {
+  padding: 0 14px;
   border: 1px solid #34344a;
   border-radius: 999px;
   background: var(--powierzchnia);
   color: #d6d6e6;
   font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+/* "Pomijam" wyrzuca slowo z nauki na dobre, wiec jest wyraznie stonowane wzgledem "Znam". */
+.ocena.pomijam {
+  background: transparent;
+  color: var(--przygaszony);
 }
 
 /* Ekrany: koniec serii, pusto, bez slow, odpoczynek */

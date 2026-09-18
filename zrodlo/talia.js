@@ -7,8 +7,11 @@ export const STANY = ['nowa', 'nauka', 'powtorka', 'ponowna']
 
 export const PROG_STABILNOSCI_MOWIENIA = 5
 export const ODSTEP_PO_POMYLCE = 4
-// Oceny: 1 "Nie umiem", 2 "Prawie", 3 "Umiem", 4 "Znam juz" (tylko dla nowej karty).
+// Oceny: 1 "Nie umiem", 2 "Prawie", 3 "Umiem", 4 "Znam" (tylko dla nowej karty).
 export const EXP_ZA_OCENE = { 1: 10, 2: 30, 3: 50, 4: 20 }
+// "Znam" na nowej karcie to jednorazowe sprawdzenie za ok. 45 dni. Zwykle FSRS dalby po ocenie 4 okolo 8 dni,
+// wiec setka slow z poziomu A1 oznaczona w trzy dni wracalaby jedna fala.
+export const DNI_ZNAM = 45
 export const SEKUNDY_DNIA = 60
 export const MAKS_SEKUND_KARTY = 20
 export const POZIOMY = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
@@ -65,6 +68,76 @@ export const jestNowa = (karta) => !karta || karta.stan === 'nowa'
 
 export function ustawieniaZDomyslnymi(ustawienia) {
   return { ...DOMYSLNE_USTAWIENIA, ...ustawienia }
+}
+
+// Pominiete slowa ("Pomijam"): mapa { id: 'RRRR-MM-DD' }. Slowo wypada z nauki, ale jego karty zostaja w pamieci,
+// wiec "Przywroc" oddaje je dokladnie w to samo miejsce harmonogramu.
+export const jestPominiete = (pominiete, id) => !!pominiete?.[id]
+
+// Zbior id slow, ktore moga trafic do serii: wszystko z listy poza pominietymi.
+function dostepneIds(slowa, pominiete) {
+  const ids = new Set()
+  for (const s of slowa) {
+    if (!jestPominiete(pominiete, s.id)) ids.add(s.id)
+  }
+  return ids
+}
+
+// Rozrzut terminow (fuzz)
+
+export const MIN_DNI_ROZRZUTU = 3
+export const MAKS_DNI_ROZRZUTU = 21
+export const SILA_ROZPROSZENIA = 0.25
+const DOBA = 86400000
+
+// FNV-1a 32 bit: ten sam klucz i ten sam termin zawsze daja to samo przesuniecie, wiec wynik oceny jest
+// powtarzalny i testowalny (bez Math.random).
+function hash32(tekst) {
+  let h = 2166136261
+  for (let i = 0; i < tekst.length; i++) {
+    h = Math.imul(h ^ tekst.charCodeAt(i), 16777619)
+  }
+  return h >>> 0
+}
+
+// Przesuwa termin o +/- `sila` odstepu (najwyzej 21 dni), zeby karty ocenione tego samego dnia nie wrocily kupa.
+// Terminy blizsze niz 3 dni zostaja bez zmian: tam rozrzut zepsulby krotkie kroki nauki.
+export function rozrzucTermin(klucz, terminISO, teraz = new Date(), sila = 0.08) {
+  const termin = Date.parse(terminISO)
+  if (!Number.isFinite(termin)) return terminISO
+  const czas = teraz.getTime()
+  const odstep = termin - czas
+  if (odstep < MIN_DNI_ROZRZUTU * DOBA) return terminISO
+  // Ulamek -1..1 z hasha klucza i terminu; termin w hashu sprawia, ze to samo slowo dostaje inny rozrzut po kazdej ocenie.
+  const ulamek = (hash32(`${klucz}|${terminISO}`) / 4294967295) * 2 - 1
+  const maks = Math.min(odstep * sila, MAKS_DNI_ROZRZUTU * DOBA)
+  const przesuniety = Math.max(termin + ulamek * maks, czas + DOBA)
+  return new Date(Math.round(przesuniety / 60000) * 60000).toISOString()
+}
+
+// Jednorazowe rozlozenie terminow, ktore juz sa w zapisie. Karty nowe, zalegle i te blizej niz 3 dni zostaja
+// nietkniete. Zwraca nowe karty i liczbe faktycznie przesunietych.
+export function rozprosTerminy(karty, teraz = new Date()) {
+  const wynik = {}
+  let przesuniete = 0
+  for (const [k, karta] of Object.entries(karty)) {
+    const termin = karta.stan === 'nowa' ? karta.termin : rozrzucTermin(k, karta.termin, teraz, SILA_ROZPROSZENIA)
+    if (termin === karta.termin) {
+      wynik[k] = karta
+      continue
+    }
+    wynik[k] = { ...karta, termin }
+    przesuniete += 1
+  }
+  return { karty: wynik, przesuniete }
+}
+
+// Karta po "Znam": jedno sprawdzenie za ok. DNI_ZNAM dni zamiast wejscia w normalny cykl nauki.
+// Stabilnosc zostaje ta z FSRS: slowo nie przeszlo jeszcze zadnej powtorki, wiec nie wolno go liczyc
+// jako utrwalonego. Po tym sprawdzeniu karta wraca do normalnego cyklu z prawdziwa historia.
+export function kartaZnam(karta, klucz, teraz = new Date()) {
+  const termin = new Date(teraz.getTime() + DNI_ZNAM * DOBA).toISOString()
+  return { ...karta, stan: 'powtorka', krok: 0, termin: rozrzucTermin(klucz, termin, teraz) }
 }
 
 // Poziomy gracza
@@ -149,9 +222,9 @@ function limityNowych({ karty, ustawienia, dzis, teraz }) {
 // Termin, ktorego nie da sie odczytac, traktujemy jako zalegly, zeby karta nie utknela na zawsze.
 const czasTerminu = (karta) => Date.parse(karta.termin) || 0
 
-function zalegle({ slowa, karty, ustawienia, teraz }) {
+function zalegle({ slowa, karty, ustawienia, teraz, pominiete }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
-  const ids = new Set(slowa.map((s) => s.id))
+  const ids = dostepneIds(slowa, pominiete)
   const czas = teraz.getTime()
   const nauka = []
   const powtorki = []
@@ -172,15 +245,16 @@ function zalegle({ slowa, karty, ustawienia, teraz }) {
 }
 
 // Kolejnosc: zalegla nauka i ponowne, zalegle powtorki (najstarsze najpierw), nowe mowienie, nowe EN.
-export function zbudujSerie({ slowa, karty, ustawienia, dzis, teraz = new Date(), dlugosc }) {
+export function zbudujSerie({ slowa, karty, ustawienia, dzis, teraz = new Date(), dlugosc, pominiete }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
   const maks = dlugosc ?? u.dlugoscSerii
-  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz })
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete })
   const wynik = [...nauka, ...powtorki].slice(0, maks).map((p) => p.k)
   const limity = limityNowych({ karty, ustawienia: u, dzis, teraz })
 
   for (const s of slowa) {
     if (wynik.length >= maks || limity.pl <= 0) break
+    if (jestPominiete(pominiete, s.id)) continue
     const kPl = klucz(s.id, 'pl')
     if (mowienieOdblokowane(karty[klucz(s.id, 'en')]) && jestNowa(karty[kPl])) {
       wynik.push(kPl)
@@ -189,6 +263,7 @@ export function zbudujSerie({ slowa, karty, ustawienia, dzis, teraz = new Date()
   }
   for (const s of slowa) {
     if (wynik.length >= maks || limity.en <= 0) break
+    if (jestPominiete(pominiete, s.id)) continue
     const kEn = klucz(s.id, 'en')
     if (jestNowa(karty[kEn])) {
       wynik.push(kEn)
@@ -199,11 +274,11 @@ export function zbudujSerie({ slowa, karty, ustawienia, dzis, teraz = new Date()
 }
 
 // Do ekranu konca serii i menu: ile zaleglych teraz, ile dojdzie jeszcze dzisiaj, ile nowych w limicie.
-export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new Date() }) {
+export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new Date(), pominiete }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
-  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz })
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete })
   const polnoc = new Date(teraz.getFullYear(), teraz.getMonth(), teraz.getDate() + 1).getTime()
-  const ids = new Set(slowa.map((s) => s.id))
+  const ids = dostepneIds(slowa, pominiete)
   let pozniejDzis = 0
   for (const [k, karta] of Object.entries(karty)) {
     if (karta.stan === 'nowa') continue
@@ -212,7 +287,7 @@ export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new D
     const termin = czasTerminu(karta)
     if (termin > teraz.getTime() && termin < polnoc) pozniejDzis += 1
   }
-  const noweDostepne = zbudujSerie({ slowa, karty, ustawienia: u, dzis, teraz, dlugosc: Infinity }).length -
+  const noweDostepne = zbudujSerie({ slowa, karty, ustawienia: u, dzis, teraz, dlugosc: Infinity, pominiete }).length -
     nauka.length - powtorki.length
   return { zalegle: nauka.length + powtorki.length, pozniejDzis, noweDostepne }
 }
@@ -221,8 +296,8 @@ export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new D
 // nie zmienia stanu karty ani terminow, wiec kolejnosc liczy sie tylko z tego, co juz jest w pamieci.
 const zPomylka = (karta) => karta.pomylki > 0
 
-export function liczbaTrudnych({ slowa, karty }) {
-  const ids = new Set(slowa.map((s) => s.id))
+export function liczbaTrudnych({ slowa, karty, pominiete }) {
+  const ids = dostepneIds(slowa, pominiete)
   let ile = 0
   for (const [k, karta] of Object.entries(karty)) {
     if (zPomylka(karta) && ids.has(rozbierzKlucz(k).id)) ile += 1
@@ -231,9 +306,9 @@ export function liczbaTrudnych({ slowa, karty }) {
 }
 
 // Wiecej pomylek pierwsze, przy remisie pozniejsza ostatnia ocena.
-export function trudneKarty({ slowa, karty, ustawienia, dlugosc }) {
+export function trudneKarty({ slowa, karty, ustawienia, dlugosc, pominiete }) {
   const maks = dlugosc ?? ustawieniaZDomyslnymi(ustawienia).dlugoscSerii
-  const ids = new Set(slowa.map((s) => s.id))
+  const ids = dostepneIds(slowa, pominiete)
   const lista = []
   for (const [k, karta] of Object.entries(karty)) {
     if (!zPomylka(karta) || !ids.has(rozbierzKlucz(k).id)) continue
@@ -252,14 +327,18 @@ function dolicz(mapa, nazwa, poznane) {
 
 const kolejnoscPoziomu = (p) => (POZIOMY.includes(p) ? POZIOMY.indexOf(p) : POZIOMY.length)
 
-// Poznane = karta EN juz nie jest nowa. Talie w kolejnosci dodania, poziomy tylko te, ktore wystepuja w slowach.
-export function statystyki({ slowa, karty }) {
+// Poznane = karta EN juz nie jest nowa (takze dla slow pominietych po nauce). Pominiete liczymy osobno, a do
+// prognozy idzie `doWprowadzenia`: slowa, ktore jeszcze moga wejsc do nauki.
+// Talie w kolejnosci dodania, poziomy tylko te, ktore wystepuja w slowach.
+export function statystyki({ slowa, karty, pominiete }) {
   const talie = new Map()
   const poziomy = new Map()
   let poznaneRazem = 0
   let wPowtorce = 0
   let odblokowane = 0
   let opanowane = 0
+  let pominietych = 0
+  let doWprowadzenia = 0
   for (const s of slowa) {
     const en = karty[klucz(s.id, 'en')]
     const poznane = jestNowa(en) ? 0 : 1
@@ -269,10 +348,14 @@ export function statystyki({ slowa, karty }) {
     if (en?.stan === 'powtorka') wPowtorce += 1
     if (mowienieOdblokowane(en)) odblokowane += 1
     if (en && en.stabilnosc >= PROG_OPANOWANIA) opanowane += 1
+    if (jestPominiete(pominiete, s.id)) pominietych += 1
+    else if (!poznane) doWprowadzenia += 1
   }
   return {
     wszystkie: slowa.length,
     poznane: poznaneRazem,
+    pominiete: pominietych,
+    doWprowadzenia,
     opanowane,
     talie: [...talie.values()],
     poziomy: [...poziomy.values()].sort(
@@ -507,8 +590,9 @@ export function szukajSlow(indeks, fraza, maks = MAKS_WYNIKOW) {
   return { slowa, wszystkie }
 }
 
-// Stan karty EN po polsku do listy slowek.
-export function opisStanuKarty(karta, teraz = new Date()) {
+// Stan karty EN po polsku do listy slowek. Pominiete slowo ma wlasny stan, bo jego karta zostaje nietknieta.
+export function opisStanuKarty(karta, teraz = new Date(), pominiete = false) {
+  if (pominiete) return 'pominięte'
   if (jestNowa(karta)) return 'nowa'
   if (karta.stabilnosc >= PROG_OPANOWANIA) return 'opanowane'
   if (karta.stan !== 'powtorka') return 'w nauce'

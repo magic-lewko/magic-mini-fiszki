@@ -430,3 +430,59 @@ test('rozmiar postepu: 6000 slow w obu kierunkach', () => {
   console.log(`zapis po ocenie przy 12 000 kartach: ${(czas / 20).toFixed(1)} ms`)
   assert.equal(Object.keys(m.wczytaj(pamiec).stan.karty).length, 12020)
 })
+
+// Pominiete slowa i jednorazowe rozproszenie terminow
+
+test('pominiete slowa i flaga rozproszenia przechodza przez zapis', () => {
+  const pamiec = new Pamiec()
+  const stan = { ...stanPrzykladowy(), pominiete: { apple: '2026-09-15', May: '2026-09-16' }, rozproszono: 1 }
+  assert.equal(m.zapisz(stan, pamiec).ok, true)
+  const wczytany = m.wczytaj(pamiec).stan
+  assert.deepEqual(wczytany.pominiete, { apple: '2026-09-15', May: '2026-09-16' })
+  assert.equal(wczytany.rozproszono, 1)
+  assert.ok(wczytany.karty['apple|en'], 'karty pominietego slowa zostaja w zapisie')
+})
+
+test('zapis bez nowych pol wczytuje sie bez zmian (stary telefon)', () => {
+  const pamiec = new Pamiec()
+  const spakowany = m.spakujStan(stanPrzykladowy())
+  delete spakowany.pominiete
+  delete spakowany.rozproszono
+  delete spakowany.historia
+  delete spakowany.zgloszenia
+  pamiec.setItem(m.KLUCZ, JSON.stringify(spakowany))
+  const { stan, ostrzezenie, pominiete } = m.wczytaj(pamiec)
+  assert.equal(ostrzezenie, '')
+  assert.equal(pominiete, 0, 'zadna karta nie jest uszkodzona')
+  assert.deepEqual(stan.pominiete, {})
+  assert.equal(stan.rozproszono, 0, 'stary zapis dostanie jednorazowe rozproszenie')
+  assert.equal(stan.exp, 130)
+  assert.equal(Object.keys(stan.karty).length, 3)
+})
+
+test('uszkodzone pole "pominiete" nie uniewaznia postepu', () => {
+  const dobra = m.spakujStan(stanPrzykladowy())
+  for (const zle of [null, 'tak', 7, []]) {
+    const wynik = m.walidujStan({ ...dobra, pominiete: zle })
+    assert.equal(wynik.ok, true, JSON.stringify(zle))
+    assert.deepEqual(wynik.stan.pominiete, {})
+  }
+  const mieszane = m.walidujStan({ ...dobra, pominiete: { apple: 'kiedyś', 'zly|klucz': '2026-09-15', May: '2026-09-15' } })
+  assert.deepEqual(mieszane.stan.pominiete, { apple: '', May: '2026-09-15' })
+  assert.equal(m.walidujStan({ ...dobra, rozproszono: 'tak' }).stan.rozproszono, 0)
+})
+
+test('kopia zapasowa zawiera pominiete, a scalanie sumuje obie strony', () => {
+  const stan = { ...stanPrzykladowy(), pominiete: { apple: '2026-09-15' }, rozproszono: 1 }
+  const kopia = JSON.parse(JSON.stringify(m.kopiaDoPliku(stan, { slowa: [{ id: 'apple', w: 'apple', pl: 'jabłko' }] })))
+  assert.deepEqual(kopia.postep.pominiete, { apple: '2026-09-15' })
+  const wynik = m.walidujKopie(kopia)
+  assert.equal(wynik.ok, true, wynik.blad)
+  assert.deepEqual(wynik.stan.pominiete, { apple: '2026-09-15' })
+
+  const obecny = { ...m.domyslnyStan(), pominiete: { May: '2026-09-17' }, rozproszono: 1 }
+  const scalony = m.scalStany(obecny, wynik.stan)
+  assert.deepEqual(scalony.pominiete, { May: '2026-09-17', apple: '2026-09-15' })
+  assert.equal(scalony.rozproszono, 1, 'flaga rozproszenia zostaje z telefonu')
+  assert.deepEqual(obecny.pominiete, { May: '2026-09-17' }, 'wejscie nietkniete')
+})

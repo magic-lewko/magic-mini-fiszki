@@ -519,3 +519,146 @@ test('pasek poziomu nie pokazuje 100% przed samym awansem', () => {
   assert.equal(t.poziomZExp(prog).poziom, 2)
   assert.equal(t.poziomZExp(0).procent, 0)
 })
+
+// "Pomijam": slowo wypada z nauki, karty zostaja nietkniete
+
+test('pominiete slowo nie trafia do serii, a jego karty zostaja w pamieci', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const karty = {
+    'a|en': karta('powtorka', minut(teraz, -1440)),
+    'b|en': karta('powtorka', minut(teraz, -60)),
+  }
+  const lista = slowa('a', 'b', 'c', 'd')
+  const pominiete = { a: '2026-09-15', c: '2026-09-15' }
+  assert.deepEqual(t.zbudujSerie({ slowa: lista, karty, ustawienia: {}, dzis: null, teraz }), ['a|en', 'b|en', 'c|en', 'd|en'])
+  assert.deepEqual(t.zbudujSerie({ slowa: lista, karty, ustawienia: {}, dzis: null, teraz, pominiete }), ['b|en', 'd|en'])
+  assert.ok(karty['a|en'], 'karta pominietego slowa zostaje')
+})
+
+test('pominiete slowo wypada z limitu nowych, zaleglych i trudnych', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const karty = {
+    'a|en': karta('powtorka', minut(teraz, -1440), { pomylki: 3 }),
+    'b|en': karta('powtorka', minut(teraz, 120)),
+  }
+  const lista = slowa('a', 'b', 'c')
+  const pominiete = { a: '2026-09-15' }
+  const bez = t.podsumowanieDnia({ slowa: lista, karty, ustawienia: {}, dzis: null, teraz })
+  const z = t.podsumowanieDnia({ slowa: lista, karty, ustawienia: {}, dzis: null, teraz, pominiete })
+  assert.equal(bez.zalegle, 1)
+  assert.equal(z.zalegle, 0, 'pominiete nie jest zalegle')
+  assert.equal(bez.noweDostepne, 1)
+  assert.equal(z.noweDostepne, 1, 'c dalej jest nowe')
+  assert.equal(z.pozniejDzis, 1, 'b bez zmian')
+  assert.equal(t.liczbaTrudnych({ slowa: lista, karty }), 1)
+  assert.equal(t.liczbaTrudnych({ slowa: lista, karty, pominiete }), 0)
+  assert.deepEqual(t.trudneKarty({ slowa: lista, karty, ustawienia: {}, pominiete }), [])
+})
+
+test('statystyki: pominiete osobno, poznane po nauce dalej sie licza', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const lista = slowa('a', 'b', 'c', 'd')
+  const karty = { 'a|en': karta('powtorka', teraz), 'b|en': karta('powtorka', teraz) }
+  // a przeszlo nauke i zostalo pominiete, c jest pominiete jako nowe
+  const st = t.statystyki({ slowa: lista, karty, pominiete: { a: '2026-09-15', c: '2026-09-15' } })
+  assert.equal(st.poznane, 2, 'pominiete po nauce dalej liczy sie jako poznane')
+  assert.equal(st.pominiete, 2)
+  assert.equal(st.doWprowadzenia, 1, 'do wprowadzenia zostaje tylko d')
+  assert.equal(t.statystyki({ slowa: lista, karty }).doWprowadzenia, 2)
+})
+
+test('stan "pominięte" w przegladzie talii', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  assert.equal(t.opisStanuKarty(undefined, teraz, true), 'pominięte')
+  assert.equal(t.opisStanuKarty(karta('powtorka', minut(teraz, 5 * 1440)), teraz, true), 'pominięte')
+  assert.equal(t.opisStanuKarty(karta('powtorka', minut(teraz, 5 * 1440)), teraz, false), 'powtórka za 5 dni')
+  assert.equal(t.jestPominiete({ a: '2026-09-15' }, 'a'), true)
+  assert.equal(t.jestPominiete({ a: '2026-09-15' }, 'b'), false)
+  assert.equal(t.jestPominiete(undefined, 'a'), false)
+})
+
+// Rozrzut terminow (fuzz)
+
+const dniDo = (iso, teraz) => (Date.parse(iso) - teraz.getTime()) / 86400000
+const zaDni = (teraz, dni) => new Date(teraz.getTime() + dni * 86400000).toISOString()
+
+test('rozrzucTermin jest deterministyczny', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const termin = zaDni(teraz, 10)
+  const a = t.rozrzucTermin('apple|en', termin, teraz)
+  assert.equal(a, t.rozrzucTermin('apple|en', termin, teraz))
+  assert.notEqual(a, t.rozrzucTermin('book|en', termin, teraz), 'inny klucz daje inne przesuniecie')
+  assert.notEqual(a, t.rozrzucTermin('apple|en', zaDni(teraz, 10.5), teraz), 'inny termin daje inne przesuniecie')
+})
+
+test('rozrzucTermin zostawia krotkie terminy i trzyma sie zakresu', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  for (const dni of [0, 0.007, 1, 2, 2.99]) {
+    const termin = zaDni(teraz, dni)
+    assert.equal(t.rozrzucTermin('apple|en', termin, teraz), termin, `${dni} dni bez zmian`)
+  }
+  assert.equal(t.rozrzucTermin('apple|en', zaDni(teraz, -5), teraz), zaDni(teraz, -5), 'zalegle bez zmian')
+  for (const k of ['a|en', 'b|en', 'c|pl', 'dlugie slowo|en']) {
+    const dni = dniDo(t.rozrzucTermin(k, zaDni(teraz, 10), teraz), teraz)
+    assert.ok(dni >= 9.2 && dni <= 10.8, `${k}: ${dni} dni poza zakresem 9,2-10,8`)
+  }
+})
+
+test('rozrzucTermin nie cofa terminu przed teraz + 1 dzien i daje pelne minuty', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  for (let i = 0; i < 300; i++) {
+    const iso = t.rozrzucTermin(`s${i}|en`, zaDni(teraz, 3), teraz, 1)
+    const dni = dniDo(iso, teraz)
+    assert.ok(dni >= 1, `s${i}: ${dni} dni`)
+    assert.equal(Date.parse(iso) % 60000, 0, 'termin zaokraglony do pelnych minut')
+  }
+  // Maksymalne przesuniecie to 21 dni, takze przy bardzo dalekim terminie.
+  const dni = dniDo(t.rozrzucTermin('x|en', zaDni(teraz, 400), teraz, 1), teraz)
+  assert.ok(dni >= 400 - t.MAKS_DNI_ROZRZUTU && dni <= 400 + t.MAKS_DNI_ROZRZUTU, `${dni} dni`)
+})
+
+test('400 kart z tym samym terminem rozklada sie na kilka dni', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const termin = zaDni(teraz, t.DNI_ZNAM)
+  const dni = new Set()
+  for (let i = 0; i < 400; i++) dni.add(t.dataLokalna(new Date(t.rozrzucTermin(`s${i}|en`, termin, teraz))))
+  assert.ok(dni.size >= 3, `tylko ${dni.size} roznych dni`)
+})
+
+test('rozprosTerminy rusza tylko przyszle terminy kart w powtorkach', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const karty = {}
+  for (let i = 0; i < 400; i++) karty[`s${i}|en`] = karta('powtorka', minut(teraz, 8 * 1440))
+  karty['zalegla|en'] = karta('powtorka', minut(teraz, -1440))
+  karty['jutro|en'] = karta('powtorka', minut(teraz, 1440))
+  karty['wnauce|en'] = karta('nauka', minut(teraz, 10))
+  karty['nowa|en'] = karta('nowa', minut(teraz, 30 * 1440))
+  const wynik = t.rozprosTerminy(karty, teraz)
+  assert.equal(wynik.przesuniete, 400)
+  for (const k of ['zalegla|en', 'jutro|en', 'wnauce|en', 'nowa|en']) {
+    assert.equal(wynik.karty[k].termin, karty[k].termin, `${k} nietknieta`)
+    assert.equal(wynik.karty[k], karty[k], `${k} to ten sam obiekt`)
+  }
+  const dni = new Set()
+  for (let i = 0; i < 400; i++) dni.add(t.dataLokalna(new Date(wynik.karty[`s${i}|en`].termin)))
+  assert.ok(dni.size >= 3, `tylko ${dni.size} roznych dni`)
+  assert.equal(karty['s0|en'].termin, minut(teraz, 8 * 1440).toISOString(), 'wejscie nietkniete')
+})
+
+test('"Znam" daje jedno sprawdzenie za okolo 45 dni', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const nowa = nowaKarta(teraz.toISOString())
+  const poFsrs = { ...nowa, ...ocen(nowa, 4, teraz) }
+  assert.ok(dniDo(poFsrs.termin, teraz) < 20, `sam FSRS daje ${dniDo(poFsrs.termin, teraz)} dni`)
+  const znam = t.kartaZnam(poFsrs, 'apple|en', teraz)
+  assert.equal(znam.stan, 'powtorka')
+  assert.equal(znam.krok, 0)
+  assert.equal(znam.stabilnosc, poFsrs.stabilnosc, 'stabilnosc bez zmian: slowo nie przeszlo jeszcze powtorki')
+  const dni = dniDo(znam.termin, teraz)
+  assert.ok(Math.abs(dni - t.DNI_ZNAM) <= t.DNI_ZNAM * 0.08 + 0.001, `${dni} dni`)
+  assert.equal(znam.trudnosc, poFsrs.trudnosc, 'reszta pamieci FSRS bez zmian')
+  assert.equal(znam.powtorki, poFsrs.powtorki)
+  assert.equal(znam.wprowadzono, poFsrs.wprowadzono)
+  // Karta z wieksza stabilnoscia nie traci jej przez "Znam".
+  assert.equal(t.kartaZnam({ ...poFsrs, stabilnosc: 90 }, 'apple|en', teraz).stabilnosc, 90)
+})
