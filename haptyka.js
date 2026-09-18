@@ -7,8 +7,11 @@
 const WZORY = {
   odsloniecie: 20,
   umiem: [40, 30, 40],
+  prawie: [30, 25, 30],
   nieUmiem: 60,
+  combo: [25, 20, 25, 20, 60],
   koniec: [50, 40, 50, 40, 160],
+  awans: [60, 40, 90, 40, 60, 40, 220],
 }
 
 export function dodajPrzelacznik(rodzic) {

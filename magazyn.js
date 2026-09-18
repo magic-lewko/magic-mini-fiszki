@@ -3,7 +3,17 @@
 // kierunkach jako obiekty z datami ISO zajeloby ok. 2,5 mln znakow. Tablice i minuty mieszcza sie w ulamku tego.
 // Funkcje przyjmuja magazyn (domyslnie localStorage), zeby dalo sie je testowac w Node.
 
-import { DOMYSLNE_USTAWIENIA, OPCJE_DLUGOSCI, OPCJE_NOWYCH, STANY, dataLokalna, klucz } from './talia.js'
+import {
+  DOMYSLNE_USTAWIENIA,
+  OPCJE_CELU,
+  OPCJE_DLUGOSCI,
+  OPCJE_NOWYCH,
+  POZIOMY_PODPOWIEDZI,
+  STANY,
+  dataLokalna,
+  klucz,
+  przytnijHistorie,
+} from './talia.js'
 import { normalizujSlowo } from './slowka.js'
 
 export const KLUCZ = 'mmf-v1'
@@ -29,6 +39,8 @@ export function domyslnyStan() {
     exp: 0,
     streak: { dni: 0, ostatniDzien: '' },
     dzis: { data: '', sekundy: 0, dodatkoweNowe: 0 },
+    historia: {},
+    zgloszenia: [],
     ustawienia: { ...DOMYSLNE_USTAWIENIA },
     ostatniaKopia: '',
   }
@@ -111,7 +123,8 @@ function rozpakujKarte(t) {
 }
 
 // Postac zapisu: karty pogrupowane po id slowa, [en] albo [en, pl] (null, gdy kierunku nie dotknieto).
-export function spakujStan(stan) {
+// Historia jest przycinana przy kazdym zapisie, zeby nie rosla w nieskonczonosc.
+export function spakujStan(stan, teraz = new Date()) {
   const karty = Object.create(null)
   for (const [k, karta] of Object.entries(stan.karty)) {
     const i = k.lastIndexOf('|')
@@ -125,6 +138,8 @@ export function spakujStan(stan) {
     exp: stan.exp,
     streak: stan.streak,
     dzis: stan.dzis,
+    historia: przytnijHistorie(stan.historia, teraz),
+    zgloszenia: stan.zgloszenia || [],
     ustawienia: stan.ustawienia,
     ostatniaKopia: stan.ostatniaKopia,
   }
@@ -135,8 +150,37 @@ function ustawieniaPoprawione(u) {
   if (!jestObiektem(u)) return wynik
   if (OPCJE_NOWYCH.includes(u.noweDziennie)) wynik.noweDziennie = u.noweDziennie
   if (OPCJE_DLUGOSCI.includes(u.dlugoscSerii)) wynik.dlugoscSerii = u.dlugoscSerii
+  if (OPCJE_CELU.includes(u.celDzienny)) wynik.celDzienny = u.celDzienny
+  if (POZIOMY_PODPOWIEDZI.includes(u.podpowiedzMowienie)) wynik.podpowiedzMowienie = u.podpowiedzMowienie
   if (typeof u.autowymowa === 'boolean') wynik.autowymowa = u.autowymowa
   if (typeof u.mowienie === 'boolean') wynik.mowienie = u.mowienie
+  return wynik
+}
+
+// Nowe pola zapisu sa opcjonalne: zapis ze starego telefonu (bez historii i zgloszen) wczytuje sie bez zmian,
+// a brakujace albo uszkodzone pole daje wartosc domyslna zamiast uniewaznic caly postep.
+function historiaPoprawiona(h) {
+  if (!jestObiektem(h)) return {}
+  const wynik = {}
+  const liczba = (x) => (liczbaNieujemna(x) ? x : 0)
+  for (const [data, wpis] of Object.entries(h)) {
+    if (!dzienRrrrMmDd(data) || !jestObiektem(wpis)) continue
+    wynik[data] = { oceny: liczba(wpis.oceny), nowe: liczba(wpis.nowe), exp: liczba(wpis.exp), sekundy: liczba(wpis.sekundy) }
+  }
+  return wynik
+}
+
+function zgloszeniaPoprawione(z) {
+  if (!Array.isArray(z)) return []
+  const wynik = []
+  const widziane = new Set()
+  for (const w of z) {
+    if (!jestObiektem(w)) continue
+    const id = tekst(w.id)
+    if (!id || widziane.has(id)) continue
+    widziane.add(id)
+    wynik.push({ id, w: tekst(w.w), pl: tekst(w.pl), kiedy: dataLubPusto(w.kiedy) ? w.kiedy : '' })
+  }
   return wynik
 }
 
@@ -185,6 +229,8 @@ export function walidujStan(dane) {
       exp: dane.exp,
       streak,
       dzis,
+      historia: historiaPoprawiona(dane.historia),
+      zgloszenia: zgloszeniaPoprawione(dane.zgloszenia),
       ustawienia: ustawieniaPoprawione(dane.ustawienia),
       ostatniaKopia: dataLubPusto(dane.ostatniaKopia) ? dane.ostatniaKopia : '',
     },
@@ -198,7 +244,7 @@ export function kopiaDoPliku(stan, talia, teraz = new Date()) {
     wersja: WERSJA_KOPII,
     utworzono: teraz.toISOString(),
     talia: { slowa: talia.slowa, talie: talia.talie || [] },
-    postep: spakujStan(stan),
+    postep: spakujStan(stan, teraz),
   }
 }
 
@@ -244,11 +290,25 @@ export function scalStany(obecny, zKopii) {
   const a = obecny.streak
   const b = zKopii.streak
   const streakZKopii = b.ostatniDzien > a.ostatniDzien || (b.ostatniDzien === a.ostatniDzien && b.dni > a.dni)
+  // Historia: dla kazdego dnia wygrywa zapis z wieksza liczba ocen. Zgloszenia sa sumowane po id.
+  const historia = { ...obecny.historia }
+  for (const [data, wpis] of Object.entries(zKopii.historia || {})) {
+    if (!historia[data] || wpis.oceny > historia[data].oceny) historia[data] = wpis
+  }
+  const zgloszenia = [...(obecny.zgloszenia || [])]
+  const znane = new Set(zgloszenia.map((z) => z.id))
+  for (const z of zKopii.zgloszenia || []) {
+    if (znane.has(z.id)) continue
+    znane.add(z.id)
+    zgloszenia.push(z)
+  }
   return {
     karty,
     exp: Math.max(obecny.exp, zKopii.exp),
     streak: streakZKopii ? b : a,
     dzis: zKopii.dzis.data > obecny.dzis.data ? zKopii.dzis : obecny.dzis,
+    historia,
+    zgloszenia,
     ustawienia: obecny.ustawienia,
     ostatniaKopia: obecny.ostatniaKopia,
   }
