@@ -2,8 +2,10 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0b10">
+  <!-- Bez user-scalable=no: WCAG 1.4.4 wymaga mozliwosci powiekszenia tekstu. Podwojne tapniecie i tak nie
+       powieksza, bo body ma touch-action: manipulation, a szczypanie jest blokowane tylko nad sama karta. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121212">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -19,18 +21,26 @@
 </head>
 <body>
   <div id="aplikacja">
+    <!-- Gorny pasek jest cichy: liczniki, cienki pasek postepu i menu jako wyjscie awaryjne. W trakcie nauki
+         nie ma tu nic, co trzeba klikac, zeby isc dalej (C1). -->
     <header class="gora">
-      <div id="poziom" class="licznik poziom" aria-label="Poziom 1">
-        <b id="poziom-tekst">Lv 1</b>
-        <span class="poziom-tor"><i id="poziom-pasek"></i></span>
+      <div class="gora-rzad">
+        <div id="poziom" class="licznik poziom" aria-label="Ranga Start">
+          <b id="poziom-tekst">Start</b>
+          <span class="poziom-tor"><i id="poziom-pasek"></i></span>
+        </div>
+        <div id="ciaglosc" class="licznik ciaglosc">
+          <span id="streak">🔥 0</span>
+          <span id="dni30" class="dni30">0/30</span>
+        </div>
+        <div id="punkty" class="licznik punkty" title="Punkty w tym tygodniu">0 pkt</div>
+        <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
+        <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu">⋯</button>
       </div>
-      <div id="streak" class="licznik">🔥 0</div>
       <div class="postep" aria-label="Postęp serii">
         <div class="postep-tor"><i id="pasek"></i></div>
-        <span id="procent">0%</span>
+        <span id="procent" class="tylko-czytnik">0%</span>
       </div>
-      <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
-      <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu">⋯</button>
     </header>
     <main id="scena" class="scena">
       <section class="ekran"><p class="przygaszony">Ładowanie…</p></section>
@@ -40,7 +50,9 @@
 
   <div id="komunikaty" class="komunikaty" aria-live="assertive"></div>
   <div id="menu" class="nakladka" hidden></div>
+  <div id="jak" class="nakladka" hidden></div>
   <div id="dodawanie" class="nakladka" hidden></div>
+  <div id="swieto" class="swieto" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
   <input id="plik-slowek" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
   <input id="plik-kopii" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">

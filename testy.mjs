@@ -3,6 +3,7 @@
 // Nazwa nie pasuje do wzorca *.test.mjs, zeby `node --test` w tym katalogu nie liczyl testow dwa razy.
 
 import './talia.test.mjs'
+import './kolizje.test.mjs'
 import './slowka.test.mjs'
 import './magazyn.test.mjs'
 import './mowa.test.mjs'
