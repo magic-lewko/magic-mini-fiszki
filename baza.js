@@ -1,9 +1,11 @@
 // Talia (do ok. 6000 slow, ok. 1,5 MB) w IndexedDB, jako jeden rekord { wersja, slowa, talie }.
+// Indeks kolizji (ok. 50 KB przy 3000 slow) lezy w osobnym rekordzie, zeby zapis talii go nie przepisywal.
 // localStorage ma w WebKit ok. 5 MB liczone w UTF-16 i zostaje tylko dla postepu.
 
 const NAZWA_BAZY = 'mmf'
 const MAGAZYN = 'dane'
 const KLUCZ_TALII = 'talia'
+const KLUCZ_KOLIZJI = 'kolizje'
 export const LIMIT_OTWARCIA_MS = 5000
 export const BRAK_ODPOWIEDZI = 'Baza słówek nie odpowiada. Zamknij aplikację w przełączniku aplikacji i otwórz ponownie.'
 
@@ -76,4 +78,25 @@ export async function wczytajTalie() {
 
 export function zapiszTalie({ slowa, talie }) {
   return zPonowieniem(() => wTransakcji('readwrite', (m) => m.put({ wersja: 1, slowa, talie }, KLUCZ_TALII)))
+}
+
+// Indeks kolizji pod kluczem zaleznym od talii: po jej zmianie stary wpis nie pasuje i zostaje przeliczony.
+// Brak indeksu nie moze zatrzymac apki, wiec odczyt i zapis nie rzucaja, tylko zwracaja null / false.
+export async function wczytajKolizje(klucz) {
+  try {
+    const rekord = await zPonowieniem(() => wTransakcji('readonly', (m) => m.get(KLUCZ_KOLIZJI)))
+    if (!rekord || rekord.klucz !== klucz || typeof rekord.kolizje !== 'object') return null
+    return rekord.kolizje
+  } catch {
+    return null
+  }
+}
+
+export async function zapiszKolizje(klucz, kolizje) {
+  try {
+    await zPonowieniem(() => wTransakcji('readwrite', (m) => m.put({ klucz, kolizje }, KLUCZ_KOLIZJI)))
+    return true
+  } catch {
+    return false
+  }
 }

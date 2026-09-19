@@ -1,10 +1,11 @@
 // Interfejs fiszek na telefon. Jeden ekran bez przewijania: karta, oceny pod kciukiem, menu w dolnym panelu,
 // dodawanie slowek, kopia zapasowa i stan offline. Logika serii jest w talia.js, zapis w magazyn.js i baza.js.
 
-import { nowaKarta, ocen } from './fsrs.mjs'
+import { nowaKarta, ocen, przypomnienie } from './fsrs.mjs'
 import * as talia from './talia.js'
 import * as magazyn from './magazyn.js'
 import * as baza from './baza.js'
+import { budujKolizje, kluczIndeksu } from './kolizje.js'
 import { dopiszTalie, parsujWklejone, scal } from './slowka.js'
 import { dodajPrzelacznik, wibruj } from './haptyka.js'
 import { powiedz } from './mowa.js'
@@ -16,6 +17,24 @@ const DNI_DO_PRZYPOMNIENIA_O_KOPII = 7
 const MAKS_BLEDOW_W_PODGLADZIE = 30
 const SEKUNDY_NA_COFNIECIE = 6
 const PODPOWIEDZ_POMIJANIA = 'Pominięte słowa nie wracają. Przywrócisz je w Menu > Słówka.'
+const TEKST_POWROTU = 'Zaczynamy od kart, które najbardziej tego potrzebują.'
+const TEKST_ZAMROZENIA = 'Wczoraj było wolne, seria zostaje.'
+// Celebracje z C3: koniec serii 1,0-1,5 s, awans rangi do 2,5 s, obie pomijalne tapnieciem.
+// Przy wylaczonym ruchu zostaje sama tresc, wiec czas schodzi do tyle, ile trzeba na jej przeczytanie.
+const MS_CELEBRACJI_KONCA = 1200
+const MS_CELEBRACJI_AWANSU = 2500
+// Czas wylotu karty musi zgadzac sie z --czas-wylot w styl.css (220 ms plus klatka zapasu).
+const MS_WYLOTU = 240
+const MS_WYLOTU_BEZ_RUCHU = 80
+// Trzy kanaly statusu: kolor (klasa), znak i kierunek ruchu karty. Kolor sam nie wystarczy (WCAG 1.4.1,
+// ok. 8% mezczyzn ma zaburzenie widzenia barw).
+const STATUSY = {
+  1: { klasa: 'nie', ikona: '✗', etykieta: 'Nie umiem' },
+  2: { klasa: 'prawie', ikona: '~', etykieta: 'Prawie' },
+  3: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem' },
+  // "Znam" na nowej karcie to tez sukces, wiec karta wylatuje w gore jak przy "Umiem".
+  4: { klasa: 'tak', ikona: '✓', etykieta: 'Znam' },
+}
 
 const CZESCI_MOWY = {
   noun: 'rzeczownik',
@@ -44,13 +63,23 @@ let slowa = []
 let talie = []
 let poId = new Map()
 let indeks = []
+let kolizje = Object.create(null)
+let kluczKolizji = ''
+let czasIndeksuKolizji = 0
 let taliaWczytana = false
 let seria = null
-let poziomStartSerii = 1
+let rangaStartSerii = 0
+let utrwaloneStartSerii = 0
+let pominCelebracje = null
+let czasCelebracji = 0
+let czasSwieta = 0
+let kotwicaOtwarta = false
 let cofniecie = null
 let cofniecieDo = 0
 let czasCofniecia = 0
 let poziomPodpowiedzi = null
+let uzytoPodpowiedzi = false
+let czasPodpowiedzi = 0
 let odkryjOdRazu = false
 let szukane = ''
 let ekran = 'start'
@@ -68,7 +97,7 @@ let wynikImportu = null
 let czasPodgladu = 0
 let zapisujeSlowka = false
 let czasToastu = 0
-let poprzednieExp = null
+let poprzedniePunkty = null
 const komunikaty = new Map()
 
 const $ = (id) => document.getElementById(id)
@@ -91,15 +120,22 @@ function el(tag, atrybuty = {}, ...dzieci) {
 }
 
 // Polska liczba mnoga: 1 blad, 2 bledy, 5 bledow.
-function liczebnik(n, [jeden, kilka, wiele]) {
-  if (n === 1) return `${n} ${jeden}`
+function formaSlowa(n, [jeden, kilka, wiele]) {
+  if (n === 1) return jeden
   const jednosci = n % 10
   const setki = n % 100
-  const kilku = jednosci >= 2 && jednosci <= 4 && (setki < 12 || setki > 14)
-  return `${n} ${kilku ? kilka : wiele}`
+  return jednosci >= 2 && jednosci <= 4 && (setki < 12 || setki > 14) ? kilka : wiele
 }
 
+const liczebnik = (n, formy) => `${n} ${formaSlowa(n, formy)}`
+
 const opisPominietych = (n) => `Pominięto ${liczebnik(n, ['uszkodzoną kartę', 'uszkodzone karty', 'uszkodzonych kart'])}`
+
+// Jawny dystans do celu dnia. Polska odmiana czasownika idzie za liczebnikiem: 1 zostala, 3 zostaly, 5 zostalo.
+function zostaloKart(n) {
+  const czasownik = n === 1 ? 'została' : formaSlowa(n, ['', 'zostały', 'zostało'])
+  return `${czasownik} ${liczebnik(n, ['karta', 'karty', 'kart'])}`
+}
 
 // Komunikaty i toast
 
@@ -144,6 +180,37 @@ function ustawTalie(t) {
   talie = t.talie
   poId = new Map(slowa.map((s) => [s.id, s]))
   indeks = talia.budujIndeks(slowa)
+  poPierwszymRenderze(przygotujKolizje)
+}
+
+// Indeks kolizji (interferencja miedzy slowami) liczy sie raz na talie: ok. 50 ms przy 3000 slow w Node.
+// Lezy w IndexedDB pod kluczem z liczby slow i sumy kontrolnej id, wiec zmiana talii wymusza przeliczenie.
+// Liczymy go po pierwszym renderze, zeby nawet na wolnym telefonie nie opoznil startu.
+async function przygotujKolizje() {
+  if (!slowa.length) {
+    kolizje = Object.create(null)
+    kluczKolizji = ''
+    return
+  }
+  const klucz = kluczIndeksu(slowa)
+  if (kluczKolizji === klucz) return
+  const zapisane = await baza.wczytajKolizje(klucz)
+  if (zapisane) {
+    kolizje = zapisane
+    kluczKolizji = klucz
+    return
+  }
+  const start = performance.now()
+  kolizje = budujKolizje(slowa)
+  czasIndeksuKolizji = Math.round(performance.now() - start)
+  kluczKolizji = klucz
+  baza.zapiszKolizje(klucz, kolizje)
+}
+
+// Jedna klatka na narysowanie ekranu, potem zadanie. Bez requestIdleCallback, bo nie ma go w Safari na iOS,
+// a osobna sciezka zapasowa byla by jedyna galezia, ktorej smoke w Chrome nigdy nie przechodzi.
+function poPierwszymRenderze(dzialanie) {
+  requestAnimationFrame(() => setTimeout(() => Promise.resolve(dzialanie()).catch(() => {}), 0))
 }
 
 // Dopoki zapisana talia sie nie wczyta, nie wolno jej nadpisac (dodanie slow albo kopia zapisalyby niepelna liste).
@@ -166,20 +233,37 @@ async function upewnijTalie() {
 
 // Gorny pasek
 
+const utrwalonych = () => talia.liczbaUtrwalonych({ slowa, karty: stan.karty })
+
+const rangaTeraz = () => talia.ranga(utrwalonych())
+
+const punktyTygodnia = () => talia.punktyTygodnia(stan.punktyTygodnia).punkty
+
 function odswiezGore() {
-  const p = talia.poziomZExp(stan.exp)
+  const r = rangaTeraz()
   const chip = $('poziom')
-  $('poziom-tekst').textContent = `Lv ${p.poziom}`
-  $('poziom-pasek').style.transform = `scaleX(${p.procent / 100})`
-  chip.setAttribute('aria-label', `Poziom ${p.poziom}, ${p.tytul}, ${stan.exp} EXP`)
-  chip.title = `${p.tytul} - ${stan.exp.toLocaleString('pl-PL')} EXP`
-  if (poprzednieExp !== null && stan.exp > poprzednieExp) {
+  const punkty = punktyTygodnia()
+  $('poziom-tekst').textContent = r.nazwa
+  $('poziom-pasek').style.transform = `scaleX(${r.procent / 100})`
+  chip.setAttribute('aria-label', `Ranga ${r.nazwa}, ${talia.opisRangi(r)}`)
+  chip.title = talia.opisRangi(r)
+  $('punkty').textContent = `${punkty} pkt`
+  $('punkty').title = `Punkty w tym tygodniu. Łącznie: ${stan.expRazem.toLocaleString('pl-PL')}`
+  if (poprzedniePunkty !== null && punkty > poprzedniePunkty) {
     chip.classList.remove('puls')
     void chip.offsetWidth
     chip.classList.add('puls')
   }
-  poprzednieExp = stan.exp
-  $('streak').textContent = `🔥 ${talia.aktualnyStreak(stan.streak)}`
+  poprzedniePunkty = punkty
+  const dni = talia.aktualnyStreak(stan.streak)
+  const ostatnie30 = talia.dniZNauka(stan.historia)
+  $('streak').textContent = `🔥 ${dni}`
+  $('dni30').textContent = `${ostatnie30}/${talia.DNI_OSTATNICH}`
+  // Licznik, ktory nigdy sie nie zeruje, stoi obok serii: to on przezywa przerwy.
+  $('ciaglosc').setAttribute(
+    'aria-label',
+    `${liczebnik(dni, ['dzień', 'dni', 'dni'])} z rzędu, ${ostatnie30} z ${talia.DNI_OSTATNICH} dni nauki`,
+  )
   const wyswietlany = seria ? talia.pasekPostepu(talia.postepSerii(seria)) : 0
   $('pasek').style.transform = `scaleX(${wyswietlany})`
   $('procent').textContent = `${Math.round(wyswietlany * 100)}%`
@@ -188,24 +272,69 @@ function odswiezGore() {
 const gotoweOffline = () =>
   !!navigator.serviceWorker?.controller && !!offline && !offline.blad && offline.zapisane === offline.pliki
 
+// Znacznik offline jest ostrzezeniem, wiec znika, gdy wszystko jest zapisane, i nigdy nie wisi nad karta:
+// w trakcie nauki gora ekranu ma nie miec nic do klikania (C1). Stan offline jest w menu.
 function odswiezZnacznik() {
   const znacznik = $('offline')
   const ok = gotoweOffline()
   znacznik.textContent = ok ? 'offline ✓' : '⚠ nie offline'
   znacznik.classList.toggle('ok', ok)
+  znacznik.hidden = ok || ekran === 'karta'
 }
 
 // Ekrany
 
 function pokazEkran(nazwa, ...zawartosc) {
   ekran = nazwa
+  zakonczCelebracje()
   $('scena').replaceChildren(...zawartosc)
   if (nazwa !== 'karta') {
     $('akcje').hidden = true
     $('akcje').replaceChildren()
   }
   odswiezGore()
+  odswiezZnacznik()
 }
+
+// Celebracje sa pomijalne tapnieciem: jedno klikniecie konczy animacje i od razu pokazuje stan koncowy.
+// Celebracja ekranu konca serii (1,2 s) i pelnoekranowy awans rangi (2,5 s) sa osobne, bo ta pierwsza konczy
+// sie sama w trakcie tej drugiej i nie moze jej zgasic.
+function zakonczCelebracjeEkranu() {
+  if (!pominCelebracje) return
+  const pomin = pominCelebracje
+  pominCelebracje = null
+  pomin()
+}
+
+// Wywolywane przy kazdej zmianie ekranu, zeby nie zostal wiszacy panel ani licznik zatrzymany w polowie.
+function zakonczCelebracje() {
+  zamknijSwieto()
+  zakonczCelebracjeEkranu()
+}
+
+// Tryb nadrabiania wynika z zaleglosci przed przycieciem sufitem, wiec liczymy go przed kazdym doborem kart.
+function odswiezNadrabianie(teraz = new Date()) {
+  const zaleglych = talia.liczbaZaleglych({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, teraz, pominiete: stan.pominiete })
+  const poprzednie = talia.nadrabianieZDomyslnymi(stan.nadrabianie)
+  const nowe = talia.stanNadrabiania(poprzednie, zaleglych, stan.ustawienia, teraz)
+  if (nowe.aktywne !== poprzednie.aktywne || nowe.polowaDo !== poprzednie.polowaDo) {
+    stan.nadrabianie = nowe
+    zapiszStan()
+  }
+  return nowe
+}
+
+const opcjeDoboru = (teraz = new Date()) => ({
+  slowa,
+  karty: stan.karty,
+  ustawienia: stan.ustawienia,
+  dzis: stan.dzis,
+  teraz,
+  pominiete: stan.pominiete,
+  nadrabianie: stan.nadrabianie,
+  kolizje,
+  przypomnienie,
+})
 
 function nowaSeriaLubPusto() {
   zapomnijCofniecie()
@@ -213,14 +342,17 @@ function nowaSeriaLubPusto() {
     pokazBezSlow()
     return
   }
-  const klucze = talia.zbudujSerie({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz: new Date(), pominiete: stan.pominiete })
+  const teraz = new Date()
+  odswiezNadrabianie(teraz)
+  const klucze = talia.zbudujSerie(opcjeDoboru(teraz))
   if (!klucze.length) {
     seria = null
     pokazPusto()
     return
   }
   seria = talia.nowaSeria(klucze)
-  poziomStartSerii = talia.poziomZExp(stan.exp).poziom
+  rangaStartSerii = rangaTeraz().stopien
+  utrwaloneStartSerii = utrwalonych()
   pokazKarte()
 }
 
@@ -238,7 +370,8 @@ function trudnaSeria() {
     return
   }
   seria = talia.nowaSeria(klucze, true)
-  poziomStartSerii = talia.poziomZExp(stan.exp).poziom
+  rangaStartSerii = rangaTeraz().stopien
+  utrwaloneStartSerii = utrwalonych()
   pokazKarte()
 }
 
@@ -293,6 +426,8 @@ function pokazKarte() {
   }
   odkryta = false
   poziomPodpowiedzi = null
+  uzytoPodpowiedzi = false
+  clearTimeout(czasPodpowiedzi)
   const nowa = talia.jestNowa(stan.karty[k])
   const karta = el('div', { klasa: `karta wjazd kierunek-${kierunek}`, id: 'karta' })
   karta.addEventListener('animationend', (e) => {
@@ -321,13 +456,18 @@ function pokazKarte() {
       el('div', { klasa: 'etykieta mowienie', tekst: 'Powiedz po angielsku' }),
       el('div', { klasa: 'tlumaczenie duze', tekst: slowo.pl }),
       pole,
+      // Trudnosc pozadana: przycisk jest niewidoczny przez pierwsze 7 sekund, a jego uzycie blokuje "Umiem".
       el('button', {
         klasa: 'przycisk maly bez-odsloniecia',
+        id: 'przycisk-podpowiedzi',
         type: 'button',
+        hidden: true,
         tekst: 'Podpowiedź',
         onclick: () => {
           poziomPodpowiedzi = talia.nastepnaPodpowiedz(poziomPodpowiedzi ?? stan.ustawienia.podpowiedzMowienie)
+          uzytoPodpowiedzi = true
           rysujPodpowiedz($('podpowiedz-pole'), slowo)
+          odswiezAkcje()
         },
       }),
       slowo.zdaniePl ? el('div', { klasa: 'zdanie-pl', tekst: slowo.zdaniePl }) : '',
@@ -361,6 +501,12 @@ function pokazKarte() {
   }
   odswiezAkcje()
   startKarty = performance.now()
+  if (kierunek === 'pl') {
+    czasPodpowiedzi = setTimeout(() => {
+      const przycisk = $('przycisk-podpowiedzi')
+      if (przycisk) przycisk.hidden = false
+    }, talia.SEKUNDY_DO_PODPOWIEDZI * 1000)
+  }
 }
 
 function rysujPodpowiedz(cel, slowo) {
@@ -371,13 +517,35 @@ function rysujPodpowiedz(cel, slowo) {
 }
 
 // Przycisk w rzedzie akcji z ukrytym przelacznikiem haptyki (jedyny sposob na wibracje w iOS).
-function przyciskAkcji(klasa, tekst, dzialanie) {
-  const przycisk = el('div', { klasa: `ocena ${klasa}`, role: 'button', 'aria-label': tekst, onclick: dzialanie }, el('span', { tekst }))
+// `ikona` rysuje drugi kanal informacji nad podpisem; rzad drugoplanowy jej nie ma, bo nie jest statusem.
+function przyciskAkcji(klasa, tekst, dzialanie, ikona = '') {
+  const przycisk = el(
+    'div',
+    { klasa: `ocena ${klasa}`, role: 'button', 'aria-label': tekst, onclick: dzialanie },
+    ikona && el('span', { klasa: 'ocena-ikona', 'aria-hidden': 'true', tekst: ikona }),
+    el('span', { tekst }),
+  )
   dodajPrzelacznik(przycisk)
   return przycisk
 }
 
-const przyciskOceny = (klasa, tekst, ocena) => przyciskAkcji(klasa, tekst, () => ocenKarte(ocena))
+const przyciskOceny = (ocena) => {
+  const s = STATUSY[ocena]
+  return przyciskAkcji(s.klasa, s.etykieta, () => ocenKarte(ocena), s.ikona)
+}
+
+// Karta, na ktorej uzyto podpowiedzi, nie moze dostac "Umiem" w tej odslonie (Bjork i Kroll 2015).
+function przyciskUmiem() {
+  const reguly = talia.regulyPodpowiedzi({ uzyto: uzytoPodpowiedzi })
+  if (!reguly.umiemZablokowane) return przyciskOceny(3)
+  return el(
+    'div',
+    { klasa: 'ocena tak wylaczona', 'aria-disabled': 'true', 'aria-label': `Umiem niedostępne: ${reguly.podpisUmiem}` },
+    el('span', { klasa: 'ocena-ikona', 'aria-hidden': 'true', tekst: STATUSY[3].ikona }),
+    el('span', { tekst: 'Umiem' }),
+    el('small', { tekst: reguly.podpisUmiem }),
+  )
+}
 
 // Przed odslonieciem nie ma przyciskow oceny, zeby najpierw sprobowac sobie przypomniec. Wyjatki w gornym rzedzie:
 // "Znam" tylko dla nowej karty, "Pomijam" dla kazdej (takze w treningu).
@@ -394,17 +562,11 @@ function odswiezAkcje() {
       'div',
       { klasa: 'akcje-gora' },
       mozliwoscCofniecia() && el('button', { klasa: 'cofnij', type: 'button', tekst: '↩ Cofnij', onclick: cofnijOcene }),
-      nowa && przyciskOceny('znam', 'Znam', 4),
+      nowa && przyciskAkcji('znam', 'Znam', () => ocenKarte(4)),
       przyciskAkcji('pomijam', 'Pomijam', pomijajAktualna),
     ),
     odkryta
-      ? el(
-          'div',
-          { klasa: 'akcje-dol' },
-          przyciskOceny('nie', 'Nie umiem', 1),
-          przyciskOceny('prawie', 'Prawie', 2),
-          przyciskOceny('tak', 'Umiem', 3),
-        )
+      ? el('div', { klasa: 'akcje-dol' }, przyciskOceny(1), przyciskOceny(2), przyciskUmiem())
       : el('div', { klasa: 'akcje-dol info', tekst: 'Najpierw spróbuj sobie przypomnieć' }),
   )
 }
@@ -422,7 +584,7 @@ function odslon() {
 // Termin z FSRS dostaje jeszcze rozrzut, zeby karty ocenione tego samego dnia nie wrocily jedna fala.
 // "Znam" na nowej karcie to osobny przypadek: jedno sprawdzenie za ok. 45 dni zamiast wejscia w cykl nauki.
 function ocenionaKarta(poprzednia, ocena, teraz, klucz) {
-  const nowa = { ...poprzednia, ...ocen(poprzednia, ocena, teraz) }
+  const nowa = { ...poprzednia, ...ocen(poprzednia, ocena, teraz), kolejneUmiem: talia.kolejneUmiem(poprzednia, ocena) }
   if (!Number.isFinite(nowa.stabilnosc) || !Number.isFinite(nowa.trudnosc) || Number.isNaN(Date.parse(nowa.termin))) {
     throw new Error('niepoprawny wynik algorytmu powtórek')
   }
@@ -435,6 +597,7 @@ function ocenKarte(ocena) {
   const k = talia.aktualnaKarta(seria)
   const przed = stan.karty[k]
   if (ocena === 4 ? !talia.jestNowa(przed) : !odkryta) return
+  if (ocena === 3 && talia.regulyPodpowiedzi({ uzyto: uzytoPodpowiedzi }).umiemZablokowane) return
   const teraz = new Date()
   // W treningu ocena liczy sie do EXP, combo, celu dnia i streaka, ale nie rusza karty ani terminu.
   let nowa = null
@@ -454,12 +617,21 @@ function ocenKarte(ocena) {
 
   if (nowa) stan.karty[k] = nowa
   const sekundy = talia.czasKarty((performance.now() - startKarty) / 1000)
-  Object.assign(stan, talia.zaliczCzas(stan, sekundy, teraz))
+  stan.dzis = talia.zaliczCzas(stan.dzis, sekundy, teraz)
+  // Sufit dzienny dotyczy tylko kart zaleglych, wiec nowe slowa i trening go nie zjadaja.
+  if (!seria.trening && przed?.stan === 'powtorka') {
+    stan.dzis = { ...stan.dzis, powtorki: (stan.dzis.powtorki || 0) + 1 }
+  }
+  // Prog utrzymania serii to jedna oceniona karta; dzien opuszczony pokrywa zamrozenie z banku.
+  const dzien = talia.zaliczDzien(stan.streak, teraz)
+  stan.streak = dzien.streak
   const poprzedniaSeria = seria
-  seria = talia.poOcenie(seria, ocena)
-  const zdobyte = seria.exp - poprzedniaSeria.exp
-  stan.exp += zdobyte
+  // Karta bez daty wprowadzenia wchodzi do nauki wlasnie teraz: to jest "co przybylo" na ekranie konca serii.
   const noweSlowo = !seria.trening && !przed?.wprowadzono ? 1 : 0
+  seria = talia.poOcenie(seria, ocena, noweSlowo === 1)
+  const zdobyte = seria.exp - poprzedniaSeria.exp
+  stan.expRazem += zdobyte
+  stan.punktyTygodnia = talia.dolozPunkty(stan.punktyTygodnia, zdobyte, teraz)
   stan.historia = talia.dopiszDzien(stan.historia, { oceny: 1, nowe: noweSlowo, exp: zdobyte, sekundy }, teraz)
   zapiszStan()
   cofniecie = migawka
@@ -468,13 +640,77 @@ function ocenKarte(ocena) {
   if (koniec) wibruj('koniec')
   else if (seria.bonus) wibruj('combo')
   else wibruj({ 1: 'nieUmiem', 2: 'prawie' }[ocena] || 'umiem')
-  if (seria.bonus) toast(`Combo ${seria.combo}, +${seria.bonus} EXP`)
+  if (dzien.zamrozono) toast(TEKST_ZAMROZENIA)
+  else if (seria.bonus) toast(`Combo ${seria.combo}, +${seria.bonus} pkt`)
   odswiezGore()
-  wylot(ocena === 1 ? 1 : -1, () => {
-    if (koniec) pokazKoniec()
+  const leech = nowa && talia.czyPanelLeecha(nowa) ? k : null
+  wylot(ocena, () => {
+    if (leech) pokazPanelLeecha(leech)
+    else if (koniec) pokazKoniec()
     else pokazKarte()
     pokazCofnij()
   })
+}
+
+// Slowo oporne (A7): po kazdych 6 pomylkach karta dostaje panel z trzema wyjsciami. Historia karty zostaje,
+// bo FSRS uczy sie na niej; zmienia sie tylko termin albo obecnosc slowa w nauce.
+function pokazPanelLeecha(k) {
+  const { id } = talia.rozbierzKlucz(k)
+  const slowo = poId.get(id)
+  const dalej = () => {
+    zapiszStan()
+    odswiezGore()
+    if (talia.koniecSerii(seria)) pokazKoniec()
+    else pokazKarte()
+  }
+  const zdejmijZSerii = () => {
+    const kolejka = seria.kolejka.filter((x) => x !== k)
+    seria = { ...seria, kolejka, wszystkie: Math.max(seria.wszystkie - (seria.kolejka.length - kolejka.length), seria.oczyszczone) }
+  }
+  pokazEkran(
+    'leech',
+    el(
+      'section',
+      { klasa: 'ekran' },
+      el('h2', { tekst: 'To słowo Cię męczy' }),
+      el('p', { klasa: 'przygaszony', tekst: `${slowo?.w ?? id} - ${slowo?.pl ?? ''}` }),
+      el(
+        'div',
+        { klasa: 'przyciski' },
+        el('button', {
+          klasa: 'przycisk glowny',
+          type: 'button',
+          tekst: 'Odłóż na 3 tygodnie',
+          onclick: () => {
+            stan.karty[k] = talia.kartaOdlozona(stan.karty[k], k, new Date())
+            zdejmijZSerii()
+            dalej()
+          },
+        }),
+        el('button', {
+          klasa: 'przycisk',
+          type: 'button',
+          tekst: 'Pomijam',
+          onclick: () => {
+            stan.karty[k] = talia.kartaPoLeechu(stan.karty[k])
+            stan.pominiete = { ...stan.pominiete, [id]: talia.dataLokalna() }
+            const kolejka = seria.kolejka.filter((x) => talia.rozbierzKlucz(x).id !== id)
+            seria = { ...seria, kolejka, wszystkie: Math.max(seria.wszystkie - (seria.kolejka.length - kolejka.length), seria.oczyszczone) }
+            dalej()
+          },
+        }),
+        el('button', {
+          klasa: 'przycisk',
+          type: 'button',
+          tekst: 'Uczę się dalej',
+          onclick: () => {
+            stan.karty[k] = talia.kartaPoLeechu(stan.karty[k])
+            dalej()
+          },
+        }),
+      ),
+    ),
+  )
 }
 
 // "Pomijam": slowo wypada z nauki na dobre. Karty zostaja w pamieci nietkniete, wiec "Przywroc" z przegladu talii
@@ -494,7 +730,8 @@ function pomijajAktualna() {
   wibruj('prawie')
   const koniec = talia.koniecSerii(seria)
   odswiezGore()
-  wylot(-1, () => {
+  // Pominiecie nie jest ocena, wiec karta odchodzi bez koloru i bez kierunku: sam zanik.
+  wylot(0, () => {
     if (koniec) pokazKoniec()
     else pokazKarte()
     pokazCofnij()
@@ -514,7 +751,9 @@ const zrobMigawke = (klucz, karta) => ({
   karta,
   seria,
   odkryta,
-  exp: stan.exp,
+  uzytoPodpowiedzi,
+  expRazem: stan.expRazem,
+  punktyTygodnia: stan.punktyTygodnia,
   streak: stan.streak,
   dzis: stan.dzis,
   historia: stan.historia,
@@ -548,7 +787,8 @@ function cofnijOcene() {
   zapomnijCofniecie()
   if (m.karta === undefined) delete stan.karty[m.klucz]
   else stan.karty[m.klucz] = m.karta
-  stan.exp = m.exp
+  stan.expRazem = m.expRazem
+  stan.punktyTygodnia = m.punktyTygodnia
   stan.streak = m.streak
   stan.dzis = m.dzis
   stan.historia = m.historia
@@ -556,28 +796,40 @@ function cofnijOcene() {
   seria = m.seria
   zapiszStan()
   zamknijMenu()
-  poprzednieExp = stan.exp
+  poprzedniePunkty = punktyTygodnia()
   odkryjOdRazu = m.odkryta
   pokazKarte()
+  // pokazKarte zeruje uzycie podpowiedzi, wiec przywracamy je po nim: inaczej cofniecie zdejmowaloby
+  // blokade oceny "Umiem" i dalo sie nia obejsc regule z A5.
+  uzytoPodpowiedzi = m.uzytoPodpowiedzi
+  odswiezAkcje()
   toast(byloPominiecie ? 'Cofnięto pominięcie.' : 'Cofnięto ostatnią ocenę.')
 }
 
 const malyRuch = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-function wylot(kierunek, potem) {
+// Wylot karty niesie wynik: w gore "Umiem", w dol "Nie umiem", drgniecie w poziomie "Prawie". Do tego
+// dochodzi kolor obrysu i znak na srodku karty, wiec przy wylaczonym ruchu informacja zostaje w calosci
+// (C3: zamiast ruchu kolor i przezroczystosc, czasy do 80 ms).
+function wylot(ocena, potem) {
   zajete = true
   $('akcje').replaceChildren()
   const karta = $('karta')
+  const status = STATUSY[ocena]
   if (karta) {
     karta.classList.remove('wjazd', 'ciagniecie')
-    karta.style.transition = 'transform 240ms cubic-bezier(0.4, 0, 0.7, 0.2), opacity 240ms ease-in'
-    karta.style.transform = `translateY(${kierunek * 120}%) rotate(${kierunek * -6}deg)`
-    karta.style.opacity = '0'
+    karta.style.transform = ''
+    if (status) {
+      karta.classList.add(`wynik-${status.klasa}`, `wylot-${status.klasa}`)
+      karta.append(el('div', { klasa: 'wynik', 'aria-hidden': 'true', tekst: status.ikona }))
+    } else {
+      karta.classList.add('wylot-cicho')
+    }
   }
   setTimeout(() => {
     zajete = false
     potem()
-  }, malyRuch() ? 30 : 230)
+  }, malyRuch() ? MS_WYLOTU_BEZ_RUCHU : MS_WYLOTU)
 }
 
 // Karta podaza za palcem dopiero po odslonieciu. Wtedy ruch powyzej PROG_RUCHU to przeciaganie i klikniecie po nim
@@ -660,13 +912,15 @@ function podepnijGest(karta) {
   })
 }
 
+// Jedna oceniona karta zalicza dzien, wiec nie ma tu zadnego odliczania ani informacji o utracie.
 function opisStreaka(teraz = new Date()) {
   const dni = talia.aktualnyStreak(stan.streak, teraz)
-  if (stan.streak.ostatniDzien === talia.dataLokalna(teraz)) {
-    return `🔥 ${liczebnik(dni, ['dzień', 'dni', 'dni'])} z rzędu. Dzisiejszy dzień zaliczony.`
-  }
-  const brakuje = Math.max(1, Math.ceil(talia.SEKUNDY_DNIA - talia.dzisiejszy(stan.dzis, teraz).sekundy))
-  return `🔥 ${dni}. Jeszcze ${brakuje} s nauki, żeby zaliczyć dzisiejszy dzień.`
+  const ostatnie30 = talia.dniZNauka(stan.historia, talia.DNI_OSTATNICH, teraz)
+  const czesci = [`🔥 ${liczebnik(dni, ['dzień', 'dni', 'dni'])} z rzędu`, `${ostatnie30} / ${talia.DNI_OSTATNICH} dni nauki`]
+  const zamrozenia = talia.streakZDomyslnymi(stan.streak).zamrozenia
+  if (zamrozenia) czesci.push(`${liczebnik(zamrozenia, ['zamrożenie', 'zamrożenia', 'zamrożeń'])} w zapasie`)
+  if (stan.streak.ostatniDzien !== talia.dataLokalna(teraz)) czesci.push('jedna karta zalicza dziś dzień')
+  return czesci.join(' · ')
 }
 
 function opisDnia({ zalegle, pozniejDzis, noweDostepne }) {
@@ -676,89 +930,181 @@ function opisDnia({ zalegle, pozniejDzis, noweDostepne }) {
   return czesci.join(' · ')
 }
 
-const podsumowanie = (teraz = new Date()) =>
-  talia.podsumowanieDnia({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, dzis: stan.dzis, teraz, pominiete: stan.pominiete })
+const podsumowanie = (teraz = new Date()) => talia.podsumowanieDnia(opcjeDoboru(teraz))
 
+// Licznik punktow na ekranie konca serii. Zwraca funkcje, ktora natychmiast pokazuje wynik koncowy:
+// tapniecie ma pominac celebracje, a nie zostawic liczbe w polowie drogi.
 function animujLicznik(element, cel) {
   const czas = malyRuch() ? 1 : 900
   const start = performance.now()
+  let trwa = true
   const krok = (t) => {
+    if (!trwa) return
     const p = Math.min((t - start) / czas, 1)
-    element.textContent = `+${Math.round(cel * (1 - Math.pow(1 - p, 3)))} EXP`
+    element.textContent = `+${Math.round(cel * (1 - Math.pow(1 - p, 3)))} pkt`
     if (p < 1) requestAnimationFrame(krok)
+    else trwa = false
   }
   requestAnimationFrame(krok)
+  return () => {
+    trwa = false
+    element.textContent = `+${cel} pkt`
+  }
 }
 
-// Pasek celu dnia: liczony w ocenionych kartach, wiec trening tez sie liczy.
+// Odznaka na ikonie (D2): jedyna pasywna wskazowka, ktora dziala bez serwera (iOS 16.4+ w apce z ekranu
+// glownego). Brak wsparcia nie moze rzucic bledem, stad optional call w try/catch.
+function odswiezOdznake(liczba) {
+  try {
+    if (liczba > 0) navigator.setAppBadge?.(liczba)
+    else navigator.clearAppBadge?.()
+  } catch {
+    // przegladarka bez odznaki po prostu jej nie pokaze
+  }
+}
+
+// Pasek celu dnia: liczony w ocenionych kartach, wiec trening tez sie liczy. Dystans jest podany jawnie
+// w kartach ("zostały 3 karty"), nie w procentach: procent kieruje uwage na ocene siebie (C5).
 function pasekCelu() {
   const zrobione = talia.ocenioneDzis(stan.historia)
   const cel = stan.ustawienia.celDzienny
   const gotowe = zrobione >= cel
+  const zostalo = Math.max(cel - zrobione, 0)
   return el(
     'div',
     { klasa: `cel ${gotowe ? 'zrobiony' : ''}` },
     el(
       'div',
       { klasa: 'wiersz' },
-      el('span', { tekst: gotowe ? '✓ Cel dnia zrobiony' : 'Cel dnia' }),
+      el('span', { tekst: gotowe ? '✓ Cel dnia zrobiony' : `Cel dnia · ${zostaloKart(zostalo)}` }),
       el('span', { klasa: 'liczba', tekst: `${zrobione} / ${cel}` }),
     ),
     el('div', { klasa: 'mini-tor' }, el('i', { style: `transform: scaleX(${Math.min(zrobione / cel, 1)})` })),
   )
 }
 
-function blokPoziomu(p) {
+function blokRangi(r) {
   return el(
     'div',
     { klasa: 'awans' },
-    el('div', { klasa: 'awans-nagl', tekst: 'Nowy poziom' }),
-    el('div', { klasa: 'awans-tytul', tekst: `Poziom ${p.poziom}: ${p.tytul}` }),
+    el('div', { klasa: 'awans-nagl', tekst: 'Nowa ranga' }),
+    el('div', { klasa: 'awans-tytul', tekst: r.nazwa }),
+    el('div', { klasa: 'przygaszony maly', tekst: `${r.utrwalone} słów utrwalonych` }),
   )
 }
 
+// Kafelek statusu z ikona: kolor to za malo, zeby rozroznic wynik (WCAG 1.4.1).
+const kafelekStatusu = (ocena, liczba) =>
+  el(
+    'div',
+    { klasa: `kafelek ${STATUSY[ocena].klasa}` },
+    el('b', { tekst: String(liczba) }),
+    `${STATUSY[ocena].ikona} ${STATUSY[ocena].etykieta}`,
+  )
+
+const kafelekPrzyrostu = (liczba, podpis, klasa = '') =>
+  el('div', { klasa: `przyrost ${klasa}` }, el('span', { klasa: 'przyrost-liczba', tekst: String(liczba) }), podpis)
+
+// Ekran konca serii (C5): najpierw co przybylo, potem ciaglosc, na koncu co dalej. Zaden procent
+// skutecznosci nie jest tu glowna liczba, bo kierowalby uwage na ocene siebie zamiast na zadanie.
 function pokazKoniec() {
   const teraz = new Date()
-  const licznik = el('div', { klasa: 'koniec-exp', tekst: '+0 EXP' })
-  const p = talia.poziomZExp(stan.exp)
-  // Przy przeskoku o dwa poziomy w jednej serii pokazujemy tylko koncowy.
-  const awans = p.poziom > poziomStartSerii
+  const licznik = el('div', { klasa: 'koniec-exp', tekst: '+0 pkt' })
+  const r = rangaTeraz()
+  // Przy przeskoku o dwie rangi w jednej serii pokazujemy tylko koncowa.
+  const awans = r.stopien > rangaStartSerii
   const trening = seria.trening
-  pokazEkran(
-    'koniec',
-    el(
-      'section',
-      { klasa: 'ekran' },
-      el('h2', { tekst: trening ? 'Trening ukończony' : 'Seria ukończona' }),
-      licznik,
-      trening && el('p', { klasa: 'przygaszony', tekst: 'To był trening. Terminy powtórek zostały bez zmian.' }),
-      awans && blokPoziomu(p),
+  // Sesja liczy sie do odzyskania serii: dwie sesje w ciagu 48 h od przerwy oddaja dni sprzed niej.
+  const sesja = talia.zaliczSesje(stan.streak, teraz)
+  stan.streak = sesja.streak
+  zapiszStan()
+  const dzien = podsumowanie(teraz)
+  odswiezOdznake(dzien.doZrobienia)
+  const przybylo = Math.max(utrwalonych() - utrwaloneStartSerii, 0)
+  const jutro = talia.prognozaNaJutro({ slowa, karty: stan.karty, ustawienia: stan.ustawienia, teraz, pominiete: stan.pominiete })
+  const sekcja = el(
+    'section',
+    { klasa: 'ekran swietuje' },
+    el('h2', { tekst: trening ? 'Trening ukończony' : 'Seria ukończona' }),
+    trening && el('p', { klasa: 'przygaszony maly', tekst: 'To był trening. Terminy powtórek zostały bez zmian.' }),
+    !trening && el('div', { klasa: 'nag-bloku', tekst: 'Co przybyło' }),
+    !trening &&
       el(
         'div',
-        { klasa: 'kafelki trzy' },
-        el('div', { klasa: 'kafelek tak' }, el('b', { tekst: String(seria.umiem) }), 'Umiem'),
-        el('div', { klasa: 'kafelek prawie' }, el('b', { tekst: String(seria.prawie) }), 'Prawie'),
-        el('div', { klasa: 'kafelek nie' }, el('b', { tekst: String(seria.nieUmiem) }), 'Nie umiem'),
-      ),
-      pasekCelu(),
-      el('p', { klasa: 'maly', tekst: opisStreaka(teraz) }),
-      el('p', { klasa: 'przygaszony maly', tekst: `Lv ${p.poziom} ${p.tytul} · ${stan.exp.toLocaleString('pl-PL')} EXP · ${opisDnia(podsumowanie(teraz))}` }),
-      banery(),
-      el(
-        'div',
-        { klasa: 'przyciski' },
-        el('button', { klasa: 'przycisk glowny', type: 'button', tekst: 'Jeszcze seria', onclick: () => nowaSeriaLubPusto() }),
-        el(
-          'div',
-          { klasa: 'para' },
-          przyciskTrudnych('przycisk maly'),
-          el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Koniec na dziś', onclick: () => pokazStart() }),
+        { klasa: 'przyrosty' },
+        // Seria bez nowych slow (sama powtorka) nie ma pokazywac wielkiego zera: wtedy tym, co przybylo,
+        // sa powtorzone karty. Zadna liczba na tym ekranie nie moze wygladac jak kara.
+        seria.nowe
+          ? kafelekPrzyrostu(seria.nowe, formaSlowa(seria.nowe, ['nowe słowo', 'nowe słowa', 'nowych słów']))
+          : kafelekPrzyrostu(seria.oczyszczone, formaSlowa(seria.oczyszczone, ['powtórzona karta', 'powtórzone karty', 'powtórzonych kart'])),
+        kafelekPrzyrostu(
+          r.utrwalone,
+          przybylo ? `utrwalonych (+${przybylo})` : 'utrwalonych łącznie',
+          'utrwalone',
         ),
+      ),
+    licznik,
+    el('div', { klasa: 'kafelki trzy' }, kafelekStatusu(3, seria.umiem), kafelekStatusu(2, seria.prawie), kafelekStatusu(1, seria.nieUmiem)),
+    pasekCelu(),
+    el('div', { klasa: 'nag-bloku', tekst: 'Ciągłość' }),
+    el('p', { klasa: 'ciaglosc-tekst', tekst: opisStreaka(teraz) }),
+    sesja.odzyskano && el('p', { klasa: 'maly', tekst: 'Seria wróciła do wartości sprzed przerwy.' }),
+    // "Co dalej" tylko wtedy, gdy liczba jest znosna: ponad sufit powtorek zamienia sie w dlug.
+    jutro.znosna &&
+      el('p', { klasa: 'przygaszony maly', tekst: `Jutro czeka ${liczebnik(jutro.liczba, ['karta', 'karty', 'kart'])}.` }),
+    awans && blokRangi(r),
+    el('p', { klasa: 'przygaszony maly', tekst: `${talia.opisRangi(r)} · +${punktyTygodnia()} w tym tygodniu` }),
+    banery(),
+    el(
+      'div',
+      { klasa: 'przyciski' },
+      el('button', { klasa: 'przycisk glowny', type: 'button', tekst: 'Jeszcze seria', onclick: () => nowaSeriaLubPusto() }),
+      el(
+        'div',
+        { klasa: 'para' },
+        przyciskTrudnych('przycisk maly'),
+        el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Koniec na dziś', onclick: () => pokazStart() }),
       ),
     ),
   )
-  animujLicznik(licznik, seria.exp)
-  if (awans) wibruj('awans')
+  pokazEkran('koniec', sekcja)
+  const dokoncz = animujLicznik(licznik, seria.exp)
+  // Celebracja konca serii: 1,0-1,5 s razem z licznikiem, w kazdej chwili pomijalna tapnieciem.
+  pominCelebracje = () => {
+    clearTimeout(czasCelebracji)
+    sekcja.classList.remove('swietuje')
+    dokoncz()
+  }
+  czasCelebracji = setTimeout(zakonczCelebracjeEkranu, MS_CELEBRACJI_KONCA)
+  sekcja.addEventListener('click', zakonczCelebracjeEkranu)
+  if (awans) {
+    wibruj('awans')
+    pokazSwietoRangi(r)
+  }
+}
+
+// Pelnoekranowa celebracja awansu rangi (B1): do 2,5 s, pomijalna tapnieciem, kilka razy na kwartal.
+// Sam fakt awansu zostaje potem na ekranie konca serii w bloku .awans, wiec pominiecie nic nie zabiera.
+function pokazSwietoRangi(r) {
+  const swieto = $('swieto')
+  swieto.replaceChildren(
+    el('div', { klasa: 'swieto-krag', 'aria-hidden': 'true', tekst: '✓' }),
+    el('div', { klasa: 'swieto-nagl', tekst: 'Nowa ranga' }),
+    el('div', { klasa: 'swieto-tytul', tekst: r.nazwa }),
+    el('div', { klasa: 'swieto-opis', tekst: `${r.utrwalone} słów utrwalonych` }),
+    el('div', { klasa: 'swieto-pomin', tekst: 'Dotknij, aby przejść dalej' }),
+  )
+  swieto.hidden = false
+  clearTimeout(czasSwieta)
+  czasSwieta = setTimeout(zamknijSwieto, MS_CELEBRACJI_AWANSU)
+}
+
+function zamknijSwieto() {
+  clearTimeout(czasSwieta)
+  const swieto = $('swieto')
+  if (swieto.hidden) return
+  swieto.hidden = true
+  swieto.replaceChildren()
 }
 
 function saNoweDoWprowadzenia() {
@@ -773,6 +1119,7 @@ function saNoweDoWprowadzenia() {
 function pokazPusto() {
   const teraz = new Date()
   const dzien = podsumowanie(teraz)
+  odswiezOdznake(dzien.doZrobienia)
   pokazEkran(
     'pusto',
     el(
@@ -833,7 +1180,73 @@ function pokazBezSlow() {
 
 const kafelekLiczby = (liczba, podpis) => el('div', { klasa: 'kafelek' }, el('b', { tekst: String(liczba) }), podpis)
 
-// Ekran startu dnia: stan na dzis i decyzja, co robic. Wchodzi sie tu po uruchomieniu apki i po zakonczeniu nauki na dzis.
+// Kotwica nawyku (D1): jednorazowe pytanie o wskazowke zdarzeniowa. Nie blokuje ekranu, bo pierwsze
+// uruchomienie ma prowadzic do nauki, a nie do ankiety; odpowiedz i "Nie teraz" zamykaja je na stale.
+function ustawKotwice(tekst) {
+  stan.ustawienia = { ...stan.ustawienia, kotwica: tekst, kotwicaPytano: true }
+  kotwicaOtwarta = false
+  zapiszStan()
+  // Zmiana kotwicy w trakcie nauki nie moze przerwac serii: wtedy odswieza sie samo menu.
+  if (ekran === 'start') {
+    zamknijMenu()
+    pokazStart()
+  } else {
+    odswiezMenu()
+  }
+  toast(tekst ? talia.zdanieKotwicy(tekst) : 'Bez kotwicy. Ustawisz ją w Menu > Ustawienia.')
+}
+
+// Wlasna kotwica przez prompt: to samo narzedzie, co przy kasowaniu postepu slowa, wiec nie dokladamy
+// osobnego pola tekstowego na ekranie, ktory ma prowadzic do nauki.
+function wlasnaKotwica() {
+  const tekst = prompt('Kiedy się uczysz? Dokończ zdanie "Uczysz się ..."', stan.ustawienia.kotwica || '')
+  if (tekst === null) return
+  ustawKotwice(tekst.trim().slice(0, talia.MAKS_ZNAKOW_KOTWICY))
+}
+
+function opcjeKotwicy(wybrana) {
+  return el(
+    'div',
+    { klasa: 'kotwica-opcje' },
+    talia.KOTWICE.map((k) =>
+      el('button', { type: 'button', 'aria-pressed': String(k === wybrana), tekst: k, onclick: () => ustawKotwice(k) }),
+    ),
+    el('button', { type: 'button', tekst: 'Własna…', onclick: wlasnaKotwica }),
+    el('button', { klasa: 'cicho', type: 'button', tekst: wybrana ? 'Wyłącz' : 'Nie teraz', onclick: () => ustawKotwice('') }),
+  )
+}
+
+// Domyslnie jeden waski wiersz: pytanie nie moze zepchnac przycisku Start poza ekran iPhone'a SE.
+// Pelna lista wskazowek rozwija sie dopiero po tapnieciu "Wybierz".
+function pytanieOKotwice() {
+  if (kotwicaOtwarta) {
+    return el(
+      'div',
+      { klasa: 'kotwica-blok' },
+      el('p', { tekst: 'Kiedy się uczysz?' }),
+      el('p', { klasa: 'opis', tekst: 'Wskazówka przyczepiona do zdarzenia buduje nawyk lepiej niż godzina na zegarze.' }),
+      opcjeKotwicy(''),
+    )
+  }
+  return el(
+    'div',
+    { klasa: 'kotwica-blok waski' },
+    el('span', { tekst: 'Kiedy się uczysz?' }),
+    el('button', {
+      klasa: 'przycisk maly',
+      type: 'button',
+      tekst: 'Wybierz',
+      onclick: () => {
+        kotwicaOtwarta = true
+        pokazStart()
+      },
+    }),
+    el('button', { klasa: 'przycisk maly', type: 'button', tekst: 'Nie teraz', onclick: () => ustawKotwice('') }),
+  )
+}
+
+// Ekran startu dnia (C4): ranga z paskiem, jedna liczba na dzis, duzy Start, ciaglosc, trudne slowa.
+// Wchodzi sie tu po uruchomieniu apki i po zakonczeniu nauki na dzis.
 function pokazStart() {
   zapomnijCofniecie()
   seria = null
@@ -842,8 +1255,13 @@ function pokazStart() {
     return
   }
   const teraz = new Date()
+  odswiezNadrabianie(teraz)
   const dzien = podsumowanie(teraz)
-  const p = talia.poziomZExp(stan.exp)
+  const r = rangaTeraz()
+  odswiezOdznake(dzien.doZrobienia)
+  const kotwica = talia.zdanieKotwicy(stan.ustawienia.kotwica)
+  const zrobioneDzis = talia.ocenioneDzis(stan.historia)
+  const poCelu = zrobioneDzis >= stan.ustawienia.celDzienny
   pokazEkran(
     'start',
     el(
@@ -852,27 +1270,35 @@ function pokazStart() {
       el(
         'div',
         { klasa: 'poziom-duzy' },
-        el('b', { tekst: `Lv ${p.poziom}` }),
-        el('span', { klasa: 'przygaszony', tekst: p.tytul }),
+        el('b', { tekst: r.nazwa }),
+        el('span', { klasa: 'przygaszony', tekst: r.ostatnia ? `${r.utrwalone} słów utrwalonych` : `${r.utrwalone} / ${r.nastepnyProg} słów utrwalonych` }),
       ),
-      el('div', { klasa: 'mini-tor szeroki', 'aria-label': `Do poziomu ${p.poziom + 1}: ${p.doNastepnego} EXP` }, el('i', { style: `transform: scaleX(${p.procent / 100})` })),
-      pasekCelu(),
       el(
         'div',
-        { klasa: 'kafelki cztery' },
-        kafelekLiczby(dzien.zalegle, 'Zaległe'),
-        kafelekLiczby(dzien.pozniejDzis, 'Później dziś'),
-        kafelekLiczby(dzien.noweDostepne, 'Nowe'),
-        kafelekLiczby(talia.liczbaTrudnych({ slowa, karty: stan.karty, pominiete: stan.pominiete }), 'Trudne'),
+        { klasa: 'mini-tor szeroki', 'aria-label': r.ostatnia ? 'Najwyższa ranga' : `Do rangi ${r.nastepnaNazwa}: ${r.doNastepnej}` },
+        el('i', { style: `transform: scaleX(${r.procent / 100})` }),
       ),
-      el('p', { klasa: 'maly', tekst: opisStreaka(teraz) }),
-      banery(),
+      // Po przerwie nie pokazujemy liczby zaleglych: to najczestszy powod porzucenia powtorek.
+      dzien.nadrabianie
+        ? el('p', { klasa: 'powrot', tekst: TEKST_POWROTU })
+        : el('div', { klasa: 'kafelki jeden' }, kafelekLiczby(dzien.doZrobienia, 'Dziś do zrobienia')),
+      kotwica && el('p', { klasa: 'kotwica-zdanie', tekst: kotwica }),
       el(
         'div',
         { klasa: 'przyciski' },
-        el('button', { klasa: 'przycisk glowny duzy', type: 'button', tekst: 'Start', onclick: () => nowaSeriaLubPusto() }),
-        przyciskTrudnych('przycisk maly'),
+        el('button', {
+          klasa: 'przycisk glowny duzy',
+          type: 'button',
+          // Mikro-cel po osiagnieciu celu dnia neutralizuje spadek motywacji po nagrodzie (Kivetz i in. 2006).
+          tekst: poCelu ? `Jeszcze ${liczebnik(stan.ustawienia.dlugoscSerii, ['karta', 'karty', 'kart'])}?` : 'Start',
+          onclick: () => nowaSeriaLubPusto(),
+        }),
       ),
+      pasekCelu(),
+      el('p', { klasa: 'maly', tekst: opisStreaka(teraz) }),
+      el('div', { klasa: 'przyciski' }, przyciskTrudnych('przycisk maly')),
+      banery(),
+      !stan.ustawienia.kotwicaPytano && pytanieOKotwice(),
     ),
   )
 }
@@ -974,21 +1400,27 @@ function tekstPrognozy(pozostale) {
 function sekcjaStatystyk() {
   const st = talia.statystyki({ slowa, karty: stan.karty, pominiete: stan.pominiete })
   const dzien = podsumowanie()
-  const p = talia.poziomZExp(stan.exp)
+  const r = talia.ranga(st.utrwalone)
+  const wKolizjach = Object.keys(kolizje).length
   return el(
     'div',
     { klasa: 'sekcja' },
     el('h3', { tekst: 'Statystyki' }),
-    wiersz('Poziom', `Lv ${p.poziom} ${p.tytul}`),
-    wiersz('EXP', `${stan.exp.toLocaleString('pl-PL')} (do Lv ${Math.min(p.poziom + 1, talia.MAKS_POZIOM)}: ${p.doNastepnego})`),
+    wiersz('Ranga', r.ostatnia ? r.nazwa : `${r.nazwa} (do "${r.nastepnaNazwa}": ${r.doNastepnej})`),
+    wiersz('Utrwalone słowa', `${st.utrwalone} / ${st.wszystkie}`),
+    wiersz('Punkty w tym tygodniu', punktyTygodnia().toLocaleString('pl-PL')),
+    wiersz('Punkty łącznie', stan.expRazem.toLocaleString('pl-PL')),
     wiersz('Poznane słowa', `${st.poznane} / ${st.wszystkie}`),
     wiersz('Opanowane', `${st.opanowane} / ${st.wszystkie}`),
     wiersz('Pominięte', st.pominiete),
     wiersz('W powtórkach', `${st.procentPowtorka.toLocaleString('pl-PL')}% listy`),
     wiersz('Odblokowane karty mówienia', st.mowienieOdblokowane),
     wiersz('Zaległe teraz', dzien.pozniejDzis ? `${dzien.zalegle} (+${dzien.pozniejDzis} później dziś)` : dzien.zalegle),
-    wiersz('Nowe w dzisiejszym limicie', dzien.noweDostepne),
-    wiersz('Streak', liczebnik(talia.aktualnyStreak(stan.streak), ['dzień', 'dni', 'dni'])),
+    wiersz('Dziś do zrobienia', dzien.doZrobienia),
+    wiersz('Tryb nadrabiania', dzien.nadrabianie ? 'tak' : 'nie'),
+    wiersz('Seria', liczebnik(talia.aktualnyStreak(stan.streak), ['dzień', 'dni', 'dni'])),
+    wiersz('Dni nauki w ostatnich 30', `${talia.dniZNauka(stan.historia)} / ${talia.DNI_OSTATNICH}`),
+    wiersz('Indeks kolizji', wKolizjach ? `${wKolizjach} słów${czasIndeksuKolizji ? ` · ${czasIndeksuKolizji} ms` : ' · z pamięci'}` : 'liczony'),
     el('h3', { tekst: 'Ostatnie 30 dni', style: 'margin-top: 16px' }),
     heatmapa(),
     el('p', { klasa: 'opis', style: 'margin-top: 8px', tekst: tekstPrognozy(st.doWprowadzenia) }),
@@ -1048,6 +1480,11 @@ function sekcjaUstawien() {
     el('h3', { tekst: 'Ustawienia' }),
     el('div', { klasa: 'wiersz' }, el('span', { tekst: 'Nowych dziennie' })),
     segmenty(talia.OPCJE_NOWYCH, 'noweDziennie'),
+    el('div', { klasa: 'wiersz', style: 'margin-top: 8px' }, el('span', { tekst: 'Sufit powtórek dziennie' })),
+    segmentyOpisane(
+      talia.OPCJE_SUFITU.map((o) => [o, o === 0 ? 'bez limitu' : String(o)]),
+      'maksPowtorekDziennie',
+    ),
     el('div', { klasa: 'wiersz', style: 'margin-top: 8px' }, el('span', { tekst: 'Długość serii' })),
     segmenty(talia.OPCJE_DLUGOSCI, 'dlugoscSerii'),
     el('div', { klasa: 'wiersz', style: 'margin-top: 8px' }, el('span', { tekst: 'Cel dzienny (karty)' })),
@@ -1063,6 +1500,14 @@ function sekcjaUstawien() {
     ),
     przelacz('autowymowa', 'Wymowa po odsłonięciu'),
     przelacz('mowienie', 'Karty mówienia (PL → EN)'),
+    // Kotwica nawyku (D1): zapisane zdanie widac na ekranie startu, tutaj da sie je zmienic i wylaczyc.
+    el(
+      'div',
+      { klasa: 'wiersz', style: 'margin-top: 8px' },
+      el('span', { tekst: 'Kotwica nawyku' }),
+      el('span', { klasa: 'przygaszony', tekst: u.kotwica ? talia.zdanieKotwicy(u.kotwica) : 'wyłączona' }),
+    ),
+    opcjeKotwicy(u.kotwica),
   )
 }
 
@@ -1081,7 +1526,9 @@ function znamZListy(slowo) {
   // Ocena poza seria: migawka cofniecia dotyczy tylko serii, wiec przestaje byc aktualna.
   zapomnijCofniecie()
   const zdobyte = talia.EXP_ZA_OCENE[4]
-  stan.exp += zdobyte
+  stan.expRazem += zdobyte
+  stan.punktyTygodnia = talia.dolozPunkty(stan.punktyTygodnia, zdobyte, teraz)
+  stan.streak = talia.zaliczDzien(stan.streak, teraz).streak
   stan.historia = talia.dopiszDzien(stan.historia, { oceny: 1, nowe: 1, exp: zdobyte }, teraz)
   zapiszStan()
   odswiezGore()
@@ -1228,6 +1675,109 @@ function sekcjaZgloszen() {
   )
 }
 
+// Ekran "Jak sie uczyc" (D3): krotki protokol, kazda zasada z badania. Tresc jest stala i lezy tutaj,
+// bo apka nie pobiera niczego z sieci.
+const ZASADY_NAUKI = [
+  [
+    'Codziennie po 15 minut, nie dwie godziny w niedzielę.',
+    'Nauka rozłożona w czasie daje trzy razy większy efekt niż to samo w jednym posiedzeniu. Sufit to 30 minut, potem robisz sobie krzywdę, nie postęp.',
+  ],
+  [
+    'Nowe słowa wieczorem, zaległe rano.',
+    'Sen zaraz po poznaniu nowego słowa podwaja to, ile z niego zostanie po pół roku. Dlatego nowe wprowadzaj 1-3 godziny przed snem, a rano nadrabiaj to, co czeka.',
+  ],
+  [
+    'Na karcie mówienia mów na głos, nie w myślach.',
+    'Wypowiedzenie słowa zapamiętuje się mierzalnie lepiej niż przeczytanie go w głowie. Przy okazji ćwiczysz aparat mowy, co jest całym sensem tej apki.',
+  ],
+  [
+    'Najpierw spróbuj sobie przypomnieć, nawet gdy nie wiesz.',
+    'Nieudana próba plus poprawna odpowiedź uczy więcej niż samo patrzenie na odpowiedź. Dlatego apka nie pokazuje tłumaczenia od razu i nie da się tego wyłączyć.',
+  ],
+  [
+    '„Prawie” to sukces, nie porażka.',
+    'Jeśli słowo wróciło po chwili wahania, to jest „Prawie”. Fałszywe „Umiem” psuje harmonogram bardziej niż szczere „Nie umiem”: apka pokaże Ci to słowo za trzy tygodnie, kiedy go już nie będzie w głowie.',
+  ],
+  [
+    'Słowa, które znasz na sto procent, wyrzucaj przyciskiem „Pomijam”.',
+    'To nie jest oszukiwanie. Każde takie słowo zabrałoby Ci kilkanaście powtórek w ciągu roku. Zawsze możesz je przywrócić w Menu > Słówka.',
+  ],
+  [
+    'Po przerwie nie nadrabiaj wszystkiego naraz.',
+    'Apka sama wstrzyma nowe słowa i poda zaległe porcjami, od tych najbliższych zapomnienia. Przerwa nic nie psuje, o ile wrócisz.',
+  ],
+]
+
+function trescJakSieUczyc() {
+  return [
+    el('p', { klasa: 'nauka-wstep', tekst: 'Siedem zasad, każda z badań. Reszta to szczegóły.' }),
+    // Rozwiniete, a nie zagniezdzone: `el` splaszcza dzieci tylko o jeden poziom.
+    ...ZASADY_NAUKI.map(([tytul, tresc], i) =>
+      el(
+        'div',
+        { klasa: `nauka-punkt${i === 0 ? ' pierwszy' : ''}` },
+        el('div', { klasa: 'nauka-tytul' }, el('span', { klasa: 'nauka-numer', tekst: `${i + 1}.` }), el('span', { tekst: tytul })),
+        el('p', { klasa: 'nauka-tresc', tekst: tresc }),
+      ),
+    ),
+    el(
+      'div',
+      { klasa: 'sekcja' },
+      el('h3', { tekst: 'Czego się spodziewać' }),
+      el('p', {
+        klasa: 'nauka-tresc rowno',
+        tekst:
+          'Oxford 3000 to około 90-95% słów, które słyszysz w zwykłej rozmowie, w filmie i w serialu. To bardzo dużo, ale to nie jest jeszcze płynność: swobodne rozumienie wszystkiego wymaga dwa razy większego słownictwa. Traktuj tę talię jako fundament, po którym rozmowa przestaje być zgadywanką.',
+      }),
+      el(
+        'p',
+        { klasa: 'nauka-tresc rowno', style: 'margin-top: 10px' },
+        'Przy 10 nowych słowach dziennie cała talia zajmie około roku, a przy Twoim tempie odsiewania znanych słów sporo mniej. Liczbę, która naprawdę pokazuje postęp, znajdziesz w statystykach: ',
+        el('b', { tekst: 'utrwalone' }),
+        ' to słowa, które apka zaplanowała na co najmniej miesiąc do przodu, bo tyle wytrzymały w Twojej pamięci.',
+      ),
+    ),
+  ]
+}
+
+function pokazJakSieUczyc() {
+  zamknijMenu()
+  const jak = $('jak')
+  jak.replaceChildren(
+    el('div', { klasa: 'nakladka-tlo', onclick: zamknijJak }),
+    el(
+      'section',
+      { klasa: 'arkusz', role: 'dialog', 'aria-label': 'Jak się uczyć' },
+      el(
+        'header',
+        { klasa: 'arkusz-naglowek' },
+        el('h2', { tekst: 'Jak się uczyć' }),
+        el('button', { klasa: 'zamknij', type: 'button', 'aria-label': 'Zamknij', tekst: '✕', onclick: zamknijJak }),
+      ),
+      el('div', { klasa: 'arkusz-tresc' }, trescJakSieUczyc()),
+    ),
+  )
+  jak.hidden = false
+}
+
+function zamknijJak() {
+  $('jak').hidden = true
+  $('jak').replaceChildren()
+}
+
+const sekcjaJakSieUczyc = () =>
+  el(
+    'div',
+    { klasa: 'sekcja' },
+    el('h3', { tekst: 'Jak się uczyć' }),
+    el('p', { klasa: 'opis', tekst: 'Siedem zasad, każda z badań: ile, kiedy, w jakiej kolejności i czego nie robić.' }),
+    el(
+      'div',
+      { klasa: 'przyciski', style: 'margin-top: 10px' },
+      el('button', { klasa: 'przycisk', id: 'otworz-jak', type: 'button', tekst: 'Otwórz protokół', onclick: pokazJakSieUczyc }),
+    ),
+  )
+
 function sekcjaKopii() {
   return el(
     'div',
@@ -1303,9 +1853,13 @@ function trescMenu() {
         el('button', { klasa: 'przycisk glowny', type: 'button', tekst: 'Dodaj słówka', onclick: () => pokazDodawanie() }),
       ),
     ),
+    // Kolejnosc sekcji wedlug tego, jak czesto sie ich szuka: statystyki, slowka, jak sie uczyc,
+    // ustawienia, kopia, offline, zrodla. Zgloszone bledy sa warunkowe i stoja przy slowkach, ktorych
+    // dotycza, wiec nie rozbijaja tej kolejnosci.
     sekcjaStatystyk(),
     sekcjaSlowek(),
     sekcjaZgloszen(),
+    sekcjaJakSieUczyc(),
     sekcjaUstawien(),
     sekcjaKopii(),
     el('div', { klasa: 'sekcja', id: 'sekcja-offline' }, trescOffline()),
@@ -1478,7 +2032,7 @@ async function wczytajKopie(plik) {
     return
   }
   if (!(await upewnijTalie())) return
-  const opisStanu = (s, liczbaSlow) => `${liczebnik(liczbaSlow, ['słowo', 'słowa', 'słów'])}, ${Object.keys(s.karty).length} kart, ${s.exp} EXP`
+  const opisStanu = (s, liczbaSlow) => `${liczebnik(liczbaSlow, ['słowo', 'słowa', 'słów'])}, ${Object.keys(s.karty).length} kart, ${s.expRazem} pkt`
   const uszkodzone = wynik.pominiete ? `\n\n${opisPominietych(wynik.pominiete)} z kopii.` : ''
   const pytanie =
     `Wczytać kopię (${opisStanu(wynik.stan, wynik.talia.slowa.length)}) do obecnego stanu (${opisStanu(stan, slowa.length)})?\n\n` +
@@ -1689,11 +2243,13 @@ async function dodajSlowka() {
 function klawisze(e) {
   if (e.target.closest?.('textarea, input')) return
   if (e.key === 'Escape') {
+    zakonczCelebracje()
     zamknijMenu()
+    zamknijJak()
     if (!$('dodawanie').hidden) zamknijDodawanie()
     return
   }
-  if (!$('menu').hidden || !$('dodawanie').hidden || ekran !== 'karta') return
+  if (!$('menu').hidden || !$('jak').hidden || !$('dodawanie').hidden || ekran !== 'karta') return
   if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault()
     odslon()
@@ -1715,13 +2271,23 @@ function podepnijZdarzenia() {
     e.target.value = ''
     if (plik) wczytajKopie(plik)
   })
+  // Pelnoekranowa celebracja awansu znika po tapnieciu w dowolne miejsce.
+  $('swieto').addEventListener('click', zamknijSwieto)
   document.addEventListener('keydown', klawisze)
   // Bez nasluchu touchstart iOS nie pokazuje stanu :active na przyciskach.
   document.addEventListener('touchstart', () => {}, { passive: true })
-  document.addEventListener('gesturestart', (e) => e.preventDefault())
+  // Szczypanie blokujemy tylko nad karta, zeby gest oceny nie zamienil sie w powiekszenie. Na pozostalych
+  // ekranach powiekszanie tekstu zostaje dostepne (WCAG 1.4.4).
+  document.addEventListener('gesturestart', (e) => {
+    if (e.target?.closest?.('#karta')) e.preventDefault()
+  })
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return
-    // Apka z ekranu glownego potrafi wisiec w tle wiele dni: nowy dzien to nowa kopia dnia i nowy streak.
+    if (document.visibilityState !== 'visible') {
+      // Odznaka na ikonie ustawiana przy wyjsciu z apki: liczba kart czekajacych na dzis.
+      if (slowa.length) odswiezOdznake(podsumowanie().doZrobienia)
+      return
+    }
+    // Apka z ekranu glownego potrafi wisiec w tle wiele dni: nowy dzien to nowa kopia dnia i nowa seria.
     magazyn.kopiaDzienna()
     odswiezGore()
     rejestracja?.update().catch(() => {})
@@ -1743,12 +2309,21 @@ function rozprosStareTerminy() {
 }
 
 async function start() {
-  const { stan: wczytany, ostrzezenie, pominiete } = magazyn.wczytaj()
+  const { stan: wczytany, ostrzezenie, pominiete, migracja } = magazyn.wczytaj()
   stan = wczytany
   ustawKomunikat('wczytanie', ostrzezenie)
   if (pominiete) toast(`${opisPominietych(pominiete)}.`, 'blad')
   magazyn.kopiaDzienna()
   rozprosStareTerminy()
+  // Punkty przestaly byc poziomem gracza: dotychczasowe EXP zostaje jako "punkty łącznie", a licznik
+  // tygodnia startuje od zera. Nic nie znika, ale uzytkownik ma sie o tym dowiedziec. Toast, a nie komunikat
+  // na gorze ekranu, bo ten zaslonilby karte; pokazywany po rozproszeniu terminow, zeby go nie przykryl.
+  if (migracja) {
+    toast(
+      `Poziom zastąpiła ranga z utrwalonych słów: Twoje ${stan.expRazem.toLocaleString('pl-PL')} punktów zostaje w statystykach jako "punkty łącznie", a licznik tygodnia startuje od zera.`,
+      'wazny',
+    )
+  }
   magazyn.poprosOTrwalosc().then((wynik) => {
     trwalaPamiec = wynik
     odswiezSekcjeOffline()

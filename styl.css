@@ -1,16 +1,35 @@
+/* Paleta i tokeny v3. Kontrasty policzone wg WCAG 2.1 na tle #121212:
+   tekst 16,8:1, przygaszony 7,3:1 (6,1:1 na powierzchni-2), umiem 6,9:1, prawie 8,3:1, nie-umiem 6,8:1,
+   info 8,1:1. Zestaw statusow pochodzi z palety bezpiecznej dla daltonistow (Wong 2011, Nature Methods),
+   z jasnoscia podniesiona pod ciemne tlo. Tekst na przyciskach ocen jest czarny, nie bialy: bialy na
+   cynobrze dalby tylko 3,9:1. */
 :root {
   color-scheme: dark;
-  --tlo: #0b0b10;
-  --powierzchnia: #16161f;
-  --powierzchnia-2: #1c1c27;
-  --linia: #2a2a37;
-  --tekst: #f4f4f7;
-  --przygaszony: #9a9aad;
-  --zielony: #16a34a;
-  --zielony-jasny: #4ade80;
-  --czerwony: #dc2626;
-  --bursztyn: #fbbf24;
+  --tlo: #121212;
+  --powierzchnia: #1a1a1f;
+  --powierzchnia-2: #23232b;
+  --linia: #2e2e38;
+  --tekst: #f2f2f5;
+  --przygaszony: #a1a1ad;
+  --umiem: #00b383;
+  --prawie: #e69f00;
+  --nie-umiem: #ff6f3c;
+  --info: #56b4e9;
+  --na-akcencie: #0b0b0d;
   --margines: 14px;
+
+  /* Czasy i krzywe. Zrodla: Material Design (przejscia 200-300 ms), Nielsen (100 ms to granica
+     "natychmiast"), Kao 2020 (skrajny "juice" obniza doswiadczenie i motywacje wewnetrzna). */
+  --czas-tap: 100ms;
+  --czas-odsloniecie: 180ms;
+  --czas-wylot: 220ms;
+  --czas-wjazd: 220ms;
+  --czas-mikro: 350ms;
+  --czas-koniec: 520ms;
+  --czas-awans: 700ms;
+  --wejscie: cubic-bezier(0, 0, 0.2, 1);
+  --wyjscie: cubic-bezier(0.4, 0, 1, 1);
+  --swieto: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 * {
@@ -31,11 +50,12 @@ body {
   color: var(--tekst);
 }
 
-/* Cala strona przyklejona do ekranu: bez przewijania, gumki, zaznaczania i powiekszania. */
+/* Cala strona przyklejona do ekranu: bez przewijania, gumki i zaznaczania. `touch-action: manipulation`
+   wylacza powiekszanie podwojnym tapnieciem, wiec viewport nie musi blokowac zoomu na trwale. */
 body {
   position: fixed;
   inset: 0;
-  font: 16px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
@@ -60,7 +80,9 @@ textarea {
 
 h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 p {
@@ -69,6 +91,24 @@ p {
 
 .przygaszony {
   color: var(--przygaszony);
+}
+
+.maly {
+  font-size: 14px;
+}
+
+/* Tekst tylko dla czytnika ekranu. Postep serii niesie pasek, wiec procent nie zajmuje juz miejsca
+   w gornym pasku, ale ma byc odczytany na glos i ma zostac do sprawdzenia w tescie. */
+.tylko-czytnik {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 #aplikacja {
@@ -85,80 +125,109 @@ p {
     calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + var(--margines));
 }
 
-/* Gorny pasek */
+/* Gorny pasek: same liczniki i cienkie paski, zadnych wypelnien kolorem. Ma byc cichszy od tresci karty. */
 
 .gora {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 8px;
-  min-height: 40px;
 }
 
+.gora-rzad {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+
+/* Liczniki bez ramek i wypelnien: gorny pasek ma byc cichy, a nazwa rangi ma sie miescic w calosci
+   takze na 375 px obok serii, dni w ostatnich 30 i punktow tygodnia. */
 .licznik {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--powierzchnia);
-  font-size: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: var(--przygaszony);
 }
 
 .licznik.puls {
-  animation: puls 360ms ease-out;
+  animation: puls var(--czas-mikro) var(--swieto);
 }
 
-/* Poziom gracza: "Lv 7" i cienki pasek do nastepnego poziomu. Pelne EXP jest w menu i na koncu serii. */
+/* Ranga z utrwalonych slow i cienki pasek do nastepnego progu. Nazwa bywa dluga ("Prawie natywnie"),
+   wiec chip ma gorna szerokosc i ucina nadmiar. */
 .licznik.poziom {
   display: grid;
-  gap: 3px;
-  padding: 5px 10px;
+  gap: 5px;
   justify-items: stretch;
+  min-width: 0;
+  max-width: 52vw;
 }
 
 .licznik.poziom b {
-  font-size: 14px;
-  line-height: 1.1;
+  font-size: 13px;
+  line-height: 1.15;
+  color: var(--tekst);
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .poziom-tor {
   display: block;
   height: 3px;
   border-radius: 999px;
-  background: #33333f;
+  background: var(--linia);
   overflow: hidden;
 }
 
 .poziom-tor i {
   display: block;
   height: 100%;
-  background: var(--bursztyn);
+  background: var(--info);
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 500ms ease-out;
+  transition: transform 500ms var(--wejscie);
+}
+
+/* Ciaglosc: seria i dni w ostatnich 30 stoja obok siebie, bo to ten drugi licznik przezywa przerwy. */
+.licznik.ciaglosc {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.licznik.ciaglosc .dni30 {
+  padding-left: 8px;
+  border-left: 1px solid var(--linia);
+  font-weight: 600;
+}
+
+.licznik.punkty {
+  margin-left: auto;
 }
 
 @keyframes puls {
   40% {
-    transform: scale(1.12);
-    color: var(--zielony-jasny);
+    transform: scale(1.1);
+    color: var(--umiem);
   }
 }
 
+/* Postep serii jako wlos pod paskiem: widoczny, ale nie konkuruje z trescia karty. */
 .postep {
-  flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
 }
 
 .postep-tor {
   flex: 1;
-  height: 8px;
+  height: 3px;
   border-radius: 999px;
-  background: #23232e;
+  background: var(--linia);
   overflow: hidden;
 }
 
@@ -166,57 +235,61 @@ p {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #15803d, var(--zielony-jasny));
+  background: var(--umiem);
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 700ms cubic-bezier(0.3, 0.9, 0.3, 1);
-}
-
-#procent {
-  width: 36px;
-  text-align: right;
-  font-size: 12px;
-  color: var(--przygaszony);
-  font-variant-numeric: tabular-nums;
+  transition: transform 600ms var(--swieto);
 }
 
 .znacznik {
-  padding: 4px 8px;
-  border: 1px solid #5c4410;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--prawie);
   border-radius: 999px;
   background: transparent;
-  color: var(--bursztyn);
-  font-size: 11px;
+  color: var(--prawie);
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .znacznik.ok {
-  border-color: #14532d;
-  color: var(--zielony-jasny);
+  border-color: var(--linia);
+  color: var(--umiem);
 }
 
 .menu-przycisk {
   flex: none;
-  width: 40px;
-  height: 40px;
-  border: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--linia);
   border-radius: 50%;
-  background: var(--powierzchnia);
-  font-size: 22px;
+  background: transparent;
+  color: var(--przygaszony);
+  font-size: 20px;
   line-height: 1;
+  transition: background var(--czas-tap) ease-out;
 }
 
-@media (max-width: 360px) {
-  #procent {
-    display: none;
+.menu-przycisk:active {
+  background: var(--powierzchnia-2);
+}
+
+@media (max-width: 340px) {
+  .gora-rzad {
+    gap: 9px;
   }
   .licznik {
-    padding: 5px 8px;
-    font-size: 13px;
+    font-size: 11px;
+  }
+  .licznik.ciaglosc {
+    gap: 6px;
+  }
+  .licznik.ciaglosc .dni30 {
+    padding-left: 6px;
   }
 }
 
-/* Scena i karta */
+/* Scena i karta. Tresc karty ma najwyzszy kontrast i najwiekszy rozmiar w calej apce. */
 
 .scena {
   position: relative;
@@ -237,10 +310,9 @@ p {
   justify-content: center;
   gap: 10px;
   padding: 44px 22px;
-  border: 1px solid #262634;
-  border-radius: 28px;
-  background: linear-gradient(180deg, #191923, #121219);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--linia);
+  border-radius: 26px;
+  background: var(--powierzchnia);
   text-align: center;
   overflow: hidden;
   touch-action: none;
@@ -248,12 +320,12 @@ p {
 }
 
 .karta.wjazd {
-  animation: wjazd 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: wjazd var(--czas-wjazd) var(--wejscie);
 }
 
 @keyframes wjazd {
   from {
-    transform: translateY(48px) scale(0.97);
+    transform: translateY(36px) scale(0.98);
     opacity: 0;
   }
 }
@@ -262,33 +334,136 @@ p {
   transition: none !important;
 }
 
+/* Wylot karty niesie informacje o wyniku: w gore "Umiem", w dol "Nie umiem", drgniecie w poziomie "Prawie". */
+.karta.wylot-tak {
+  animation: wylot-gora var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+.karta.wylot-nie {
+  animation: wylot-dol var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+.karta.wylot-prawie {
+  animation: drgniecie var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+.karta.wylot-cicho {
+  animation: zanik-karty var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+@keyframes wylot-gora {
+  to {
+    transform: translateY(-120%) rotate(6deg);
+    opacity: 0;
+  }
+}
+
+@keyframes wylot-dol {
+  to {
+    transform: translateY(120%) rotate(-6deg);
+    opacity: 0;
+  }
+}
+
+@keyframes drgniecie {
+  20% {
+    transform: translateX(14px);
+  }
+  45% {
+    transform: translateX(-12px);
+  }
+  70% {
+    transform: translateX(6px);
+  }
+  to {
+    transform: none;
+    opacity: 0;
+  }
+}
+
+@keyframes zanik-karty {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Drugi i trzeci kanal informacji o wyniku: kolor obrysu i znak na karcie. Przy wylaczonym ruchu zostaja
+   tylko one (WCAG 1.4.1: kolor nie moze byc jedynym nosnikiem informacji). */
+.wynik {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  font-size: 104px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  animation: blysk var(--czas-wylot) var(--wejscie) forwards;
+}
+
+@keyframes blysk {
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.karta.wynik-tak {
+  border-color: var(--umiem);
+}
+
+.karta.wynik-tak .wynik {
+  color: var(--umiem);
+}
+
+.karta.wynik-prawie {
+  border-color: var(--prawie);
+}
+
+.karta.wynik-prawie .wynik {
+  color: var(--prawie);
+}
+
+.karta.wynik-nie {
+  border-color: var(--nie-umiem);
+}
+
+.karta.wynik-nie .wynik {
+  color: var(--nie-umiem);
+}
+
 .etykieta {
   position: absolute;
   top: 18px;
   left: 0;
   right: 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--przygaszony);
 }
 
 .etykieta.mowienie {
-  color: #93c5fd;
+  color: var(--info);
 }
 
 .slowo {
-  font-size: clamp(34px, 11vw, 60px);
+  font-size: clamp(36px, 11vw, 60px);
   font-weight: 800;
   line-height: 1.05;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
 .ipa {
   font-family: 'Charis SIL', 'Doulos SIL', 'Lucida Grande', 'Segoe UI', system-ui, sans-serif;
-  font-size: 18px;
-  color: #a9a9bf;
+  font-size: 17px;
+  color: var(--przygaszony);
 }
 
 .chipy {
@@ -299,22 +474,23 @@ p {
 }
 
 .chip {
-  padding: 3px 9px;
+  padding: 3px 10px;
+  border: 1px solid var(--linia);
   border-radius: 999px;
-  background: #23232f;
-  color: #c7c7d6;
+  background: transparent;
+  color: var(--przygaszony);
   font-size: 12px;
 }
 
 .chip.poziom {
-  background: #173826;
-  color: #86efac;
+  color: var(--tekst);
   font-weight: 700;
 }
 
 .chip.nowe {
-  background: #3b2f0b;
-  color: #fcd34d;
+  border-color: var(--prawie);
+  color: var(--prawie);
+  font-weight: 700;
 }
 
 .glosnik {
@@ -322,10 +498,11 @@ p {
   z-index: 2;
   width: 52px;
   height: 52px;
-  border: 1px solid #2f2f3d;
+  border: 1px solid var(--linia);
   border-radius: 50%;
   background: var(--powierzchnia-2);
   font-size: 22px;
+  transition: transform var(--czas-tap) ease-out;
 }
 
 .glosnik:active {
@@ -339,27 +516,31 @@ p {
 }
 
 .tlumaczenie {
-  font-size: clamp(26px, 8vw, 42px);
+  font-size: clamp(26px, 8vw, 40px);
   font-weight: 700;
   line-height: 1.15;
-  color: #bbf7d0;
+  letter-spacing: -0.01em;
+  color: var(--tekst);
   overflow-wrap: anywhere;
 }
 
 .tlumaczenie.duze {
-  font-size: clamp(30px, 9.5vw, 50px);
+  font-size: clamp(30px, 9.5vw, 48px);
   color: var(--tekst);
 }
 
+/* Dlugosc wiersza 30-45 znakow: dluzsze linie czyta sie gorzej, zwlaszcza wysrodkowane. */
 .zdanie {
-  max-width: 32ch;
+  max-width: 34ch;
   font-size: 17px;
-  color: #e4e4ec;
+  line-height: 1.45;
+  color: var(--tekst);
 }
 
 .zdanie-pl {
-  max-width: 34ch;
+  max-width: 36ch;
   font-size: 15px;
+  line-height: 1.45;
   color: var(--przygaszony);
 }
 
@@ -372,7 +553,7 @@ p {
   /* 14 liter to 27 znakow z odstepami: przy stalych 22px nie mieszcza sie na 375 px i konce byly ucinane. */
   font-size: clamp(15px, 5vw, 22px);
   letter-spacing: 0.03em;
-  color: #d4d4e0;
+  color: var(--tekst);
 }
 
 .podpowiedz span {
@@ -391,9 +572,9 @@ p {
 }
 
 .karta .bez-odsloniecia {
-  min-height: 34px;
-  padding: 0 14px;
-  font-size: 13px;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -403,7 +584,7 @@ p {
   left: 0;
   right: 0;
   font-size: 11px;
-  color: var(--bursztyn);
+  color: var(--prawie);
 }
 
 .combo {
@@ -411,29 +592,22 @@ p {
   right: 14px;
   bottom: 14px;
   padding: 4px 10px;
+  border: 1px solid var(--prawie);
   border-radius: 999px;
-  background: #3b2f0b;
-  color: #fcd34d;
+  color: var(--prawie);
   font-size: 13px;
   font-weight: 800;
-  animation: puls 360ms ease-out;
+  animation: mikro var(--czas-mikro) var(--swieto);
 }
 
-/* Cofniecie misclicka: w rzedzie akcji pod karta, obok "Znam juz", wiec nie zaslania jej i nie lapie tapniec. */
-.cofnij {
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid #3c3c52;
-  border-radius: 999px;
-  background: var(--powierzchnia-2);
-  font-size: 15px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  animation: zanik 200ms ease;
-}
-
-.cofnij:active {
-  transform: scale(0.97);
+@keyframes mikro {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+  }
 }
 
 .odkrycie {
@@ -441,10 +615,13 @@ p {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--linia);
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity 220ms ease, transform 220ms ease;
+  transition: opacity var(--czas-odsloniecie) var(--wejscie), transform var(--czas-odsloniecie) var(--wejscie);
   pointer-events: none;
 }
 
@@ -461,7 +638,7 @@ p {
   right: 0;
   font-size: 13px;
   color: var(--przygaszony);
-  transition: opacity 200ms;
+  transition: opacity var(--czas-odsloniecie) var(--wejscie);
 }
 
 .karta.odkryta .wskazowka {
@@ -476,21 +653,21 @@ p {
   padding: 8px 18px;
   border: 3px solid currentColor;
   border-radius: 14px;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 900;
   text-transform: uppercase;
   transform: translate(-50%, -50%) rotate(-8deg);
   pointer-events: none;
-  background: rgba(11, 11, 16, 0.75);
+  background: rgba(18, 18, 18, 0.78);
 }
 
 .znacznik-swipe.tak {
-  color: var(--zielony-jasny);
+  color: var(--umiem);
   opacity: var(--tak, 0);
 }
 
 .znacznik-swipe.nie {
-  color: #f87171;
+  color: var(--nie-umiem);
   opacity: var(--nie, 0);
 }
 
@@ -510,14 +687,14 @@ p {
   pointer-events: none;
 }
 
-/* Przyciski oceny pod kciukiem */
+/* Przyciski w strefie kciuka: trzy oceny na dole, nad nimi cichy rzad drugoplanowy (C1). */
 
 .akcje {
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
   display: grid;
-  grid-template-rows: 44px 76px;
+  grid-template-rows: 44px 60px;
   gap: 10px;
 }
 
@@ -530,7 +707,7 @@ p {
 /* Trzy oceny w jednym rzedzie. "Prawie" jest wezsze, bo trafia sie w nie rzadziej. */
 .akcje-dol {
   display: grid;
-  grid-template-columns: 1fr 0.75fr 1fr;
+  grid-template-columns: 1fr 0.78fr 1fr;
   gap: 8px;
 }
 
@@ -539,63 +716,104 @@ p {
   align-items: center;
   justify-content: center;
   color: var(--przygaszony);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .ocena {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
-  font-size: 20px;
+  gap: 1px;
+  border-radius: 18px;
+  font-size: 19px;
   font-weight: 800;
+  letter-spacing: -0.01em;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 90ms ease;
+  transition: transform var(--czas-tap) ease-out, filter var(--czas-tap) ease-out;
 }
 
 .ocena:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  filter: brightness(1.12);
+}
+
+/* Kazdy status ma trzy kanaly naraz: kolor, ikone i kierunek ruchu karty po ocenie. */
+.ocena-ikona {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.75;
 }
 
 .ocena.nie {
-  background: var(--czerwony);
-  color: #fff;
+  background: var(--nie-umiem);
+  color: var(--na-akcencie);
 }
 
 .ocena.tak {
-  background: var(--zielony);
-  color: #fff;
+  background: var(--umiem);
+  color: var(--na-akcencie);
 }
 
 .ocena.prawie {
-  background: var(--bursztyn);
-  color: #2b1d00;
+  background: var(--prawie);
+  color: var(--na-akcencie);
   font-size: 17px;
 }
 
-/* Gorny rzad: "Cofnij", "Znam" i "Pomijam" musza sie zmiescic obok siebie na 375 px, stad waskie wypelnienie.
+/* Rzad drugoplanowy: sam obrys i przygaszony tekst, zeby nie konkurowal z ocenami ani z trescia karty.
    Wysokosc bierze sie z siatki .akcje (44 px), wiec cel dotyku zostaje duzy. */
 .ocena.znam,
-.ocena.pomijam {
-  padding: 0 14px;
-  border: 1px solid #34344a;
+.ocena.pomijam,
+.cofnij {
+  flex-direction: row;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--linia);
   border-radius: 999px;
-  background: var(--powierzchnia);
-  color: #d6d6e6;
-  font-size: 15px;
+  background: transparent;
+  color: var(--przygaszony);
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-/* "Pomijam" wyrzuca slowo z nauki na dobre, wiec jest wyraznie stonowane wzgledem "Znam". */
-.ocena.pomijam {
-  background: transparent;
-  color: var(--przygaszony);
+.cofnij {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: zanik var(--czas-mikro) var(--wejscie);
 }
 
-/* Ekrany: koniec serii, pusto, bez slow, odpoczynek */
+.cofnij:active,
+.ocena.znam:active,
+.ocena.pomijam:active {
+  background: var(--powierzchnia-2);
+  transform: none;
+  filter: none;
+}
+
+/* "Umiem" po uzyciu podpowiedzi: przycisk zostaje na swoim miejscu, ale nie da sie w niego kliknac. */
+.ocena.wylaczona {
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ocena.wylaczona small {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* Ekrany: start dnia, koniec serii, pusto, bez slow, powrot po przerwie */
 
 .ekran {
   width: 100%;
@@ -606,7 +824,7 @@ p {
   /* "safe center" zamiast "center": gdy podsumowanie urosnie ponad ekran (awans, baner), gora nie jest
      ucinana, tylko da sie doscrollowac do przyciskow. Widok karty dalej jest bez przewijania. */
   justify-content: safe center;
-  gap: 14px;
+  gap: 12px;
   padding: 8px 4px;
   text-align: center;
   overflow-y: auto;
@@ -614,16 +832,62 @@ p {
 }
 
 .logo {
-  font-size: 56px;
+  font-size: 52px;
   line-height: 1;
 }
 
-.koniec-exp {
-  font-size: clamp(46px, 15vw, 76px);
-  font-weight: 900;
-  line-height: 1;
-  color: var(--zielony-jasny);
+/* Naglowek bloku na ekranie: cichy i wersalikowy, zeby kolejnosc informacji byla czytelna bez ramek. */
+.nag-bloku {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+  text-align: left;
+}
+
+/* Ekran konca serii: najpierw "co przybylo", potem ciaglosc, na koncu "co dalej". Zaden procent
+   skutecznosci nie jest tu glowna liczba (kierowalby uwage na ocene siebie, Kluger i DeNisi 1996). */
+.przyrosty {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.przyrost {
+  padding: 12px 10px;
+  border: 1px solid var(--linia);
+  border-radius: 18px;
+  background: var(--powierzchnia);
+  font-size: 13px;
+  color: var(--przygaszony);
+}
+
+.przyrost-liczba {
+  display: block;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  color: var(--tekst);
+}
+
+.przyrost.utrwalone .przyrost-liczba {
+  color: var(--umiem);
+}
+
+.koniec-exp {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--umiem);
+  font-variant-numeric: tabular-nums;
+}
+
+.ciaglosc-tekst {
+  font-size: 15px;
 }
 
 .kafelki {
@@ -635,6 +899,7 @@ p {
 
 .kafelek {
   padding: 12px;
+  border: 1px solid var(--linia);
   border-radius: 18px;
   background: var(--powierzchnia);
   font-size: 14px;
@@ -643,24 +908,64 @@ p {
 
 .kafelek b {
   display: block;
-  font-size: 30px;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
   color: var(--tekst);
 }
 
 .kafelek.tak b {
-  color: var(--zielony-jasny);
+  color: var(--umiem);
 }
 
 .kafelek.nie b {
-  color: #f87171;
+  color: var(--nie-umiem);
 }
 
 .kafelek.prawie b {
-  color: var(--bursztyn);
+  color: var(--prawie);
 }
 
 .kafelki.trzy {
   grid-template-columns: 1fr 1fr 1fr;
+}
+
+.kafelki.trzy .kafelek {
+  padding: 8px 4px;
+  font-size: 12px;
+}
+
+.kafelki.trzy .kafelek b {
+  font-size: 22px;
+}
+
+.kafelki.dwa {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Jedyna liczba na ekranie startu: ile kart czeka dzis. Bez rozbicia na zaleglosci i nowe (C4). */
+.kafelki.jeden {
+  grid-template-columns: 1fr;
+}
+
+.kafelki.jeden .kafelek {
+  padding: 14px 12px;
+}
+
+.kafelki.jeden .kafelek b {
+  font-size: clamp(44px, 14vw, 60px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Ekran powrotu po przerwie: zadnej liczby zaleglych, tylko zdanie i przycisk Start. */
+.powrot {
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--tekst);
 }
 
 .kafelki.cztery {
@@ -679,31 +984,30 @@ p {
   font-size: 22px;
 }
 
-/* Ekran startu dnia */
+/* Ekran startu dnia: ranga z paskiem, dzis do zrobienia, Start, ciaglosc, trudne slowa (C4). */
 
 .poziom-duzy {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .poziom-duzy b {
-  font-size: clamp(30px, 10vw, 44px);
-  line-height: 1;
+  font-size: clamp(28px, 9vw, 40px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .mini-tor.szeroki {
   width: 100%;
-  height: 8px;
+  height: 6px;
 }
 
 .mini-tor.szeroki i {
-  background: linear-gradient(90deg, #a16207, var(--bursztyn));
-}
-
-.maly {
-  font-size: 14px;
+  background: var(--info);
 }
 
 .przycisk.duzy {
@@ -717,11 +1021,71 @@ p {
   gap: 10px;
 }
 
-/* Cel dnia */
+/* Kotwica nawyku (D1): zdanie na ekranie startu i jednorazowe pytanie z gotowymi wskazowkami zdarzeniowymi. */
+
+.kotwica-zdanie {
+  font-size: 16px;
+  color: var(--info);
+}
+
+.kotwica-blok {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px dashed var(--linia);
+  border-radius: 18px;
+  text-align: left;
+}
+
+.kotwica-blok p {
+  font-size: 15px;
+}
+
+/* Waski wariant: jedno pytanie w wierszu, zeby na iPhonie SE nie zepchnac przycisku Start poza ekran. */
+.kotwica-blok.waski {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.kotwica-blok.waski > span {
+  flex: 1 1 auto;
+}
+
+.kotwica-opcje {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kotwica-opcje button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--linia);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tekst);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.kotwica-opcje button[aria-pressed='true'] {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.kotwica-opcje button.cicho {
+  color: var(--przygaszony);
+}
+
+/* Cel dnia: jawny dystans ("zostały 3 karty"), nigdy procent. */
 
 .cel {
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border: 1px solid var(--linia);
   border-radius: 14px;
   background: var(--powierzchnia);
@@ -734,47 +1098,166 @@ p {
 }
 
 .cel.zrobiony {
-  border-color: #14532d;
-  background: #0e2417;
-  color: var(--zielony-jasny);
+  border-color: var(--umiem);
+  color: var(--umiem);
 }
 
 .cel.zrobiony .mini-tor i {
-  background: var(--zielony-jasny);
+  background: var(--umiem);
 }
 
-/* Awans na nowy poziom */
+/* Awans rangi: blok zostaje na ekranie konca serii takze po tym, jak pelnoekranowa celebracja zniknie. */
 
 .awans {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #a16207;
+  border: 1px solid var(--umiem);
   border-radius: 16px;
-  background: linear-gradient(135deg, #3b2f0b, #241c06);
-  animation: awans 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: var(--powierzchnia);
 }
 
 .awans-nagl {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--bursztyn);
+  color: var(--umiem);
 }
 
 .awans-tytul {
   font-size: 22px;
-  font-weight: 900;
-  color: #fde68a;
+  font-weight: 800;
+  color: var(--tekst);
 }
 
-@keyframes awans {
+/* Pelnoekranowa celebracja awansu: do 2,5 s, pomijalna tapnieciem, kilka razy na kwartal (B1). */
+
+.swieto {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 42%, #10241d 0%, var(--tlo) 62%);
+  animation: zanik var(--czas-wjazd) var(--wejscie);
+}
+
+.swieto-krag {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--umiem);
+  border-radius: 50%;
+  color: var(--umiem);
+  font-size: 46px;
+  font-weight: 900;
+  animation: krag var(--czas-awans) var(--swieto);
+}
+
+.swieto-krag::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--umiem);
+  border-radius: 50%;
+  animation: fala 1400ms var(--wejscie) 240ms forwards;
+}
+
+@keyframes krag {
   from {
-    transform: scale(0.8);
+    transform: scale(0.72);
     opacity: 0;
   }
-  60% {
+  55% {
     transform: scale(1.06);
+  }
+}
+
+@keyframes fala {
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.swieto-nagl {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--umiem);
+  animation: wjazd-tresc var(--czas-awans) var(--swieto) 120ms both;
+}
+
+.swieto-tytul {
+  font-size: clamp(32px, 11vw, 48px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  animation: wjazd-tresc var(--czas-awans) var(--swieto) 220ms both;
+}
+
+.swieto-opis {
+  font-size: 16px;
+  color: var(--przygaszony);
+  animation: wjazd-tresc var(--czas-awans) var(--swieto) 320ms both;
+}
+
+.swieto-pomin {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--przygaszony);
+}
+
+@keyframes wjazd-tresc {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  40% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Celebracja konca serii: razem z licznikiem punktow trwa 1,0-1,5 s i da sie ja pominac tapnieciem.
+   Kolejnosc wejscia powtarza kolejnosc informacji, wiec sama animacja tez cos mowi. */
+
+.ekran.swietuje .przyrost {
+  animation: wjazd-bloku var(--czas-koniec) var(--swieto) both;
+}
+
+.ekran.swietuje .przyrost:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.ekran.swietuje .koniec-exp {
+  animation: wjazd-bloku var(--czas-koniec) var(--swieto) 240ms both;
+}
+
+.ekran.swietuje .kafelki.trzy {
+  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 400ms both;
+}
+
+.ekran.swietuje .cel {
+  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 520ms both;
+}
+
+.ekran.swietuje .ciaglosc-tekst {
+  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 620ms both;
+}
+
+@keyframes wjazd-bloku {
+  from {
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
   }
 }
 
@@ -791,29 +1274,31 @@ p {
   justify-content: center;
   gap: 8px;
   padding: 0 18px;
-  border: 1px solid #2f2f3d;
+  border: 1px solid var(--linia);
   border-radius: 16px;
   background: var(--powierzchnia-2);
   font-size: 17px;
   font-weight: 700;
   text-align: center;
+  transition: transform var(--czas-tap) ease-out, filter var(--czas-tap) ease-out;
 }
 
 .przycisk:active {
   transform: scale(0.98);
+  filter: brightness(1.15);
 }
 
 .przycisk.glowny {
-  border-color: var(--zielony);
-  background: var(--zielony);
-  color: #fff;
+  border-color: var(--umiem);
+  background: var(--umiem);
+  color: var(--na-akcencie);
 }
 
 .przycisk.maly {
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 14px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
@@ -837,19 +1322,18 @@ p {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #1e4a6e;
+  border: 1px solid var(--info);
   border-radius: 14px;
-  background: #0f2436;
+  background: var(--powierzchnia);
   font-size: 14px;
   text-align: left;
 }
 
 .baner.kopia {
-  border-color: #5c4410;
-  background: #271f0b;
+  border-color: var(--prawie);
 }
 
-/* Nakladki: menu (dolny panel) i dodawanie slowek (caly ekran) */
+/* Nakladki: menu i "Jak sie uczyc" (dolny panel), dodawanie slowek (caly ekran) */
 
 .nakladka {
   position: fixed;
@@ -863,8 +1347,8 @@ p {
 .nakladka-tlo {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  animation: zanik 200ms ease;
+  background: rgba(0, 0, 0, 0.65);
+  animation: zanik var(--czas-wjazd) var(--wejscie);
 }
 
 @keyframes zanik {
@@ -884,9 +1368,9 @@ p {
   border: 1px solid var(--linia);
   border-bottom: 0;
   border-radius: 24px 24px 0 0;
-  background: #111118;
+  background: var(--powierzchnia);
   padding-bottom: env(safe-area-inset-bottom);
-  animation: wysun 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: wysun var(--czas-wjazd) var(--wejscie);
 }
 
 .arkusz.pelny {
@@ -914,11 +1398,12 @@ p {
 
 .zamknij {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--linia);
   border-radius: 50%;
-  background: var(--powierzchnia-2);
+  background: transparent;
+  color: var(--przygaszony);
   font-size: 16px;
 }
 
@@ -934,9 +1419,11 @@ p {
   padding: 4px 18px 24px;
 }
 
+/* Sekcje menu w kolejnosci waznosci: statystyki, slowka, jak sie uczyc, ustawienia, kopia, offline, zrodla.
+   Naglowek ciagnie za soba kreske, zeby dlugi arkusz mial widoczna hierarchie zamiast jednej listy. */
 .sekcja {
-  padding: 14px 0;
-  border-top: 1px solid #22222c;
+  padding: 16px 0;
+  border-top: 1px solid var(--linia);
 }
 
 .sekcja:first-child {
@@ -944,12 +1431,22 @@ p {
 }
 
 .sekcja h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0 0 10px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--przygaszony);
+}
+
+.sekcja h3::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--linia);
 }
 
 .sekcja p + p {
@@ -961,13 +1458,14 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
+  padding: 7px 0;
   font-size: 15px;
 }
 
 .wiersz .liczba {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: var(--tekst);
 }
 
 .wiersz-stat {
@@ -981,14 +1479,14 @@ p {
 .mini-tor {
   height: 6px;
   border-radius: 999px;
-  background: #23232e;
+  background: var(--linia);
   overflow: hidden;
 }
 
 .mini-tor i {
   display: block;
   height: 100%;
-  background: var(--zielony);
+  background: var(--umiem);
   transform-origin: left;
 }
 
@@ -1020,7 +1518,7 @@ p {
   width: 100%;
   height: 22px;
   border-radius: 5px;
-  background: #1d1d28;
+  background: var(--powierzchnia-2);
 }
 
 .heatmapa .dzien.przed {
@@ -1028,28 +1526,80 @@ p {
 }
 
 .heatmapa .s1 {
-  background: #14532d;
+  background: #0d4436;
 }
 
 .heatmapa .s2 {
-  background: #166534;
+  background: #0f6a51;
 }
 
 .heatmapa .s3 {
-  background: #22a14e;
+  background: #0e9070;
 }
 
 .heatmapa .s4 {
-  background: var(--zielony-jasny);
+  background: var(--umiem);
+}
+
+/* Ekran "Jak sie uczyc" (D3): siedem zasad, kazda z badan. Ten tekst ma sie czytac, wiec wiersz jest
+   krotki i wyrownany do lewej, a nie wysrodkowany jak ekrany decyzyjne. */
+
+.nauka-wstep {
+  font-size: 16px;
+  color: var(--przygaszony);
+}
+
+.nauka-punkt {
+  padding: 14px 0;
+  border-top: 1px solid var(--linia);
+  text-align: left;
+}
+
+.nauka-punkt.pierwszy {
+  border-top: 0;
+}
+
+.nauka-tytul {
+  display: flex;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.nauka-numer {
+  flex: none;
+  width: 24px;
+  color: var(--umiem);
+  font-variant-numeric: tabular-nums;
+}
+
+.nauka-tresc {
+  margin-top: 6px;
+  padding-left: 34px;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--przygaszony);
+}
+
+/* Akapity bez numeru (sekcja "Czego sie spodziewac") nie maja czego wciecia trzymac. */
+.nauka-tresc.rowno {
+  padding-left: 0;
+  text-align: left;
+}
+
+.nauka-tresc b {
+  color: var(--tekst);
 }
 
 /* Przeglad talii */
 
 .pole-szukania {
   width: 100%;
-  min-height: 46px;
+  min-height: 48px;
   padding: 0 14px;
-  border: 1px solid #2f2f3d;
+  border: 1px solid var(--linia);
   border-radius: 14px;
   background: var(--tlo);
   color: inherit;
@@ -1070,9 +1620,9 @@ p {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid #22222c;
+  border: 1px solid var(--linia);
   border-radius: 14px;
-  background: var(--powierzchnia);
+  background: var(--powierzchnia-2);
 }
 
 .slowo-tresc {
@@ -1101,20 +1651,22 @@ p {
 }
 
 .segmenty button {
-  min-width: 46px;
-  height: 38px;
-  border: 1px solid #2f2f3d;
-  border-radius: 10px;
-  background: var(--powierzchnia-2);
+  min-width: 48px;
+  height: 44px;
+  border: 1px solid var(--linia);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--tekst);
   font-weight: 700;
 }
 
 .segmenty button[aria-pressed='true'] {
-  border-color: var(--zielony);
-  background: var(--zielony);
-  color: #fff;
+  border-color: var(--umiem);
+  background: var(--umiem);
+  color: var(--na-akcencie);
 }
 
+/* Przelacznik: sam suwak ma 52x32, ale pole dotyku jest rozciagniete do 44 px w pionie (WCAG 2.5.5). */
 .przelacz {
   position: relative;
   flex: none;
@@ -1122,7 +1674,13 @@ p {
   height: 32px;
   border: 0;
   border-radius: 999px;
-  background: #33333f;
+  background: var(--linia);
+}
+
+.przelacz::before {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
 }
 
 .przelacz::after {
@@ -1133,15 +1691,16 @@ p {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
-  transition: transform 160ms ease;
+  background: var(--tekst);
+  transition: transform 160ms var(--wejscie);
 }
 
 .przelacz[aria-checked='true'] {
-  background: var(--zielony);
+  background: var(--umiem);
 }
 
 .przelacz[aria-checked='true']::after {
+  background: var(--na-akcencie);
   transform: translateX(20px);
 }
 
@@ -1158,7 +1717,7 @@ p {
   min-height: 150px;
   margin-top: 8px;
   padding: 12px;
-  border: 1px solid #2f2f3d;
+  border: 1px solid var(--linia);
   border-radius: 14px;
   background: var(--tlo);
   color: inherit;
@@ -1174,6 +1733,7 @@ p {
 
 .opis {
   font-size: 14px;
+  line-height: 1.5;
   color: var(--przygaszony);
 }
 
@@ -1194,11 +1754,11 @@ p {
   margin: 8px 0 0;
   padding-left: 18px;
   font-size: 13px;
-  color: #fca5a5;
+  color: var(--nie-umiem);
 }
 
 .blad-tekst {
-  color: #fca5a5;
+  color: var(--nie-umiem);
 }
 
 .ukryty-plik {
@@ -1228,10 +1788,10 @@ p {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #7f1d1d;
+  border: 1px solid var(--nie-umiem);
   border-radius: 12px;
-  background: #3b0d0d;
-  color: #fecaca;
+  background: var(--powierzchnia);
+  color: var(--tekst);
   font-size: 14px;
   pointer-events: auto;
 }
@@ -1241,9 +1801,8 @@ p {
 }
 
 .komunikat .zamknij {
-  width: 28px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 32px;
+  height: 32px;
   font-size: 13px;
 }
 
@@ -1257,18 +1816,22 @@ p {
   z-index: 30;
   max-width: calc(100vw - 32px);
   padding: 10px 16px;
+  border: 1px solid var(--linia);
   border-radius: 12px;
-  background: #1f2937;
-  color: #fff;
+  background: var(--powierzchnia-2);
+  color: var(--tekst);
   font-size: 14px;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   transform: translateX(-50%);
-  animation: zanik 200ms ease;
+  animation: zanik var(--czas-wjazd) var(--wejscie);
 }
 
 .toast.blad {
-  background: #7f1d1d;
+  border-color: var(--nie-umiem);
+}
+
+.toast.wazny {
+  border-color: var(--prawie);
 }
 
 /* Niskie ekrany (iPhone SE): ekran konca serii musi sie zmiescic bez przewijania. */
@@ -1277,16 +1840,25 @@ p {
     gap: 9px;
   }
   .koniec-exp {
-    font-size: 40px;
+    font-size: 26px;
+  }
+  .przyrost-liczba {
+    font-size: 28px;
   }
   .kafelek b {
     font-size: 24px;
+  }
+  .kafelki.trzy .kafelek b {
+    font-size: 19px;
+  }
+  .kafelki.jeden .kafelek b {
+    font-size: 44px;
   }
   .kafelki.cztery .kafelek b {
     font-size: 19px;
   }
   .przycisk {
-    min-height: 46px;
+    min-height: 48px;
   }
   .przycisk.duzy {
     min-height: 54px;
@@ -1295,26 +1867,82 @@ p {
     font-size: 19px;
   }
   .logo {
-    font-size: 42px;
+    font-size: 40px;
   }
   .karta {
     padding: 40px 18px;
   }
+  .swieto-krag {
+    width: 108px;
+    height: 108px;
+    font-size: 38px;
+  }
 }
 
+/* Wylaczony ruch: informacja zwrotna zostaje, tylko zamiast przesuniecia niesie ja kolor i przezroczystosc,
+   a czasy schodza do 80 ms (C3). Cele dotyku, ikony statusow i kolory zostaja bez zmian. */
 @media (prefers-reduced-motion: reduce) {
-  .karta.wjazd,
-  .arkusz,
-  .nakladka-tlo,
-  .licznik.puls,
-  .combo,
-  .cofnij,
-  .awans {
-    animation-duration: 1ms;
+  :root {
+    --czas-odsloniecie: 80ms;
+    --czas-wylot: 80ms;
+    --czas-wjazd: 80ms;
+    --czas-mikro: 80ms;
+    --czas-koniec: 80ms;
+    --czas-awans: 80ms;
+  }
+  .karta.wjazd {
+    animation-name: zanik;
+  }
+  .karta.wylot-tak,
+  .karta.wylot-nie,
+  .karta.wylot-prawie,
+  .karta.wylot-cicho {
+    animation-name: zanik-karty;
+  }
+  .wynik {
+    animation-name: bez-ruchu;
+  }
+  .odkrycie {
+    transform: none;
+  }
+  .swieto-krag,
+  .swieto-nagl,
+  .swieto-tytul,
+  .swieto-opis {
+    animation-name: zanik;
+    animation-duration: 80ms;
+    animation-delay: 0ms;
+  }
+  .swieto-krag::after {
+    animation: none;
+    opacity: 0;
+  }
+  .ekran.swietuje .przyrost,
+  .ekran.swietuje .koniec-exp,
+  .ekran.swietuje .kafelki.trzy,
+  .ekran.swietuje .cel,
+  .ekran.swietuje .ciaglosc-tekst {
+    animation-name: zanik;
+    animation-duration: 80ms;
+    animation-delay: 0ms;
+  }
+  .combo {
+    animation-name: zanik;
+  }
+  .arkusz {
+    animation-name: zanik;
+    animation-duration: 80ms;
   }
   .postep-tor i,
   .poziom-tor i,
-  .odkrycie {
-    transition-duration: 1ms;
+  .przelacz::after {
+    transition-duration: 80ms;
+  }
+}
+
+/* Zamiennik dla animacji, ktora ma tylko doprowadzic element do stanu koncowego bez ruchu. */
+@keyframes bez-ruchu {
+  to {
+    opacity: 1;
   }
 }
