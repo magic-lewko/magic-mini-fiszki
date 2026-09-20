@@ -26,7 +26,6 @@
   --czas-wjazd: 220ms;
   --czas-mikro: 350ms;
   --czas-koniec: 520ms;
-  --czas-awans: 700ms;
   --wejscie: cubic-bezier(0, 0, 0.2, 1);
   --wyjscie: cubic-bezier(0.4, 0, 1, 1);
   --swieto: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -97,10 +96,13 @@ p {
   font-size: 14px;
 }
 
-/* Tekst tylko dla czytnika ekranu. Postep serii niesie pasek, wiec procent nie zajmuje juz miejsca
-   w gornym pasku, ale ma byc odczytany na glos i ma zostac do sprawdzenia w tescie. */
+/* Tylko dla czytnika ekranu. Tak sa schowane przyciski ocen na ekranie nauki: sa prawdziwe, maja
+   etykiety i dzialaja, ale nie zajmuja ani piksela, bo dol ekranu ma byc pusty (B). */
 .tylko-czytnik {
+  /* Poza ekranem, a nie pod karta: dzieki temu nie lapia dotyku, a czytnik ekranu dalej je aktywuje.
+     pointer-events: none bywa zawodne, bo VoiceOver aktywuje przycisk syntetyzowanym klknieciem. */
   position: absolute;
+  left: -10000px;
   width: 1px;
   height: 1px;
   margin: -1px;
@@ -125,121 +127,45 @@ p {
     calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + var(--margines));
 }
 
-/* Gorny pasek: same liczniki i cienkie paski, zadnych wypelnien kolorem. Ma byc cichszy od tresci karty. */
+/* Gora ekranu nauki to wylacznie cienki pasek postepu calej talii (B). Menu i znacznik offline
+   pokazuja sie dopiero poza nauka, wiec w trakcie karty nie ma tu nic do klikania. */
 
 .gora {
-  display: grid;
-  gap: 8px;
-}
-
-.gora-rzad {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 36px;
+  gap: 10px;
+  min-height: 12px;
 }
 
-/* Liczniki bez ramek i wypelnien: gorny pasek ma byc cichy, a nazwa rangi ma sie miescic w calosci
-   takze na 375 px obok serii, dni w ostatnich 30 i punktow tygodnia. */
-.licznik {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--przygaszony);
-}
-
-.licznik.puls {
-  animation: puls var(--czas-mikro) var(--swieto);
-}
-
-/* Ranga z utrwalonych slow i cienki pasek do nastepnego progu. Nazwa bywa dluga ("Prawie natywnie"),
-   wiec chip ma gorna szerokosc i ucina nadmiar. */
-.licznik.poziom {
-  display: grid;
-  gap: 5px;
-  justify-items: stretch;
-  min-width: 0;
-  max-width: 52vw;
-}
-
-.licznik.poziom b {
-  font-size: 13px;
-  line-height: 1.15;
-  color: var(--tekst);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.poziom-tor {
-  display: block;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--linia);
-  overflow: hidden;
-}
-
-.poziom-tor i {
-  display: block;
-  height: 100%;
-  background: var(--info);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 500ms var(--wejscie);
-}
-
-/* Ciaglosc: seria i dni w ostatnich 30 stoja obok siebie, bo to ten drugi licznik przezywa przerwy. */
-.licznik.ciaglosc {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.licznik.ciaglosc .dni30 {
-  padding-left: 8px;
-  border-left: 1px solid var(--linia);
-  font-weight: 600;
-}
-
-.licznik.punkty {
-  margin-left: auto;
-}
-
-@keyframes puls {
-  40% {
-    transform: scale(1.1);
-    color: var(--umiem);
-  }
-}
-
-/* Postep serii jako wlos pod paskiem: widoczny, ale nie konkuruje z trescia karty. */
-.postep {
-  display: flex;
-  align-items: center;
-}
-
-.postep-tor {
+/* Pasek calej talii: wypelnienie to slowa poznane, jasniejszy segment to slowa utrwalone
+   (stabilnosc co najmniej 30 dni). Bez cyfr i bez procentow (F). Przyrasta plynnie po ocenie (I). */
+.postep-talii {
+  position: relative;
   flex: 1;
-  height: 3px;
+  height: 4px;
   border-radius: 999px;
   background: var(--linia);
   overflow: hidden;
 }
 
-.postep-tor i {
+.postep-talii i {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: 100%;
   border-radius: inherit;
-  background: var(--umiem);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 600ms var(--swieto);
 }
+
+.pasek-poznane {
+  background: var(--umiem);
+}
+
+.pasek-utrwalone {
+  background: #7ff0cd;
+}
+
 
 .znacznik {
   min-height: 32px;
@@ -272,21 +198,6 @@ p {
 
 .menu-przycisk:active {
   background: var(--powierzchnia-2);
-}
-
-@media (max-width: 340px) {
-  .gora-rzad {
-    gap: 9px;
-  }
-  .licznik {
-    font-size: 11px;
-  }
-  .licznik.ciaglosc {
-    gap: 6px;
-  }
-  .licznik.ciaglosc .dni30 {
-    padding-left: 6px;
-  }
 }
 
 /* Scena i karta. Tresc karty ma najwyzszy kontrast i najwiekszy rozmiar w calej apce. */
@@ -334,49 +245,87 @@ p {
   transition: none !important;
 }
 
-/* Wylot karty niesie informacje o wyniku: w gore "Umiem", w dol "Nie umiem", drgniecie w poziomie "Prawie". */
-.karta.wylot-tak {
+/* Czas odpowiedzi jako sygnal (C): po odslonieciu ramka karty przechodzi plynnie z neutralnej
+   w bursztynowa (3 s) i cynobrowa (powyzej 8 s). Bez cyfr i bez tykania. */
+.karta {
+  transition: border-color 600ms linear, box-shadow var(--czas-tap) ease-out;
+}
+
+.karta.tempo-srednio {
+  border-color: var(--prawie);
+}
+
+.karta.tempo-wolno {
+  border-color: var(--nie-umiem);
+}
+
+/* Mikro-reakcja przy przekroczeniu progu gestu (I): karta dostaje obrys kierunku i podswietlenie,
+   zanim uzytkownik puisci palec. Samo skalowanie siedzi w transformie, bo ta podaza za palcem. */
+.karta.prog {
+  box-shadow: 0 0 22px rgba(0, 0, 0, 0.45);
+}
+
+.karta.gest-prawo {
+  border-color: var(--umiem);
+}
+
+.karta.gest-lewo {
+  border-color: var(--nie-umiem);
+}
+
+.karta.gest-gora {
+  border-color: var(--prawie);
+}
+
+.karta.gest-dol {
+  border-color: var(--info);
+}
+
+/* Wylot karty niesie wynik: leci w strone gestu, z rotacja przy ruchu poziomym (I). */
+.karta.wylot-prawo {
+  animation: wylot-prawo var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+.karta.wylot-lewo {
+  animation: wylot-lewo var(--czas-wylot) var(--wyjscie) forwards;
+}
+
+.karta.wylot-gora {
   animation: wylot-gora var(--czas-wylot) var(--wyjscie) forwards;
 }
 
-.karta.wylot-nie {
+.karta.wylot-dol {
   animation: wylot-dol var(--czas-wylot) var(--wyjscie) forwards;
-}
-
-.karta.wylot-prawie {
-  animation: drgniecie var(--czas-wylot) var(--wyjscie) forwards;
 }
 
 .karta.wylot-cicho {
   animation: zanik-karty var(--czas-wylot) var(--wyjscie) forwards;
 }
 
+@keyframes wylot-prawo {
+  to {
+    transform: translateX(125%) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes wylot-lewo {
+  to {
+    transform: translateX(-125%) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
 @keyframes wylot-gora {
   to {
-    transform: translateY(-120%) rotate(6deg);
+    transform: translateY(-120%) rotate(4deg);
     opacity: 0;
   }
 }
 
 @keyframes wylot-dol {
   to {
-    transform: translateY(120%) rotate(-6deg);
-    opacity: 0;
-  }
-}
-
-@keyframes drgniecie {
-  20% {
-    transform: translateX(14px);
-  }
-  45% {
-    transform: translateX(-12px);
-  }
-  70% {
-    transform: translateX(6px);
-  }
-  to {
-    transform: none;
+    transform: translateY(120%) scale(0.96);
     opacity: 0;
   }
 }
@@ -587,28 +536,6 @@ p {
   color: var(--prawie);
 }
 
-.combo {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  padding: 4px 10px;
-  border: 1px solid var(--prawie);
-  border-radius: 999px;
-  color: var(--prawie);
-  font-size: 13px;
-  font-weight: 800;
-  animation: mikro var(--czas-mikro) var(--swieto);
-}
-
-@keyframes mikro {
-  from {
-    transform: scale(0.7);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.08);
-  }
-}
 
 .odkrycie {
   display: flex;
@@ -644,31 +571,65 @@ p {
 .karta.odkryta .wskazowka {
   opacity: 0;
 }
-
-.znacznik-swipe {
+/* Kierunek gestu (A): kolor, ikona i podpis pojawiaja sie po przekroczeniu progu, jeszcze zanim
+   uzytkownik puisci palec. Trzy kanaly naraz, bo sam kolor to za malo (WCAG 1.4.1).
+   Znacznik lezy nad karta, wiec zostaje na srodku ekranu takze wtedy, gdy karta odjedzie za palcem. */
+.gest-znacznik {
   position: absolute;
   top: 50%;
   left: 50%;
-  z-index: 3;
-  padding: 8px 18px;
+  z-index: 8;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 12px 22px;
   border: 3px solid currentColor;
-  border-radius: 14px;
-  font-size: 24px;
-  font-weight: 900;
-  text-transform: uppercase;
-  transform: translate(-50%, -50%) rotate(-8deg);
+  border-radius: 18px;
+  background: rgba(18, 18, 18, 0.82);
+  transform: translate(-50%, -50%) scale(0.92);
+  opacity: 0;
   pointer-events: none;
-  background: rgba(18, 18, 18, 0.78);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
 }
 
-.znacznik-swipe.tak {
+.gest-znacznik.widoczny {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.gest-ikona {
+  font-size: 44px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.gest-podpis {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gest-znacznik.tak {
   color: var(--umiem);
-  opacity: var(--tak, 0);
 }
 
-.znacznik-swipe.nie {
+.gest-znacznik.prawie {
+  color: var(--prawie);
+}
+
+.gest-znacznik.nie {
   color: var(--nie-umiem);
-  opacity: var(--nie, 0);
+}
+
+.gest-znacznik.wyjscie {
+  color: var(--info);
+}
+
+/* Chipy poziomu i czesci mowy stoja na odwrocie karty, mniejszym drukiem (B). */
+.chipy.male .chip {
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
 /* Niewidoczny przelacznik iOS na calej powierzchni elementu, w ktory sie tapie (haptyka). */
@@ -687,133 +648,57 @@ p {
   pointer-events: none;
 }
 
-/* Przyciski w strefie kciuka: trzy oceny na dole, nad nimi cichy rzad drugoplanowy (C1). */
+/* Dol ekranu nauki jest pusty (B): zostaja w nim tylko przyciski dla czytnika ekranu, ktore nie
+   zajmuja miejsca. Kciuk ma do dyspozycji cala karte, a nie rzad przyciskow. */
 
 .akcje {
   width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-rows: 44px 60px;
-  gap: 10px;
+  min-height: 0;
 }
 
-.akcje-gora {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* Trzy oceny w jednym rzedzie. "Prawie" jest wezsze, bo trafia sie w nie rzadziej. */
-.akcje-dol {
-  display: grid;
-  grid-template-columns: 1fr 0.78fr 1fr;
-  gap: 8px;
-}
-
-.akcje-dol.info {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--przygaszony);
-  font-size: 15px;
-}
-
-.ocena {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  border-radius: 18px;
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform var(--czas-tap) ease-out, filter var(--czas-tap) ease-out;
-}
-
-.ocena:active {
-  transform: scale(0.96);
-  filter: brightness(1.12);
-}
-
-/* Kazdy status ma trzy kanaly naraz: kolor, ikone i kierunek ruchu karty po ocenie. */
-.ocena-ikona {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 0.75;
-}
-
-.ocena.nie {
-  background: var(--nie-umiem);
-  color: var(--na-akcencie);
-}
-
-.ocena.tak {
-  background: var(--umiem);
-  color: var(--na-akcencie);
-}
-
-.ocena.prawie {
-  background: var(--prawie);
-  color: var(--na-akcencie);
-  font-size: 17px;
-}
-
-/* Rzad drugoplanowy: sam obrys i przygaszony tekst, zeby nie konkurowal z ocenami ani z trescia karty.
-   Wysokosc bierze sie z siatki .akcje (44 px), wiec cel dotyku zostaje duzy. */
-.ocena.znam,
-.ocena.pomijam,
-.cofnij {
-  flex-direction: row;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--linia);
+/* Mikro-notka przy karcie: jedno zdanie na 900 ms, bez przyciskow i bez blokowania gestu (C). */
+.notka {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+  z-index: 6;
+  padding: 8px 14px;
+  border: 1px solid var(--prawie);
   border-radius: 999px;
-  background: transparent;
-  color: var(--przygaszony);
+  background: var(--powierzchnia-2);
+  color: var(--prawie);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-}
-
-.cofnij {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  pointer-events: none;
+  transform: translateX(-50%);
   animation: zanik var(--czas-mikro) var(--wejscie);
 }
 
-.cofnij:active,
-.ocena.znam:active,
-.ocena.pomijam:active {
-  background: var(--powierzchnia-2);
-  transform: none;
-  filter: none;
-}
-
-/* "Umiem" po uzyciu podpowiedzi: przycisk zostaje na swoim miejscu, ale nie da sie w niego kliknac. */
-.ocena.wylaczona {
-  flex-direction: column;
-  gap: 2px;
-  opacity: 0.45;
-  cursor: default;
+/* Blysk na krawedzi ekranu przy co piatej poprawnej karcie pod rzad (I). Niczego nie blokuje. */
+.blysk {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
   pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 0 4px var(--umiem);
 }
 
-.ocena.wylaczona small {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.1;
-  text-align: center;
+.blysk.widoczny {
+  animation: blysk-krawedzi 300ms var(--swieto);
 }
 
-/* Ekrany: start dnia, koniec serii, pusto, bez slow, powrot po przerwie */
+@keyframes blysk-krawedzi {
+  30% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Ekrany poza nauka: wybor, koniec serii, panel slowa opornego, brak slowek */
 
 .ekran {
   width: 100%;
@@ -821,7 +706,7 @@ p {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* "safe center" zamiast "center": gdy podsumowanie urosnie ponad ekran (awans, baner), gora nie jest
+  /* "safe center" zamiast "center": gdy podsumowanie urosnie ponad ekran (baner), gora nie jest
      ucinana, tylko da sie doscrollowac do przyciskow. Widok karty dalej jest bez przewijania. */
   justify-content: safe center;
   gap: 12px;
@@ -836,19 +721,8 @@ p {
   line-height: 1;
 }
 
-/* Naglowek bloku na ekranie: cichy i wersalikowy, zeby kolejnosc informacji byla czytelna bez ramek. */
-.nag-bloku {
-  width: 100%;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--przygaszony);
-  text-align: left;
-}
-
-/* Ekran konca serii: najpierw "co przybylo", potem ciaglosc, na koncu "co dalej". Zaden procent
-   skutecznosci nie jest tu glowna liczba (kierowalby uwage na ocene siebie, Kluger i DeNisi 1996). */
+/* Ekran konca serii: najwyzej trzy liczby (co przybylo, dzis, jutro). Zaden procent skutecznosci
+   nie jest tu glowna liczba (kierowalby uwage na ocene siebie, Kluger i DeNisi 1996). */
 .przyrosty {
   width: 100%;
   display: grid;
@@ -878,181 +752,91 @@ p {
   color: var(--umiem);
 }
 
-.koniec-exp {
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--umiem);
-  font-variant-numeric: tabular-nums;
+
+/* Ekran wyboru (E): pasek calej talii z jedna liczba, trzy duze przyciski i menu w rogu. */
+
+.ekran.wybor {
+  gap: 18px;
 }
 
-.ciaglosc-tekst {
-  font-size: 15px;
-}
-
-.kafelki {
+.talia-postep {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
+  justify-items: center;
 }
 
-.kafelek {
-  padding: 12px;
-  border: 1px solid var(--linia);
-  border-radius: 18px;
-  background: var(--powierzchnia);
-  font-size: 14px;
+.talia-tor {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--linia);
+  overflow: hidden;
+}
+
+.talia-tor i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: left;
+  transition: transform 600ms var(--swieto);
+}
+
+.talia-tor .poznane {
+  background: var(--umiem);
+}
+
+.talia-tor .utrwalone {
+  background: #7ff0cd;
+}
+
+.talia-liczba {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--przygaszony);
 }
 
-.kafelek b {
-  display: block;
-  font-size: 28px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--tekst);
+.wybor-przyciski {
+  width: 100%;
+  display: grid;
+  gap: 10px;
 }
 
-.kafelek.tak b {
-  color: var(--umiem);
+/* Ekran konca serii (D): najwyzej trzy liczby i te same przyciski, co na ekranie wyboru. */
+.koniec {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
 }
 
-.kafelek.nie b {
-  color: var(--nie-umiem);
-}
-
-.kafelek.prawie b {
-  color: var(--prawie);
-}
-
-.kafelki.trzy {
+.przyrosty.trzy {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-.kafelki.trzy .kafelek {
-  padding: 8px 4px;
-  font-size: 12px;
-}
-
-.kafelki.trzy .kafelek b {
-  font-size: 22px;
-}
-
-.kafelki.dwa {
+.przyrosty.dwa {
   grid-template-columns: 1fr 1fr;
 }
 
-/* Jedyna liczba na ekranie startu: ile kart czeka dzis. Bez rozbicia na zaleglosci i nowe (C4). */
-.kafelki.jeden {
-  grid-template-columns: 1fr;
+.przyrosty.trzy .przyrost {
+  padding: 10px 6px;
+  font-size: 12px;
 }
 
-.kafelki.jeden .kafelek {
-  padding: 14px 12px;
+.przyrosty.trzy .przyrost-liczba {
+  font-size: 28px;
 }
 
-.kafelki.jeden .kafelek b {
-  font-size: clamp(44px, 14vw, 60px);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-/* Ekran powrotu po przerwie: zadnej liczby zaleglych, tylko zdanie i przycisk Start. */
-.powrot {
-  margin: 0;
-  max-width: 34ch;
-  text-align: center;
-  font-size: 17px;
-  line-height: 1.5;
-  color: var(--tekst);
-}
-
-.kafelki.cztery {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-.kafelki.cztery .kafelek {
-  padding: 8px 2px;
-  border-radius: 14px;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.kafelki.cztery .kafelek b {
-  font-size: 22px;
-}
-
-/* Ekran startu dnia: ranga z paskiem, dzis do zrobienia, Start, ciaglosc, trudne slowa (C4). */
-
-.poziom-duzy {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-}
-
-.poziom-duzy b {
-  font-size: clamp(28px, 9vw, 40px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.mini-tor.szeroki {
-  width: 100%;
-  height: 6px;
-}
-
-.mini-tor.szeroki i {
-  background: var(--info);
-}
 
 .przycisk.duzy {
   min-height: 62px;
   font-size: 19px;
 }
 
-.przyciski .para {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+/* Kotwica nawyku (D1): zdanie zyje juz tylko w menu, wiec zostaja same opcje wyboru. */
 
-/* Kotwica nawyku (D1): zdanie na ekranie startu i jednorazowe pytanie z gotowymi wskazowkami zdarzeniowymi. */
-
-.kotwica-zdanie {
-  font-size: 16px;
-  color: var(--info);
-}
-
-.kotwica-blok {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px dashed var(--linia);
-  border-radius: 18px;
-  text-align: left;
-}
-
-.kotwica-blok p {
-  font-size: 15px;
-}
-
-/* Waski wariant: jedno pytanie w wierszu, zeby na iPhonie SE nie zepchnac przycisku Start poza ekran. */
-.kotwica-blok.waski {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  font-size: 15px;
-}
-
-.kotwica-blok.waski > span {
-  flex: 1 1 auto;
-}
 
 .kotwica-opcje {
   display: flex;
@@ -1081,138 +865,79 @@ p {
   color: var(--przygaszony);
 }
 
-/* Cel dnia: jawny dystans ("zostały 3 karty"), nigdy procent. */
+/* Samouczek gestow (A): jednorazowa nakladka z czterema strzalkami, zamykana tapnieciem. */
 
-.cel {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--linia);
-  border-radius: 14px;
-  background: var(--powierzchnia);
-  text-align: left;
-}
-
-.cel .wiersz {
-  padding: 0 0 6px;
-  font-size: 14px;
-}
-
-.cel.zrobiony {
-  border-color: var(--umiem);
-  color: var(--umiem);
-}
-
-.cel.zrobiony .mini-tor i {
-  background: var(--umiem);
-}
-
-/* Awans rangi: blok zostaje na ekranie konca serii takze po tym, jak pelnoekranowa celebracja zniknie. */
-
-.awans {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--umiem);
-  border-radius: 16px;
-  background: var(--powierzchnia);
-}
-
-.awans-nagl {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--umiem);
-}
-
-.awans-tytul {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--tekst);
-}
-
-/* Pelnoekranowa celebracja awansu: do 2,5 s, pomijalna tapnieciem, kilka razy na kwartal (B1). */
-
-.swieto {
+.samouczek {
   position: fixed;
   inset: 0;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  text-align: center;
-  background: radial-gradient(circle at 50% 42%, #10241d 0%, var(--tlo) 62%);
-  animation: zanik var(--czas-wjazd) var(--wejscie);
-}
-
-.swieto-krag {
-  position: relative;
-  width: 132px;
-  height: 132px;
+  z-index: 30;
   display: grid;
   place-items: center;
-  border: 2px solid var(--umiem);
-  border-radius: 50%;
-  color: var(--umiem);
-  font-size: 46px;
-  font-weight: 900;
-  animation: krag var(--czas-awans) var(--swieto);
+  padding: 24px;
+  background: rgba(10, 10, 12, 0.94);
 }
 
-.swieto-krag::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2px solid var(--umiem);
-  border-radius: 50%;
-  animation: fala 1400ms var(--wejscie) 240ms forwards;
+.samouczek-tresc {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  animation: wjazd-tresc var(--czas-koniec) var(--swieto);
 }
 
-@keyframes krag {
-  from {
-    transform: scale(0.72);
-    opacity: 0;
-  }
-  55% {
-    transform: scale(1.06);
-  }
-}
-
-@keyframes fala {
-  to {
-    transform: scale(1.7);
-    opacity: 0;
-  }
-}
-
-.swieto-nagl {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--umiem);
-  animation: wjazd-tresc var(--czas-awans) var(--swieto) 120ms both;
-}
-
-.swieto-tytul {
-  font-size: clamp(32px, 11vw, 48px);
+.samouczek-nagl {
+  font-size: 24px;
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  animation: wjazd-tresc var(--czas-awans) var(--swieto) 220ms both;
+  letter-spacing: -0.01em;
 }
 
-.swieto-opis {
-  font-size: 16px;
-  color: var(--przygaszony);
-  animation: wjazd-tresc var(--czas-awans) var(--swieto) 320ms both;
+.samouczek-siatka {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
 }
 
-.swieto-pomin {
-  margin-top: 14px;
-  font-size: 13px;
+.samouczek-gest {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 14px 8px;
+  border: 1px solid var(--linia);
+  border-radius: 18px;
+  background: var(--powierzchnia);
+}
+
+.samouczek-strzalka {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.samouczek-gest:nth-child(1) .samouczek-strzalka {
+  color: var(--umiem);
+}
+
+.samouczek-gest:nth-child(2) .samouczek-strzalka {
+  color: var(--nie-umiem);
+}
+
+.samouczek-gest:nth-child(3) .samouczek-strzalka {
+  color: var(--prawie);
+}
+
+.samouczek-gest:nth-child(4) .samouczek-strzalka {
+  color: var(--info);
+}
+
+.samouczek-podpis {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.samouczek-opis {
+  font-size: 14px;
   color: var(--przygaszony);
 }
 
@@ -1227,7 +952,7 @@ p {
   }
 }
 
-/* Celebracja konca serii: razem z licznikiem punktow trwa 1,0-1,5 s i da sie ja pominac tapnieciem.
+/* Celebracja konca serii: trwa 1,0-1,5 s i da sie ja pominac tapnieciem.
    Kolejnosc wejscia powtarza kolejnosc informacji, wiec sama animacja tez cos mowi. */
 
 .ekran.swietuje .przyrost {
@@ -1235,23 +960,16 @@ p {
 }
 
 .ekran.swietuje .przyrost:nth-child(2) {
-  animation-delay: 120ms;
+  animation-delay: 70ms;
 }
 
-.ekran.swietuje .koniec-exp {
-  animation: wjazd-bloku var(--czas-koniec) var(--swieto) 240ms both;
+.ekran.swietuje .przyrost:nth-child(3) {
+  animation-delay: 140ms;
 }
 
-.ekran.swietuje .kafelki.trzy {
-  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 400ms both;
-}
-
-.ekran.swietuje .cel {
-  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 520ms both;
-}
-
-.ekran.swietuje .ciaglosc-tekst {
-  animation: wjazd-bloku var(--czas-koniec) var(--wejscie) 620ms both;
+.ekran.swietuje .talia-postep {
+  animation: wjazd-bloku var(--czas-koniec) var(--swieto) both;
+  animation-delay: 210ms;
 }
 
 @keyframes wjazd-bloku {
@@ -1593,6 +1311,33 @@ p {
   color: var(--tekst);
 }
 
+/* Statystyki w krotkich zdaniach, cala tabela liczb dopiero pod "Szczegóły" (D). */
+
+.zdania {
+  display: grid;
+  gap: 6px;
+}
+
+.zdania p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.szczegoly {
+  margin-top: 14px;
+  border-top: 1px solid var(--linia);
+}
+
+.szczegoly summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--przygaszony);
+  cursor: pointer;
+}
+
 /* Przeglad talii */
 
 .pole-szukania {
@@ -1834,28 +1579,277 @@ p {
   border-color: var(--prawie);
 }
 
-/* Niskie ekrany (iPhone SE): ekran konca serii musi sie zmiescic bez przewijania. */
+/* Gry (G): krzyzowka i literki. Oba ekrany to zwykly .ekran, wiec dziela z nim szerokosc, przewijanie
+   i marginesy; dochodzi gorny pasek z krzyzykiem, siatka krzyzowki i kafelki literek. */
+
+.ekran.gra {
+  gap: 12px;
+  /* Od gory, a nie do srodka: po otwarciu klawiatury systemowej widok kurczy sie od dolu. */
+  justify-content: safe start;
+  /* Bez bocznego marginesu: siatka krzyzowki potrzebuje kazdego piksela szerokosci. */
+  padding: 8px 0;
+}
+
+.gra-gora {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gra-tytul {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--przygaszony);
+}
+
+/* Tresc wybranego hasla stoi nad klawiatura, wiec zostaje widoczna w trakcie wpisywania. */
+.gra-haslo {
+  min-height: 24px;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.gra-przyciski {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.literki .gra-przyciski {
+  grid-template-columns: 1fr;
+}
+
+/* Ukryte pole tekstowe krzyzowki: zostaje w ukladzie (sama przezroczystosc), bo przy display: none
+   albo visibility: hidden iOS nie otworzy klawiatury systemowej przy focus(). */
+.ukryte-pole {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Siatka krzyzowki: przy 11 kolumnach komorka ma 30 px na 390 px i 29 px na 375 px (minimum to 28 px).
+   Kolumny sa minmax(0, ...), wiec razem z odstepami kurcza sie do szerokosci ekranu zamiast przewijac
+   widok w bok. */
+.krzyzowka-siatka {
+  --bok: max(28px, min(8vw, 34px));
+  display: grid;
+  grid-template-columns: repeat(var(--kolumny), minmax(0, var(--bok)));
+  gap: 2px;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.krzyzowka-pusto {
+  width: 100%;
+  height: var(--bok);
+}
+
+.krzyzowka-pole {
+  position: relative;
+  width: 100%;
+  height: var(--bok);
+  padding: 0;
+  border: 1px solid var(--linia);
+  border-radius: 4px;
+  background: var(--powierzchnia-2);
+  font-size: calc(var(--bok) * 0.52);
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: background var(--czas-tap) ease-out, border-color var(--czas-tap) ease-out;
+}
+
+.krzyzowka-numer {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--przygaszony);
+}
+
+/* Wybrane haslo jest podswietlone w calosci, a pole pod kursorem jeszcze mocniej. */
+.krzyzowka-pole.wybrane {
+  border-color: var(--info);
+  background: #232d3a;
+}
+
+.krzyzowka-pole.aktywne {
+  background: var(--info);
+  color: var(--na-akcencie);
+}
+
+.krzyzowka-pole.poprawna {
+  border-color: var(--umiem);
+  color: var(--umiem);
+}
+
+.krzyzowka-pole.bledna {
+  border-color: var(--nie-umiem);
+  color: var(--nie-umiem);
+}
+
+.krzyzowka-pole.aktywne.poprawna,
+.krzyzowka-pole.aktywne.bledna {
+  color: var(--na-akcencie);
+}
+
+/* Literki: polskie znaczenie u gory, pod nim miejsca na litery odpowiedzi, na dole rozsypane kafelki. */
+.literki-znaczenie {
+  overflow-wrap: anywhere;
+}
+
+.literki-odpowiedz {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+}
+
+.literki-slot {
+  min-width: 38px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-bottom: 3px solid var(--linia);
+  border-radius: 10px 10px 4px 4px;
+  background: var(--powierzchnia);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.literki-slot.pelny {
+  border-bottom-color: var(--info);
+}
+
+.literki-odpowiedz.sukces .literki-slot {
+  border-bottom-color: var(--umiem);
+  color: var(--umiem);
+  animation: sukces-literek var(--czas-mikro) var(--swieto);
+}
+
+@keyframes sukces-literek {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Kafelki: cel dotyku min. 44 px, jeden albo dwa rzedy. */
+.literki-kafelki {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.literka {
+  position: relative;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0 8px;
+  border: 1px solid var(--linia);
+  border-radius: 12px;
+  background: var(--powierzchnia-2);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform var(--czas-tap) ease-out, opacity var(--czas-tap) ease-out;
+}
+
+.literka:active {
+  transform: scale(0.94);
+}
+
+.literka.uzyta {
+  opacity: 0.25;
+}
+
+/* Blad bez kary: same kafelki drgaja, odpowiedz zostaje do poprawienia. */
+.literki-kafelki.drga {
+  animation: drgniecie 260ms var(--wejscie);
+}
+
+@keyframes drgniecie {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(7px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Talie w menu (H): nazwa z liczbami, przelacznik "ucz sie z tej talii" i usuwanie calej talii. */
+.talia-wiersz {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--linia);
+}
+
+.talia-wiersz:last-of-type {
+  border-bottom: 0;
+}
+
+.talia-opis {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.talia-nazwa {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.talia-akcje {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Niskie ekrany (iPhone SE): ekran wyboru musi zmiescic sie bez przewijania. */
 @media (max-height: 760px) {
   .ekran {
     gap: 9px;
   }
-  .koniec-exp {
-    font-size: 26px;
-  }
   .przyrost-liczba {
     font-size: 28px;
   }
-  .kafelek b {
-    font-size: 24px;
-  }
-  .kafelki.trzy .kafelek b {
-    font-size: 19px;
-  }
-  .kafelki.jeden .kafelek b {
-    font-size: 44px;
-  }
-  .kafelki.cztery .kafelek b {
-    font-size: 19px;
+  .przyrosty.trzy .przyrost-liczba {
+    font-size: 22px;
   }
   .przycisk {
     min-height: 48px;
@@ -1863,19 +1857,22 @@ p {
   .przycisk.duzy {
     min-height: 54px;
   }
-  .awans-tytul {
-    font-size: 19px;
-  }
   .logo {
     font-size: 40px;
   }
   .karta {
     padding: 40px 18px;
   }
-  .swieto-krag {
-    width: 108px;
-    height: 108px;
-    font-size: 38px;
+  .samouczek-strzalka {
+    font-size: 26px;
+  }
+  .literki-slot {
+    min-width: 34px;
+    height: 42px;
+    font-size: 21px;
+  }
+  .literki-odpowiedz {
+    min-height: 42px;
   }
 }
 
@@ -1888,16 +1885,26 @@ p {
     --czas-wjazd: 80ms;
     --czas-mikro: 80ms;
     --czas-koniec: 80ms;
-    --czas-awans: 80ms;
   }
   .karta.wjazd {
     animation-name: zanik;
   }
-  .karta.wylot-tak,
-  .karta.wylot-nie,
-  .karta.wylot-prawie,
+  .karta.wylot-prawo,
+  .karta.wylot-lewo,
+  .karta.wylot-gora,
+  .karta.wylot-dol,
   .karta.wylot-cicho {
     animation-name: zanik-karty;
+  }
+  /* Ramka czasu odpowiedzi zmienia sie skokowo zamiast plynnie, ale kolor zostaje. */
+  .karta {
+    transition-duration: 80ms;
+  }
+  .gest-znacznik {
+    transition-duration: 80ms;
+  }
+  .blysk.widoczny {
+    animation-duration: 80ms;
   }
   .wynik {
     animation-name: bez-ruchu;
@@ -1905,38 +1912,34 @@ p {
   .odkrycie {
     transform: none;
   }
-  .swieto-krag,
-  .swieto-nagl,
-  .swieto-tytul,
-  .swieto-opis {
+  .samouczek-tresc {
     animation-name: zanik;
     animation-duration: 80ms;
-    animation-delay: 0ms;
-  }
-  .swieto-krag::after {
-    animation: none;
-    opacity: 0;
   }
   .ekran.swietuje .przyrost,
-  .ekran.swietuje .koniec-exp,
-  .ekran.swietuje .kafelki.trzy,
-  .ekran.swietuje .cel,
-  .ekran.swietuje .ciaglosc-tekst {
+  .ekran.swietuje .talia-postep {
     animation-name: zanik;
     animation-duration: 80ms;
     animation-delay: 0ms;
-  }
-  .combo {
-    animation-name: zanik;
   }
   .arkusz {
     animation-name: zanik;
     animation-duration: 80ms;
   }
-  .postep-tor i,
-  .poziom-tor i,
+  .postep-talii i,
+  .talia-tor i,
+  .mini-tor i,
   .przelacz::after {
     transition-duration: 80ms;
+  }
+  /* Gry: sukces i blad zostaja kolorem, ruch znika (I). */
+  .literki-odpowiedz.sukces .literki-slot,
+  .literki-kafelki.drga {
+    animation-name: bez-ruchu;
+    animation-duration: 80ms;
+  }
+  .literka:active {
+    transform: none;
   }
 }
 

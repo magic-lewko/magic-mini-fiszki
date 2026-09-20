@@ -64,8 +64,7 @@ export const DNI_INTERFERENCJI = 7
 export const PROG_LEECHA = 6
 export const DNI_ODLOZENIA_LEECHA = 21
 
-// Combo: kolejne oceny inne niz "Nie umiem" w obrebie serii. Pokazywane od 3, bonus co 5.
-export const PROG_POKAZANIA_COMBO = 3
+// Combo: kolejne oceny inne niz "Nie umiem" w obrebie serii. Co piate daje blysk na krawedzi ekranu.
 export const CO_ILE_COMBO = 5
 export const EXP_ZA_COMBO = 10
 
@@ -74,6 +73,9 @@ export const EXP_ZA_COMBO = 10
 // lepiej niz przypomnienie o godzinie). Pusty tekst znaczy "wylaczona".
 export const KOTWICE = ['po kawie', 'po umyciu zębów', 'w drodze', 'przed snem']
 export const MAKS_ZNAKOW_KOTWICY = 40
+
+// Nazwa talii (H) jest tekstem od uzytkownika, wiec ma ten sam limit, co kotwica nawyku.
+export const MAKS_ZNAKOW_NAZWY_TALII = 40
 
 // Prognoza "co dalej" na ekranie konca serii. Liczbe pokazujemy tylko wtedy, gdy jest znosna: inaczej
 // zamienia sie w dlug, a to najczestszy powod porzucenia powtorek.
@@ -88,7 +90,10 @@ export const DOMYSLNE_USTAWIENIA = {
   celDzienny: 60,
   podpowiedzMowienie: 'brak',
   kotwica: '',
-  kotwicaPytano: false,
+  // Samouczek gestow pokazuje sie raz po aktualizacji; z menu ("Gesty") da sie go wywolac ponownie.
+  samouczekGestow: false,
+  // Nazwy talii wylaczonych z nauki (H). Domyslnie pusta lista, wiec zachowanie bez zmian.
+  wylaczoneTalie: [],
 }
 
 // Zdanie kotwicy na ekran startu. Pusta albo zlozona z samych bialych znakow kotwica daje pusty tekst,
@@ -139,11 +144,21 @@ export function ustawieniaZDomyslnymi(ustawienia) {
 // wiec "Przywroc" oddaje je dokladnie w to samo miejsce harmonogramu.
 export const jestPominiete = (pominiete, id) => !!pominiete?.[id]
 
-// Zbior id slow, ktore moga trafic do serii: wszystko z listy poza pominietymi.
-function dostepneIds(slowa, pominiete) {
+// Talie (H): slowo bez pola `talia` nalezy do talii o tej nazwie, zeby zadne nie zostalo bez przelacznika.
+export const NAZWA_BEZ_TALII = 'Bez nazwy'
+export const taliaSlowa = (slowo) => slowo?.talia || NAZWA_BEZ_TALII
+export const zbiorWylaczonych = (wylaczoneTalie) => new Set(Array.isArray(wylaczoneTalie) ? wylaczoneTalie : [])
+export const jestWylaczona = (wylaczoneTalie, nazwa) => zbiorWylaczonych(wylaczoneTalie).has(nazwa)
+
+// Zbior id slow, ktore moga trafic do serii: wszystko z listy poza pominietymi i poza wylaczonymi taliami.
+// To jedyne miejsce, w ktorym obie blokady sa sprawdzane, wiec zadna sciezka doboru kart ich nie omija.
+function dostepneIds(slowa, pominiete, wylaczoneTalie) {
+  const wylaczone = zbiorWylaczonych(wylaczoneTalie)
   const ids = new Set()
   for (const s of slowa) {
-    if (!jestPominiete(pominiete, s.id)) ids.add(s.id)
+    if (jestPominiete(pominiete, s.id)) continue
+    if (wylaczone.size && wylaczone.has(taliaSlowa(s))) continue
+    ids.add(s.id)
   }
   return ids
 }
@@ -205,78 +220,98 @@ export function kartaZnam(karta, klucz, teraz = new Date()) {
   return { ...karta, stan: 'powtorka', krok: 0, termin: rozrzucTermin(klucz, termin, teraz) }
 }
 
-// Ranga z utrwalonych slow
-
-// [prog, nazwa]. Prog to liczba utrwalonych slow, czyli kart EN o stabilnosci co najmniej PROG_UTRWALENIA dni.
-// Ostatni prog to rozmiar talii Oxford 3000.
-export const PROGI_RANG = [
-  [0, 'Start'],
-  [50, 'Pierwsze słowa'],
-  [150, 'Turysta'],
-  [350, 'Rozmowa'],
-  [700, 'Swobodnie'],
-  [1200, 'Pewnie'],
-  [1800, 'Biegle'],
-  [2500, 'Prawie natywnie'],
-  [2981, 'Cała talia'],
-]
-
-// Liczy karty EN o stabilnosci co najmniej PROG_UTRWALENIA dni. Slowa pominiete tez sie licza: wiedza
-// zostaje wiedza, a "Pomijam" mowi tylko, ze nie ma po co ich powtarzac.
-export function liczbaUtrwalonych({ slowa, karty }) {
-  let ile = 0
+// Postep calej talii: jedyny wskaznik w apce (rangi, poziomow i punktow tygodnia juz nie ma).
+// Wypelnienie paska to slowa poznane (karta EN nie jest nowa), jasniejszy segment w srodku to slowa
+// utrwalone (stabilnosc co najmniej PROG_UTRWALENIA dni). Slowa pominiete tez sie licza: wiedza zostaje
+// wiedza, a "Pomijam" mowi tylko, ze nie ma po co ich powtarzac.
+export function postepTalii({ slowa, karty, wylaczoneTalie }) {
+  const wylaczone = zbiorWylaczonych(wylaczoneTalie)
+  let poznane = 0
+  let utrwalone = 0
+  let wszystkie = 0
   for (const s of slowa) {
+    if (wylaczone.size && wylaczone.has(taliaSlowa(s))) continue
+    wszystkie += 1
     const en = karty[klucz(s.id, 'en')]
-    if (en && en.stan !== 'nowa' && en.stabilnosc >= PROG_UTRWALENIA) ile += 1
+    if (jestNowa(en)) continue
+    poznane += 1
+    if (en.stabilnosc >= PROG_UTRWALENIA) utrwalone += 1
   }
-  return ile
-}
-
-// Ranga i pasek do nastepnego progu. `stopien` to indeks w PROGI_RANG, wiec awans poznaje sie po jego wzroscie.
-export function ranga(utrwalone) {
-  const ile = Math.max(Math.trunc(Number(utrwalone) || 0), 0)
-  let stopien = 0
-  while (stopien + 1 < PROGI_RANG.length && PROGI_RANG[stopien + 1][0] <= ile) stopien += 1
-  const od = PROGI_RANG[stopien][0]
-  const ostatnia = stopien + 1 >= PROGI_RANG.length
-  const doNastepnej = ostatnia ? 0 : PROGI_RANG[stopien + 1][0] - ile
-  const zakres = ostatnia ? 1 : PROGI_RANG[stopien + 1][0] - od
   return {
-    stopien,
-    nazwa: PROGI_RANG[stopien][1],
-    utrwalone: ile,
-    prog: od,
-    nastepnyProg: ostatnia ? od : PROGI_RANG[stopien + 1][0],
-    nastepnaNazwa: ostatnia ? '' : PROGI_RANG[stopien + 1][1],
-    doNastepnej,
-    ostatnia,
-    procent: ostatnia ? 100 : Math.min(99, Math.floor(((ile - od) / zakres) * 100)),
+    poznane,
+    utrwalone,
+    wszystkie,
+    ulamekPoznanych: wszystkie ? poznane / wszystkie : 0,
+    ulamekUtrwalonych: wszystkie ? utrwalone / wszystkie : 0,
   }
 }
 
-// Zdanie do interfejsu, zeby ekran startu i menu mowily to samo.
-export function opisRangi(r) {
-  if (r.ostatnia) return `${r.nazwa} · ${r.utrwalone} słów utrwalonych`
-  return `${r.nazwa} · ${r.utrwalone} / ${r.nastepnyProg} słów utrwalonych`
+// Czas odpowiedzi jako sygnal (C). Liczy sie od odsloniecia karty do oceny: 0-3 s szybko, 3-8 s srednio,
+// powyzej 8 s wolno. Ramka karty zmienia kolor w tym rytmie, bez cyfr i bez tykania.
+export const SEKUNDY_TEMPA_SREDNIEGO = 3
+export const SEKUNDY_TEMPA_WOLNEGO = 8
+export const TEMPA = ['szybko', 'srednio', 'wolno']
+export const NOTKA_WOLNO = 'wolno, liczę jako Prawie'
+
+export function tempoOdpowiedzi(sekundy) {
+  const s = Math.max(Number(sekundy) || 0, 0)
+  if (s >= SEKUNDY_TEMPA_WOLNEGO) return 'wolno'
+  if (s >= SEKUNDY_TEMPA_SREDNIEGO) return 'srednio'
+  return 'szybko'
 }
 
-// Punkty tygodnia: licznik zerowany w poniedzialek rano. Laczne punkty (expRazem) zostaja w statystykach.
-
-// Poniedzialek biezacego tygodnia jako RRRR-MM-DD. getDay(): 0 to niedziela.
-export function poczatekTygodnia(teraz = new Date()) {
-  const przesuniecie = (teraz.getDay() + 6) % 7
-  return dataLokalna(new Date(teraz.getFullYear(), teraz.getMonth(), teraz.getDate() - przesuniecie))
+// Powyzej 8 s "Umiem" zapisuje sie jako "Prawie": odpowiedz po tak dlugim szukaniu nie jest wiedza gotowa
+// do uzycia. Nie dotyczy pierwszej ekspozycji slowa (nowa karta) ani treningu, bo tam czas nic nie znaczy.
+export function ocenaPoCzasie({ ocena, sekundy = 0, nowa = false, trening = false }) {
+  if (ocena !== 3 || nowa || trening) return { ocena, obnizona: false }
+  if (tempoOdpowiedzi(sekundy) !== 'wolno') return { ocena, obnizona: false }
+  return { ocena: 2, obnizona: true }
 }
 
-export function punktyTygodnia(punkty, teraz = new Date()) {
-  const tydzien = poczatekTygodnia(teraz)
-  if (punkty?.tydzien === tydzien) return { tydzien, punkty: Math.max(Number(punkty.punkty) || 0, 0) }
-  return { tydzien, punkty: 0 }
+// Mediana czasow odpowiedzi z dnia. Pusta lista daje 0, zeby statystyki nie musialy sprawdzac null.
+export function mediana(liczby) {
+  const lista = [...(liczby || [])].filter((x) => typeof x === 'number' && Number.isFinite(x)).sort((a, b) => a - b)
+  if (!lista.length) return 0
+  const srodek = Math.floor(lista.length / 2)
+  const wynik = lista.length % 2 ? lista[srodek] : (lista[srodek - 1] + lista[srodek]) / 2
+  return Math.round(wynik * 10) / 10
 }
 
-export function dolozPunkty(punkty, ile, teraz = new Date()) {
-  const biezace = punktyTygodnia(punkty, teraz)
-  return { tydzien: biezace.tydzien, punkty: biezace.punkty + Math.max(Number(ile) || 0, 0) }
+// Gesty w cztery strony (A). Karta podaza za palcem w obu osiach, a kierunek ustala sie dopiero przy
+// przekroczeniu progu: 90 px w poziomie, 80 px w pionie albo szybki flick (ruch powyzej 30 px z predkoscia
+// ponad PROG_FLICKA px/ms). Wygrywa os, ktora przekroczyla swoj prog "mocniej", wiec ukosny ruch nie miga.
+export const PROG_GESTU_POZIOM = 90
+export const PROG_GESTU_PION = 80
+export const PROG_FLICKA = 0.6
+export const MIN_DROGI_FLICKA = 30
+// Ponizej tego ruchu puszczenie palca liczy sie jak tapniecie, wiec lekkie drgniecie reki nadal odslania karte.
+export const PROG_RUCHU = 14
+// Drugie tapniecie w tym oknie to cofniecie oceny. Pierwsze tapniecie dziala od razu i na nic nie czeka.
+export const MS_DWUKROTNEGO_TAPNIECIA = 280
+
+export const KIERUNKI = ['prawo', 'lewo', 'gora', 'dol']
+// Prawo "Umiem", lewo "Nie umiem", gora "Prawie". Dol to wyjscie z sesji, wiec nie ma oceny.
+export const OCENY_GESTU = { prawo: 3, lewo: 1, gora: 2 }
+
+export const oceneZGestu = (kierunek) => OCENY_GESTU[kierunek] ?? null
+
+export function kierunekGestu({ dx = 0, dy = 0, vx = 0, vy = 0 } = {}) {
+  const drogaX = Math.abs(dx)
+  const drogaY = Math.abs(dy)
+  const flickX = drogaX > MIN_DROGI_FLICKA && Math.abs(vx) > PROG_FLICKA
+  const flickY = drogaY > MIN_DROGI_FLICKA && Math.abs(vy) > PROG_FLICKA
+  const mocX = flickX ? Math.max(drogaX / PROG_GESTU_POZIOM, 1) : drogaX / PROG_GESTU_POZIOM
+  const mocY = flickY ? Math.max(drogaY / PROG_GESTU_PION, 1) : drogaY / PROG_GESTU_PION
+  if (mocX < 1 && mocY < 1) return ''
+  if (mocX >= mocY) return dx > 0 ? 'prawo' : 'lewo'
+  return dy > 0 ? 'dol' : 'gora'
+}
+
+// Oceny dzialaja wylacznie po odslonieciu (najpierw sprobuj sobie przypomniec), gest w dol zawsze.
+export function gestDozwolony(kierunek, odkryta) {
+  if (kierunek === 'dol') return true
+  if (!kierunek) return false
+  return !!odkryta
 }
 
 // Stan dnia (sekundy nauki, dodatkowe nowe, zrobione powtorki) zeruje sie o lokalnej polnocy.
@@ -366,9 +401,9 @@ export function pilnosc(karta, teraz = new Date(), przypomnienie) {
 
 // Kroki nauki i karty po pomylce ida przed powtorkami (ich terminy licza sie w minutach), a wewnatrz obu
 // grup rzadzi pilnosc: najpierw te najblizsze zapomnieniu. To odpowiednik "relative overdueness" z Anki.
-function zalegle({ slowa, karty, ustawienia, teraz, pominiete, przypomnienie }) {
+function zalegle({ slowa, karty, ustawienia, teraz, pominiete, wylaczoneTalie, przypomnienie }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
-  const ids = dostepneIds(slowa, pominiete)
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
   const czas = teraz.getTime()
   const nauka = []
   const powtorki = []
@@ -388,21 +423,21 @@ function zalegle({ slowa, karty, ustawienia, teraz, pominiete, przypomnienie }) 
   return { nauka: nauka.sort(wgPilnosci), powtorki: powtorki.sort(wgPilnosci) }
 }
 
-export function liczbaZaleglych({ slowa, karty, ustawienia, teraz = new Date(), pominiete }) {
-  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia, teraz, pominiete })
+export function liczbaZaleglych({ slowa, karty, ustawienia, teraz = new Date(), pominiete, wylaczoneTalie }) {
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia, teraz, pominiete, wylaczoneTalie })
   return nauka.length + powtorki.length
 }
 
 // Czy nowe slowo trzeba na razie pominac przez interferencje: slowo kolidujace jest w nauce albo weszlo
 // w ciagu ostatnich DNI_INTERFERENCJI dni. `kolizje` to { id: [id kolidujacych] } z kolizje.js.
-export function kolidujeTeraz({ kolizje, id, karty, teraz = new Date(), dni = DNI_INTERFERENCJI, pominiete }) {
+export function kolidujeTeraz({ kolizje, id, karty, teraz = new Date(), dni = DNI_INTERFERENCJI, pominiete, dostepne }) {
   const lista = kolizje?.[id]
   if (!lista?.length) return false
   const granica = teraz.getTime() - dni * 86400000
   for (const inny of lista) {
-    // Slowo pominiete nigdy juz nie bedzie oceniane, wiec jego karta zostalaby w stanie "nauka" na zawsze
-    // i blokowala partnerow bezterminowo.
-    if (jestPominiete(pominiete, inny)) continue
+    // Slowo pominiete albo z wylaczonej talii nigdy juz nie bedzie oceniane, wiec jego karta zostalaby
+    // w stanie "nauka" na zawsze i blokowala partnerow bezterminowo.
+    if (dostepne ? !dostepne.has(inny) : jestPominiete(pominiete, inny)) continue
     const k = karty[klucz(inny, 'en')]
     if (!k || k.stan === 'nowa') continue
     if (k.stan === 'nauka' || k.stan === 'ponowna') return true
@@ -422,13 +457,15 @@ export function zbudujSerie({
   teraz = new Date(),
   dlugosc,
   pominiete,
+  wylaczoneTalie,
   nadrabianie,
   kolizje,
   przypomnienie,
 }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
   const maks = dlugosc ?? u.dlugoscSerii
-  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete, przypomnienie })
+  const dostepne = dostepneIds(slowa, pominiete, wylaczoneTalie)
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete, wylaczoneTalie, przypomnienie })
   const budzet = budzetPowtorek({ ustawienia: u, dzis, teraz, nadrabianie })
   // Budzet dotyczy wylacznie powtorek. Karta zaczeta dzis (nauka albo ponowna) musi dac sie dzis skonczyc:
   // inaczej apka mowi "na dzis wszystko", majac przeterminowane karty, a FSRS liczy je jutro jak powtorke
@@ -439,7 +476,7 @@ export function zbudujSerie({
 
   for (const s of slowa) {
     if (wynik.length >= maks || limity.pl <= 0) break
-    if (jestPominiete(pominiete, s.id)) continue
+    if (!dostepne.has(s.id)) continue
     const kPl = klucz(s.id, 'pl')
     if (mowienieOdblokowane(karty[klucz(s.id, 'en')]) && jestNowa(karty[kPl])) {
       wynik.push(kPl)
@@ -448,11 +485,11 @@ export function zbudujSerie({
   }
   for (const s of slowa) {
     if (wynik.length >= maks || limity.en <= 0) break
-    if (jestPominiete(pominiete, s.id)) continue
+    if (!dostepne.has(s.id)) continue
     const kEn = klucz(s.id, 'en')
     if (!jestNowa(karty[kEn])) continue
     // Slowo kolidujace czeka na kolejny dzien: bierzemy nastepne z listy zamiast blokowac cala kolejke.
-    if (kolidujeTeraz({ kolizje, id: s.id, karty, teraz, pominiete })) continue
+    if (kolidujeTeraz({ kolizje, id: s.id, karty, teraz, pominiete, dostepne })) continue
     // To samo dla partnera, ktory wszedl do tej samej serii przed chwila.
     if (kolizje?.[s.id]?.some((inny) => dodaneNowe.has(inny))) continue
     wynik.push(kEn)
@@ -464,11 +501,11 @@ export function zbudujSerie({
 
 // Do ekranu startu, konca serii i menu. `doZrobienia` to jedna liczba kart na teraz (bez rozbicia na dlug),
 // `zalegle` i reszta zostaja do statystyk w menu.
-export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new Date(), pominiete, nadrabianie, kolizje, przypomnienie }) {
+export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new Date(), pominiete, wylaczoneTalie, nadrabianie, kolizje, przypomnienie }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
-  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete })
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete, wylaczoneTalie })
   const polnoc = new Date(teraz.getFullYear(), teraz.getMonth(), teraz.getDate() + 1).getTime()
-  const ids = dostepneIds(slowa, pominiete)
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
   let pozniejDzis = 0
   for (const [k, karta] of Object.entries(karty)) {
     if (karta.stan === 'nowa') continue
@@ -486,6 +523,7 @@ export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new D
     teraz,
     dlugosc: Infinity,
     pominiete,
+    wylaczoneTalie,
     nadrabianie,
     kolizje,
     przypomnienie,
@@ -504,9 +542,9 @@ export function podsumowanieDnia({ slowa, karty, ustawienia, dzis, teraz = new D
 // "Co dalej" na ekranie konca serii (C5): ile kart czeka do konca jutrzejszego dnia. Nowych slow tu nie ma,
 // bo o nich decyduje limit dzienny, a nie harmonogram. `znosna` mowi interfejsowi, czy wolno pokazac liczbe:
 // ponad sufit powtorek robi sie z niej dlug, a dlugu nie pokazujemy.
-export function prognozaNaJutro({ slowa, karty, ustawienia, teraz = new Date(), pominiete }) {
+export function prognozaNaJutro({ slowa, karty, ustawienia, teraz = new Date(), pominiete, wylaczoneTalie }) {
   const u = ustawieniaZDomyslnymi(ustawienia)
-  const ids = dostepneIds(slowa, pominiete)
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
   const koniecJutra = new Date(teraz.getFullYear(), teraz.getMonth(), teraz.getDate() + 2).getTime()
   let liczba = 0
   for (const [k, karta] of Object.entries(karty)) {
@@ -523,8 +561,8 @@ export function prognozaNaJutro({ slowa, karty, ustawienia, teraz = new Date(), 
 // nie zmienia stanu karty ani terminow, wiec kolejnosc liczy sie tylko z tego, co juz jest w pamieci.
 const zPomylka = (karta) => karta.pomylki > 0
 
-export function liczbaTrudnych({ slowa, karty, pominiete }) {
-  const ids = dostepneIds(slowa, pominiete)
+export function liczbaTrudnych({ slowa, karty, pominiete, wylaczoneTalie }) {
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
   let ile = 0
   for (const [k, karta] of Object.entries(karty)) {
     if (zPomylka(karta) && ids.has(rozbierzKlucz(k).id)) ile += 1
@@ -533,9 +571,9 @@ export function liczbaTrudnych({ slowa, karty, pominiete }) {
 }
 
 // Wiecej pomylek pierwsze, przy remisie pozniejsza ostatnia ocena.
-export function trudneKarty({ slowa, karty, ustawienia, dlugosc, pominiete }) {
+export function trudneKarty({ slowa, karty, ustawienia, dlugosc, pominiete, wylaczoneTalie }) {
   const maks = dlugosc ?? ustawieniaZDomyslnymi(ustawienia).dlugoscSerii
-  const ids = dostepneIds(slowa, pominiete)
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
   const lista = []
   for (const [k, karta] of Object.entries(karty)) {
     if (!zPomylka(karta) || !ids.has(rozbierzKlucz(k).id)) continue
@@ -543,6 +581,92 @@ export function trudneKarty({ slowa, karty, ustawienia, dlugosc, pominiete }) {
   }
   lista.sort((a, b) => b.pomylki - a.pomylki || b.ostatnio - a.ostatnio)
   return lista.slice(0, maks).map((p) => p.k)
+}
+
+// Gry (G): slowa biora sie z kart do powtorki na dzis, a gdy jest ich za malo, z ostatnio uczonych.
+// Oceny w grach nie zmieniaja harmonogramu, wiec interesuja nas same slowa, nie klucze kart.
+export const MIN_SLOW_GRY = 6
+// Generator krzyzowki miesci srednio ok. 83% podanych slow, wiec dostaje kilka wiecej niz potrzeba.
+export const SLOW_KRZYZOWKI = 12
+export const ZAPAS_KRZYZOWKI = 3
+
+// Slowa juz uczone, najswiezsze pierwsze: zapas dla gier w dniu bez powtorek.
+export function ostatnioUczone({ slowa, karty, pominiete, wylaczoneTalie, ile = MAKS_WYNIKOW }) {
+  const ids = dostepneIds(slowa, pominiete, wylaczoneTalie)
+  const lista = []
+  for (const s of slowa) {
+    if (!ids.has(s.id)) continue
+    const en = karty[klucz(s.id, 'en')]
+    if (jestNowa(en)) continue
+    lista.push({ id: s.id, ostatnio: Date.parse(en.ostatnio) || 0 })
+  }
+  lista.sort((a, b) => b.ostatnio - a.ostatnio)
+  return lista.slice(0, ile).map((p) => p.id)
+}
+
+// Nowe slowa do gry nie trafiaja: gracz nigdy ich nie widzial, wiec nie ma czego odgadywac. Stad zalegle
+// karty obu kierunkow, a dopiero przy mniej niz `minimum` slowach dobor z ostatnio uczonych.
+export function slowaDoGry({
+  slowa,
+  karty,
+  ustawienia,
+  teraz = new Date(),
+  pominiete,
+  wylaczoneTalie,
+  przypomnienie,
+  ile = SLOW_KRZYZOWKI,
+  minimum = MIN_SLOW_GRY,
+}) {
+  const u = ustawieniaZDomyslnymi(ustawienia)
+  const { nauka, powtorki } = zalegle({ slowa, karty, ustawienia: u, teraz, pominiete, wylaczoneTalie, przypomnienie })
+  const widziane = new Set()
+  const wybrane = []
+  const dodaj = (id) => {
+    if (widziane.has(id) || wybrane.length >= ile) return
+    widziane.add(id)
+    wybrane.push(id)
+  }
+  for (const pozycja of [...nauka, ...powtorki]) dodaj(rozbierzKlucz(pozycja.k).id)
+  if (wybrane.length >= minimum) return wybrane
+  for (const id of ostatnioUczone({ slowa, karty, pominiete, wylaczoneTalie, ile })) dodaj(id)
+  return wybrane
+}
+
+// Lista talii do menu (H): kolejnosc dodania, liczba slow, liczba poznanych i to, czy talia wchodzi
+// do nauki. Wylaczona talia zostaje na liscie razem z postepem, wiec przelacznik da sie cofnac.
+export function listaTalii({ slowa, karty, wylaczoneTalie }) {
+  const wylaczone = zbiorWylaczonych(wylaczoneTalie)
+  const mapa = new Map()
+  for (const s of slowa) {
+    const nazwa = taliaSlowa(s)
+    const wpis = mapa.get(nazwa) || { nazwa, wszystkie: 0, poznane: 0, wlaczona: !wylaczone.has(nazwa) }
+    wpis.wszystkie += 1
+    if (!jestNowa(karty[klucz(s.id, 'en')])) wpis.poznane += 1
+    mapa.set(nazwa, wpis)
+  }
+  return [...mapa.values()]
+}
+
+// Usuniecie talii (H): znikaja jej slowa razem z calym postepem. Zwraca komplet nowych obiektow i liczby
+// do potwierdzenia, zeby interfejs mogl zapytac przed zapisem.
+export function bezTalii({ slowa, karty, pominiete }, nazwa) {
+  const usuwane = new Set()
+  const zostaja = []
+  for (const s of slowa) {
+    if (taliaSlowa(s) === nazwa) usuwane.add(s.id)
+    else zostaja.push(s)
+  }
+  const noweKarty = {}
+  let usunieteKarty = 0
+  for (const [k, karta] of Object.entries(karty || {})) {
+    if (usuwane.has(rozbierzKlucz(k).id)) usunieteKarty += 1
+    else noweKarty[k] = karta
+  }
+  const nowePominiete = {}
+  for (const [id, data] of Object.entries(pominiete || {})) {
+    if (!usuwane.has(id)) nowePominiete[id] = data
+  }
+  return { slowa: zostaja, karty: noweKarty, pominiete: nowePominiete, usunieteSlowa: usuwane.size, usunieteKarty }
 }
 
 function dolicz(mapa, nazwa, poznane) {
@@ -557,7 +681,10 @@ const kolejnoscPoziomu = (p) => (POZIOMY.includes(p) ? POZIOMY.indexOf(p) : POZI
 // Poznane = karta EN juz nie jest nowa (takze dla slow pominietych po nauce). Pominiete liczymy osobno, a do
 // prognozy idzie `doWprowadzenia`: slowa, ktore jeszcze moga wejsc do nauki.
 // Talie w kolejnosci dodania, poziomy tylko te, ktore wystepuja w slowach.
-export function statystyki({ slowa, karty, pominiete }) {
+export function statystyki({ slowa, karty, pominiete, wylaczoneTalie }) {
+  // Bez tego filtra menu pokazywaloby postep talii, z ktorej uzytkownik sie nie uczy, obok paska,
+  // ktory ja juz pomija: dwie sprzeczne liczby na jednym ekranie.
+  const wylaczone = zbiorWylaczonych(wylaczoneTalie)
   const talie = new Map()
   const poziomy = new Map()
   let poznaneRazem = 0
@@ -568,6 +695,7 @@ export function statystyki({ slowa, karty, pominiete }) {
   let pominietych = 0
   let doWprowadzenia = 0
   for (const s of slowa) {
+    if (wylaczone.size && wylaczone.has(taliaSlowa(s))) continue
     const en = karty[klucz(s.id, 'en')]
     const poznane = jestNowa(en) ? 0 : 1
     poznaneRazem += poznane
@@ -653,12 +781,24 @@ export const postepSerii = (seria) => (seria.wszystkie ? seria.oczyszczone / ser
 export const pasekPostepu = (postep) => Math.pow(Math.min(Math.max(postep, 0), 1), 1.5)
 
 // Jedna karta liczy sie najwyzej MAKS_SEKUND_KARTY, zeby odlozony telefon nie nabijal czasu nauki.
-export const czasKarty = (sekundy) => Math.min(Math.max(Number(sekundy) || 0, 0), MAKS_SEKUND_KARTY)
+// Zaokraglenie do 0,1 s: surowe wartosci z performance.now() zajmowaly w zapisie cztery razy wiecej miejsca.
+export const czasKarty = (sekundy) =>
+  Math.round(Math.min(Math.max(Number(sekundy) || 0, 0), MAKS_SEKUND_KARTY) * 10) / 10
 
 // Czas nauki jest juz tylko statystyka: o serii decyduje jedna oceniona karta, nie 60 sekund.
 export function zaliczCzas(dzis, sekundy, teraz = new Date()) {
   const dzien = dzisiejszy(dzis, teraz)
   return { ...dzien, sekundy: Math.round((dzien.sekundy + czasKarty(sekundy)) * 10) / 10 }
+}
+
+// Gra trwa dluzej niz jedna karta, wiec czas doliczamy raz na koniec i z wlasnym sufitem: telefon
+// odlozony w polowie krzyzowki nie ma sie zapisac jako godzina nauki.
+export const MAKS_SEKUND_GRY = 900
+export const czasGry = (sekundy) => Math.min(Math.max(Number(sekundy) || 0, 0), MAKS_SEKUND_GRY)
+
+export function zaliczCzasGry(dzis, sekundy, teraz = new Date()) {
+  const dzien = dzisiejszy(dzis, teraz)
+  return { ...dzien, sekundy: Math.round((dzien.sekundy + czasGry(sekundy)) * 10) / 10 }
 }
 
 // Seria bez kary (A3)
@@ -832,13 +972,22 @@ export function kartaOdlozona(karta, klucz, teraz = new Date()) {
   return { ...kartaPoLeechu(karta), stan: 'powtorka', krok: 0, termin: rozrzucTermin(klucz, termin, teraz) }
 }
 
-// Historia dni: { 'RRRR-MM-DD': { oceny, nowe, exp, sekundy } }. Uzupelniana przy kazdej ocenie, takze w treningu.
+// Historia dni: { 'RRRR-MM-DD': { oceny, nowe, exp, sekundy, tempo, czasy } }. Uzupelniana przy kazdej
+// ocenie, takze w treningu. `tempo` to mediana czasow odpowiedzi tego dnia (od odsloniecia do oceny),
+// a `czasy` to surowe czasy, z ktorych ta mediana powstaje.
 
-const PUSTY_DZIEN = { oceny: 0, nowe: 0, exp: 0, sekundy: 0 }
+const PUSTY_DZIEN = { oceny: 0, nowe: 0, exp: 0, sekundy: 0, tempo: 0, czasy: [] }
 
-export function dopiszDzien(historia, { oceny = 0, nowe = 0, exp = 0, sekundy = 0 }, teraz = new Date()) {
+// Surowych czasow trzymamy najwyzej tyle: mediana z dwustu odpowiedzi jest juz stabilna, a zapis ma
+// zostac maly. Poza biezacym dniem `przytnijHistorie` i tak zostawia sama mediane.
+export const MAKS_CZASOW_DNIA = 200
+
+export function dopiszDzien(historia, { oceny = 0, nowe = 0, exp = 0, sekundy = 0, czas = 0 }, teraz = new Date()) {
   const data = dataLokalna(teraz)
   const stary = historia?.[data] || PUSTY_DZIEN
+  const poprzednieCzasy = Array.isArray(stary.czasy) ? stary.czasy : []
+  const nowyCzas = czasKarty(czas)
+  const czasy = nowyCzas > 0 && poprzednieCzasy.length < MAKS_CZASOW_DNIA ? [...poprzednieCzasy, nowyCzas] : poprzednieCzasy
   return {
     ...historia,
     [data]: {
@@ -846,6 +995,8 @@ export function dopiszDzien(historia, { oceny = 0, nowe = 0, exp = 0, sekundy = 
       nowe: stary.nowe + nowe,
       exp: stary.exp + exp,
       sekundy: Math.round((stary.sekundy + sekundy) * 10) / 10,
+      tempo: czasy.length ? mediana(czasy) : Number(stary.tempo) || 0,
+      czasy,
     },
   }
 }
@@ -859,7 +1010,14 @@ export function przytnijHistorie(historia, teraz = new Date()) {
   const wynik = {}
   // Daty RRRR-MM-DD porownuja sie poprawnie jako tekst. Dni z przyszlosci (cofniety zegar) tez odpadaja.
   for (const [data, wpis] of Object.entries(historia)) {
-    if (data >= granica && data <= dzis) wynik[data] = wpis
+    if (data < granica || data > dzis) continue
+    if (data === dzis || !Array.isArray(wpis.czasy)) {
+      wynik[data] = wpis
+      continue
+    }
+    // Zamkniety dzien ma juz policzona mediane, wiec surowe czasy nie musza zajmowac miejsca w zapisie.
+    const { czasy, ...reszta } = wpis
+    wynik[data] = reszta
   }
   return wynik
 }
@@ -891,10 +1049,38 @@ export function historiaDni(historia, dni = DNI_HEATMAPY, teraz = new Date()) {
   for (let i = dni - 1; i >= 0; i--) {
     const data = przesunDzien(teraz, -i)
     const wpis = historia?.[data] || PUSTY_DZIEN
-    wynik.push({ data, oceny: wpis.oceny, nowe: wpis.nowe, stopien: stopienDnia(wpis.oceny) })
+    wynik.push({ data, oceny: wpis.oceny, nowe: wpis.nowe, tempo: Number(wpis.tempo) || 0, stopien: stopienDnia(wpis.oceny) })
   }
   return wynik
 }
+
+// Statystyki w krotkich zdaniach (D): ile kart w ostatnim tygodniu i najdluzszy ciag dni z nauka.
+export const DNI_TYGODNIA_NAUKI = 7
+
+export const kartyWTygodniu = (historia, teraz = new Date()) =>
+  historiaDni(historia, DNI_TYGODNIA_NAUKI, teraz).reduce((suma, d) => suma + d.oceny, 0)
+
+// Najdluzszy ciag dni z choc jedna ocena w calej zapisanej historii (180 dni). Dni liczy kalendarz,
+// wiec przerwa to kazdy dzien bez wpisu albo z zerem ocen.
+export function najdluzszaSeriaDni(historia) {
+  const dni = Object.entries(historia || {})
+    .filter(([, wpis]) => (wpis?.oceny || 0) > 0)
+    .map(([data]) => data)
+    .sort()
+  let najdluzsza = 0
+  let biezaca = 0
+  let poprzedni = ''
+  for (const data of dni) {
+    biezaca = poprzedni && dniMiedzyDatami(poprzedni, data) === 1 ? biezaca + 1 : 1
+    poprzedni = data
+    if (biezaca > najdluzsza) najdluzsza = biezaca
+  }
+  return najdluzsza
+}
+
+// Mediana czasu odpowiedzi z ostatnich dni, liczona z median dni, ktore cos maja. 0 znaczy "brak danych".
+export const tempoOstatnich = (historia, dni = DNI_TEMPA, teraz = new Date()) =>
+  mediana(historiaDni(historia, dni, teraz).filter((d) => d.tempo > 0).map((d) => d.tempo))
 
 // Siatka heatmapy w kolumnach dni tygodnia (poniedzialek pierwszy): przed najstarszym dniem dokladamy puste
 // pola, zeby kazda kolumna byla tym samym dniem tygodnia. Zwraca tez liczby do podpisu pod siatka.

@@ -1,5 +1,5 @@
 // Wygenerowane przez zbuduj.mjs. Nie edytuj recznie.
-const WERSJA = '7ffa22d192b7'
+const WERSJA = '5e3c089c604f'
 const PLIKI = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ const PLIKI = [
   './ikona-192.png',
   './ikona-512.png',
   './kolizje.js',
+  './krzyzowka.js',
+  './literki.js',
   './magazyn.js',
   './manifest.webmanifest',
   './mowa.js',

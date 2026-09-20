@@ -5,6 +5,7 @@
 
 import {
   DOMYSLNE_USTAWIENIA,
+  MAKS_CZASOW_DNIA,
   MAKS_ZNAKOW_KOTWICY,
   OPCJE_CELU,
   OPCJE_DLUGOSCI,
@@ -17,7 +18,6 @@ import {
   dataLokalna,
   klucz,
   nadrabianieZDomyslnymi,
-  poczatekTygodnia,
   przytnijHistorie,
   streakZDomyslnymi,
 } from './talia.js'
@@ -44,9 +44,8 @@ export function domyslnyStan(teraz = new Date()) {
   return {
     karty: {},
     pominiete: {},
-    // expRazem to laczne punkty od poczatku (statystyka "punkty łącznie"); w zapisie leza pod starym polem "exp".
+    // expRazem zostaje w zapisie dla zgodnosci ze starszym telefonem; apka nigdzie go juz nie pokazuje.
     expRazem: 0,
-    punktyTygodnia: { tydzien: poczatekTygodnia(teraz), punkty: 0 },
     streak: { ...PUSTY_STREAK },
     nadrabianie: { ...PUSTE_NADRABIANIE },
     dzis: { data: '', sekundy: 0, dodatkoweNowe: 0, powtorki: 0 },
@@ -158,9 +157,8 @@ export function spakujStan(stan, teraz = new Date()) {
     wersja: WERSJA_ZAPISU,
     karty,
     pominiete: stan.pominiete || {},
-    // Pole "exp" zostaje nazwa w zapisie (zgodnosc ze starszym telefonem), ale znaczy juz "punkty łącznie".
+    // Pole "exp" zostaje nazwa w zapisie (zgodnosc ze starszym telefonem). Apka go nie pokazuje.
     exp: stan.expRazem || 0,
-    punktyTygodnia: stan.punktyTygodnia || { tydzien: poczatekTygodnia(teraz), punkty: 0 },
     streak: stan.streak,
     nadrabianie: nadrabianieZDomyslnymi(stan.nadrabianie),
     dzis: stan.dzis,
@@ -189,9 +187,16 @@ function ustawieniaPoprawione(u) {
   if (typeof u.autowymowa === 'boolean') wynik.autowymowa = u.autowymowa
   if (typeof u.mowienie === 'boolean') wynik.mowienie = u.mowienie
   // Kotwica nawyku jest tekstem od uzytkownika, wiec przycinamy biale znaki i dlugosc. Zapis bez tych pol
-  // (kazdy telefon sprzed tej wersji) dostaje wartosci domyslne: pusta kotwica i niezadane pytanie.
+  // (kazdy telefon sprzed tej wersji) dostaje wartosci domyslne: pusta kotwica i niepokazany samouczek.
   if (typeof u.kotwica === 'string') wynik.kotwica = u.kotwica.trim().slice(0, MAKS_ZNAKOW_KOTWICY)
-  if (typeof u.kotwicaPytano === 'boolean') wynik.kotwicaPytano = u.kotwicaPytano
+  if (typeof u.samouczekGestow === 'boolean') wynik.samouczekGestow = u.samouczekGestow
+  // Wylaczone talie (H) to nazwy od uzytkownika: bierzemy same niepuste napisy, bez powtorzen. Zapis bez
+  // tego pola (kazdy telefon sprzed tej wersji) dostaje pusta liste, czyli wszystkie talie wlaczone.
+  if (Array.isArray(u.wylaczoneTalie)) {
+    wynik.wylaczoneTalie = [...new Set(u.wylaczoneTalie.filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()))]
+  } else {
+    wynik.wylaczoneTalie = []
+  }
   return wynik
 }
 
@@ -203,7 +208,15 @@ function historiaPoprawiona(h) {
   const liczba = (x) => (liczbaNieujemna(x) ? x : 0)
   for (const [data, wpis] of Object.entries(h)) {
     if (!dzienRrrrMmDd(data) || !jestObiektem(wpis)) continue
-    wynik[data] = { oceny: liczba(wpis.oceny), nowe: liczba(wpis.nowe), exp: liczba(wpis.exp), sekundy: liczba(wpis.sekundy) }
+    const dzien = { oceny: liczba(wpis.oceny), nowe: liczba(wpis.nowe), exp: liczba(wpis.exp), sekundy: liczba(wpis.sekundy) }
+    // Mediana czasu odpowiedzi i surowe czasy sa opcjonalne: zapis sprzed tej wersji ich nie ma.
+    const tempo = liczba(wpis.tempo)
+    if (tempo) dzien.tempo = tempo
+    if (Array.isArray(wpis.czasy)) {
+      const czasy = wpis.czasy.filter(liczbaNieujemna).slice(0, MAKS_CZASOW_DNIA)
+      if (czasy.length) dzien.czasy = czasy
+    }
+    wynik[data] = dzien
   }
   return wynik
 }
@@ -273,24 +286,13 @@ export function walidujStan(dane, teraz = new Date()) {
       ? { data: d.data, sekundy: d.sekundy, dodatkoweNowe: d.dodatkoweNowe, powtorki: liczbaNieujemna(d.powtorki) ? d.powtorki : 0 }
       : domyslnyStan(teraz).dzis
 
-  // Zapis bez pola "punktyTygodnia" to zapis sprzed rangi: dotychczasowe EXP zostaje jako punkty laczne,
-  // a licznik tygodnia startuje od zera w biezacym tygodniu. `migracja` mowi interfejsowi, ze ma to wytlumaczyc.
-  const p = dane.punktyTygodnia
-  const migracja = !jestObiektem(p) && dane.exp > 0
-  const punktyTygodnia =
-    jestObiektem(p) && dzienRrrrMmDd(p.tydzien) && liczbaNieujemna(p.punkty)
-      ? { tydzien: p.tydzien, punkty: p.punkty }
-      : { tydzien: poczatekTygodnia(teraz), punkty: 0 }
-
   return {
     ok: true,
     pominiete,
-    migracja,
     stan: {
       karty,
       pominiete: pominietePoprawione(dane.pominiete),
       expRazem: dane.exp,
-      punktyTygodnia,
       streak,
       nadrabianie: nadrabianieZDomyslnymi(dane.nadrabianie),
       dzis,
@@ -340,14 +342,6 @@ export function walidujKopie(dane) {
 
 const czasOceny = (karta) => Date.parse(karta.ostatnio) || 0
 
-// Daty RRRR-MM-DD porownuja sie poprawnie jako tekst, wiec nowszy tydzien wygrywa zwyklym porownaniem.
-function nowszePunkty(a, b) {
-  if (!b?.tydzien) return a
-  if (!a?.tydzien || b.tydzien > a.tydzien) return b
-  if (b.tydzien < a.tydzien) return a
-  return b.punkty > a.punkty ? b : a
-}
-
 // Karta z kopii zastepuje obecna tylko, gdy ma wiecej powtorek, a przy remisie pozniejsza ocene.
 function kartaZKopiiNowsza(zKopii, obecna) {
   if (zKopii.powtorki !== obecna.powtorki) return zKopii.powtorki > obecna.powtorki
@@ -381,8 +375,6 @@ export function scalStany(obecny, zKopii) {
     // Pominiete slowa to suma obu stron: jesli na ktoryms telefonie slowo wypadlo z nauki, ma zostac poza nia.
     pominiete: { ...(obecny.pominiete || {}), ...(zKopii.pominiete || {}) },
     expRazem: Math.max(obecny.expRazem, zKopii.expRazem),
-    // Punkty tygodnia: wygrywa nowszy tydzien, a w tym samym tygodniu wyzszy licznik.
-    punktyTygodnia: nowszePunkty(obecny.punktyTygodnia, zKopii.punktyTygodnia),
     streak: streakZKopii ? b : a,
     // Tryb nadrabiania wynika z zaleglosci na tym telefonie, wiec plik kopii go nie dotyczy.
     nadrabianie: nadrabianieZDomyslnymi(obecny.nadrabianie),
@@ -428,15 +420,14 @@ export function wczytaj(pamiec = pamiecDomyslna(), teraz = new Date()) {
       stan: domyslnyStan(teraz),
       ostrzezenie: `Brak dostępu do pamięci telefonu (${opisBledu(blad)}). Postęp nie będzie zapisywany.`,
       pominiete: 0,
-      migracja: false,
     }
   }
-  if (surowy === null) return { stan: domyslnyStan(teraz), ostrzezenie: '', pominiete: 0, migracja: false }
+  if (surowy === null) return { stan: domyslnyStan(teraz), ostrzezenie: '', pominiete: 0 }
   const wynik = parsuj(surowy, teraz)
   if (wynik.ok) {
     // Pominiete karty znikna przy najblizszym zapisie, wiec surowy tekst zostaje pod osobnym kluczem.
     if (wynik.pominiete) zachowajUszkodzony(pamiec, surowy)
-    return { stan: wynik.stan, ostrzezenie: '', pominiete: wynik.pominiete, migracja: wynik.migracja }
+    return { stan: wynik.stan, ostrzezenie: '', pominiete: wynik.pominiete }
   }
 
   zachowajUszkodzony(pamiec, surowy)
@@ -451,14 +442,12 @@ export function wczytaj(pamiec = pamiecDomyslna(), teraz = new Date()) {
       stan: zapas.stan,
       ostrzezenie: `Zapisany postęp był uszkodzony (${wynik.blad}). Przywrócono kopię z początku dnia.`,
       pominiete: zapas.pominiete,
-      migracja: zapas.migracja,
     }
   }
   return {
     stan: domyslnyStan(teraz),
     ostrzezenie: `Zapisany postęp był uszkodzony (${wynik.blad}) i nie ma kopii dnia. Surowe dane zachowano pod kluczem ${KLUCZ_USZKODZONY}.`,
     pominiete: 0,
-    migracja: false,
   }
 }
 
