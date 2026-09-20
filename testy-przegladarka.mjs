@@ -670,7 +670,13 @@ try {
   const liczbyKonca = await js(`[...document.querySelectorAll('#scena .przyrost-liczba')].map((e) => e.textContent)`)
   sprawdz('koniec: najwyzej trzy liczby', liczbyKonca.length > 0 && liczbyKonca.length <= 3, JSON.stringify(liczbyKonca))
   sprawdz('koniec: bez punktow, procentow, rangi i celu dnia', !/pkt|%|ranga|Cel dnia/i.test(koniec), koniec.replace(/\n+/g, ' | '))
-  sprawdz('koniec: te same trzy przyciski, co na ekranie wyboru', (await js(`[...document.querySelectorAll('.wybor-przyciski button')].map((b) => b.textContent).join(',')`)) === 'Powtórki,Krzyżówka,Literki')
+  // Po serii powtorki sa zwykle wyczerpane, wiec obok zablokowanego przycisku staje "+10".
+  const przyciskiKonca = await js(`[...document.querySelectorAll('.wybor-przyciski button')].map((b) => b.textContent).join(',')`)
+  sprawdz(
+    'koniec: te same przyciski, co na ekranie wyboru (z "+10", gdy powtorki wyczerpane)',
+    przyciskiKonca === 'Powtórki,Krzyżówka,Literki' || przyciskiKonca === 'Powtórki,+10,Krzyżówka,Literki',
+    przyciskiKonca,
+  )
   sprawdz('koniec: celebracja sama sie konczy', await js(`!document.querySelector('#scena .ekran.swietuje')`))
   sprawdz('koniec: miesci sie bez przewijania i nie przewija w bok', (await miesciSie('#scena .ekran')) && (await przewijaWBok()) === '', await przewijaWBok())
   await zrzut('v4-koniec')
