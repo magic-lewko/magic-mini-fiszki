@@ -543,6 +543,32 @@ p {
   font-weight: 600;
 }
 
+/* Litery dane z gory: przygaszone, zeby bylo widac, ze to nie jest wpisana odpowiedz. */
+.krzyzowka-pole.dana .krzyzowka-litera {
+  color: var(--przygaszony);
+}
+
+/* Kosz w rogu karty: ma byc pod kciukiem, ale nie przyciagac wzroku, stad przygaszenie. */
+.karta .kosz {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0.28;
+  transition: opacity var(--czas-tap) ease-out;
+}
+
+.karta .kosz:active {
+  opacity: 0.85;
+}
+
 .trening-znacznik {
   position: absolute;
   top: 40px;
@@ -660,8 +686,10 @@ p {
   cursor: pointer;
 }
 
-.karta.odkryta .haptyka {
-  pointer-events: none;
+/* Przelacznik zostaje aktywny takze po odslonieciu: drugie tapniecie (cofniecie) ma wibrowac tak samo
+   jak pierwsze. Glosnik i "Podpowiedz" leza nad nim (z-index: 2), wiec nadal lapia swoje tapniecia. */
+.z-haptyka {
+  position: relative;
 }
 
 /* Dol ekranu nauki jest pusty (B): zostaja w nim tylko przyciski dla czytnika ekranu, ktore nie
@@ -818,6 +846,21 @@ p {
   width: 100%;
   display: grid;
   gap: 10px;
+}
+
+/* "Powtorki" z przyciskiem "+10" obok: liczy sie jeden rzad, wiec siatka nizej zostaje nietknieta. */
+.wybor-rzad {
+  display: flex;
+  gap: 10px;
+}
+
+.wybor-rzad .przycisk {
+  flex: 1;
+}
+
+.wybor-rzad .dorzut {
+  flex: none;
+  padding: 0 20px;
 }
 
 /* Ekran konca serii (D): najwyzej trzy liczby i te same przyciski, co na ekranie wyboru. */

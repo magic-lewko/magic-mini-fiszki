@@ -498,8 +498,6 @@ function pokazKarte() {
     const pole = el('div', { klasa: 'podpowiedz', id: 'podpowiedz-pole', 'aria-label': 'Podpowiedź' })
     rysujPodpowiedz(pole, slowo)
     karta.append(
-      // Etykieta zostaje tylko na karcie mowienia: bez niej nie widac, ze trzeba powiedziec slowo na glos.
-      el('div', { klasa: 'etykieta mowienie', tekst: 'Powiedz po angielsku' }),
       el('div', { klasa: 'tlumaczenie duze', tekst: slowo.pl }),
       pole,
       // Trudnosc pozadana: przycisk jest niewidoczny przez pierwsze 7 sekund, a jego uzycie blokuje "Umiem".
@@ -532,6 +530,15 @@ function pokazKarte() {
     ...[
       seria.trening && el('div', { klasa: 'trening-znacznik', tekst: 'Trening: terminy bez zmian' }),
       kartZeWskazowka < KART_ZE_WSKAZOWKA && el('div', { klasa: 'wskazowka', tekst: 'Dotknij, aby odsłonić' }),
+      // Kosz: slowo znane na sto procent ("map") wypada z nauki jednym tapnieciem, bez chodzenia
+      // do Menu > Slowka. Dwukrotne tapniecie w karte cofa to tak samo jak ocene.
+      el('button', {
+        klasa: 'kosz bez-odsloniecia',
+        type: 'button',
+        'aria-label': 'Znam na pewno, wyrzuć to słowo z nauki',
+        tekst: '🗑',
+        onclick: pomijajAktualna,
+      }),
     ].filter(Boolean),
   )
   podswietlKierunek('')
@@ -1243,14 +1250,29 @@ function pokazWybor(podsumowanieBlok = null) {
       el(
         'div',
         { klasa: 'wybor-przyciski' },
-        el('button', {
-          klasa: 'przycisk glowny duzy',
-          id: 'gra-powtorki',
-          type: 'button',
-          disabled: !jest,
-          tekst: 'Powtórki',
-          onclick: () => nowaSeriaLubPusto(),
-        }),
+        // Gdy nie ma czego powtarzac, obok zablokowanego przycisku stoi "+10": dorzuca dziesiec nowych
+        // slow na dzis, zeby dalo sie uczyc dalej bez wchodzenia w menu.
+        el(
+          'div',
+          { klasa: 'wybor-rzad' },
+          el('button', {
+            klasa: 'przycisk glowny duzy',
+            id: 'gra-powtorki',
+            type: 'button',
+            disabled: !jest,
+            tekst: 'Powtórki',
+            onclick: () => nowaSeriaLubPusto(),
+          }),
+          !jest &&
+            el('button', {
+              klasa: 'przycisk duzy dorzut',
+              id: 'gra-dodaj-nowe',
+              type: 'button',
+              'aria-label': 'Dodaj dziesięć nowych słów na dziś',
+              tekst: '+10',
+              onclick: dodajNoweNaDzis,
+            }),
+        ),
         przyciskGry('gra-krzyzowka', 'Krzyżówka', zacznijKrzyzowke),
         przyciskGry('gra-literki', 'Literki', zacznijLiterki),
       ),
@@ -1381,12 +1403,15 @@ function zacznijKrzyzowke() {
     toast('Z tych słów nie ułożyła się krzyżówka. Spróbuj jutro.')
     return
   }
+  // Kilka liter jest danych z gory (najwyzej po jednej na haslo): pusta siatka zniechecala do startu.
+  const dane = krzyzowka.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno })
   gra = {
     rodzaj: 'krzyzowka',
     siatka: ulozona.siatka,
     hasla: ulozona.hasla,
     komorki: ulozona.hasla.map(krzyzowka.komorkiHasla),
-    odpowiedzi: {},
+    dane: new Set(Object.keys(dane)),
+    odpowiedzi: { ...dane },
     uzyte: 0,
     ziarno,
     wybrane: 0,
@@ -1422,7 +1447,7 @@ function rysujKrzyzowke() {
           type: 'button',
           'data-w': w,
           'data-k': k,
-          'aria-label': `Pole ${w + 1}, ${k + 1}`,
+          'aria-label': `Pole ${w + 1}, ${k + 1}${gra.dane.has(klucz) ? ', litera dana' : ''}`,
           // Bez tego tapniecie w pole zabiera fokus ukrytemu polu i klawiatura systemowa chowa sie.
           onmousedown: (e) => e.preventDefault(),
           onclick: () => tapnijPole(w, k),
@@ -1463,7 +1488,8 @@ function rysujKrzyzowke() {
       el('button', { klasa: 'przycisk', id: 'krzyzowka-podpowiedz', type: 'button', onmousedown: (e) => e.preventDefault(), onclick: podpowiedzKrzyzowki }),
     ),
   )
-  podepnijWyjscieGestem(sekcja, wyjdzZGry)
+  // Krzyzowka nie ma wyjscia gestem: tu sie wpisuje litery, a przewijanie siatki w gore konczylo gre
+  // w polowie hasla. Wychodzi sie krzyzykiem w rogu.
   pokazEkran('krzyzowka', sekcja)
   odswiezKrzyzowke()
   wpis.focus()
@@ -1475,6 +1501,7 @@ function odswiezKrzyzowke() {
   for (const [klucz, pole] of gra.pola) {
     const [w, k] = klucz.split(',').map(Number)
     pole.querySelector('.krzyzowka-litera').textContent = gra.odpowiedzi[klucz] || ''
+    pole.classList.toggle('dana', gra.dane.has(klucz))
     pole.classList.toggle('wybrane', wybrane.has(klucz))
     pole.classList.toggle('aktywne', klucz === aktywne)
     const ocena = gra.oceny ? gra.oceny[w][k] : null
@@ -1524,6 +1551,13 @@ const bezPola = (odpowiedzi, klucz) => Object.fromEntries(Object.entries(odpowie
 function wpiszLitere(znak) {
   const litera = String(znak || '').toUpperCase()
   if (!gra?.pole || !/^\p{L}$/u.test(litera)) return
+  // Litera dana z gory zostaje na planszy, a kursor idzie dalej: wpisywanie calego hasla przez nia
+  // przechodzi, wiec nie trzeba celowac w same puste pola.
+  if (gra.dane.has(krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna))) {
+    przesunPole(1)
+    odswiezKrzyzowke()
+    return
+  }
   gra.odpowiedzi = { ...gra.odpowiedzi, [krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna)]: litera }
   gra.oceny = null
   przesunPole(1)
@@ -1533,13 +1567,10 @@ function wpiszLitere(znak) {
 
 function cofnijLitereKrzyzowki() {
   if (!gra?.pole) return
-  const klucz = krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna)
-  if (gra.odpowiedzi[klucz]) {
-    gra.odpowiedzi = bezPola(gra.odpowiedzi, klucz)
-  } else {
-    przesunPole(-1)
-    gra.odpowiedzi = bezPola(gra.odpowiedzi, krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna))
-  }
+  const klucz = () => krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna)
+  // Liter danych z gory nie kasujemy: kursor cofa sie przez nie dalej, tak jak przechodzi przy pisaniu.
+  if (!gra.odpowiedzi[klucz()] || gra.dane.has(klucz())) przesunPole(-1)
+  if (!gra.dane.has(klucz())) gra.odpowiedzi = bezPola(gra.odpowiedzi, klucz())
   gra.oceny = null
   odswiezKrzyzowke()
 }
@@ -2924,7 +2955,29 @@ function klawisze(e) {
   else if (e.key === 'z' || e.key === 'Z') ocenKarte(4)
 }
 
+// Haptyka (iPhone): systemowy klik daje wylacznie przelacznik <input switch> naprawde tapniety palcem,
+// programowe klikniecie od iOS 26.5 nie dziala. Dlatego kazdy przycisk w apce dostaje wlasny, niewidoczny
+// przelacznik - wczesniej wibrowala tylko karta i kafelki literek, wiec haptyki bylo jak na lekarstwo.
+// Obserwator lapie tez ekrany rysowane pozniej, bo apka przerysowuje sie w calosci przy kazdym przejsciu.
+// Gest oceny nie wibruje i wibrowac nie moze: swipe nie jest tapnieciem w przelacznik.
+function pilnujHaptyki() {
+  const dodaj = (wezel) => {
+    if (!(wezel instanceof Element)) return
+    const przyciski = wezel.matches('button') ? [wezel, ...wezel.querySelectorAll('button')] : [...wezel.querySelectorAll('button')]
+    for (const przycisk of przyciski) {
+      if (przycisk.classList.contains('tylko-czytnik') || przycisk.querySelector('.haptyka')) continue
+      przycisk.classList.add('z-haptyka')
+      dodajPrzelacznik(przycisk)
+    }
+  }
+  dodaj(document.body)
+  new MutationObserver((zmiany) => {
+    for (const zmiana of zmiany) for (const wezel of zmiana.addedNodes) dodaj(wezel)
+  }).observe(document.body, { childList: true, subtree: true })
+}
+
 function podepnijZdarzenia() {
+  pilnujHaptyki()
   $('menu-przycisk').addEventListener('click', otworzMenu)
   $('offline').addEventListener('click', otworzMenu)
   $('plik-slowek').addEventListener('change', (e) => {

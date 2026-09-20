@@ -1250,6 +1250,17 @@ try {
       ),
     )
   const polePo = (c) => `.krzyzowka-pole[data-w="${c.w}"][data-k="${c.k}"]`
+  const wypelnioneKrzyzowki = () => js(`[...document.querySelectorAll('.krzyzowka-pole .krzyzowka-litera')].filter((e) => e.textContent).length`)
+  const daneKrzyzowki = () => js(`document.querySelectorAll('.krzyzowka-pole.dana').length`)
+  // Kursor musi stac na pierwszej komorce wybranego hasla, inaczej wpisywanie calego slowa idzie
+  // z przesunieciem. Pierwsza komorka ".wybrane" w DOM to poczatek hasla w obu kierunkach.
+  const naPoczatkuHasla = () =>
+    js(`(() => { const w = [...document.querySelectorAll('.krzyzowka-pole.wybrane')]; return !!w.length && w[0].classList.contains('aktywne') })()`)
+  const ustawKursorNaPoczatku = async () => {
+    if (await naPoczatkuHasla()) return true
+    await tapnij('.krzyzowka-pole.wybrane')
+    return naPoczatkuHasla()
+  }
   const slowoZHasla = (haslo, poPl) => poPl.get(String(haslo).split(' · ').slice(1).join(' · '))
 
   // Slowa do gier: same litery, po 3-9 znakow, bez powtorzonych tlumaczen i bez anagramow (generator
@@ -1290,6 +1301,12 @@ try {
 
   const starty = await startyKrzyzowki()
   sprawdz('krzyzowka: hasla sa ponumerowane jak w papierowej', starty.length >= 3, `${starty.length} pol z numerem`)
+  const daneNaStarcie = await daneKrzyzowki()
+  sprawdz(
+    'krzyzowka: kilka liter jest danych z gory i nic wiecej nie jest wypelnione',
+    daneNaStarcie >= 1 && daneNaStarcie <= 4 && (await wypelnioneKrzyzowki()) === daneNaStarcie,
+    `dane: ${daneNaStarcie}, wypelnione: ${await wypelnioneKrzyzowki()}`,
+  )
   await tapnij(polePo(starty[0]))
   const pierwszeHaslo = await hasloKrzyzowki()
   sprawdz('krzyzowka: tapniecie w pole pokazuje tresc hasla nad klawiatura', /^\d+ (poziomo|pionowo) · .+/.test(pierwszeHaslo), pierwszeHaslo)
@@ -1300,18 +1317,39 @@ try {
   // Bledna litera: kolor cynobrowy po "Sprawdź", potem Backspace ja cofa.
   const zlaLitera = pierwszeSlowo[0].toUpperCase() === 'Q' ? 'z' : 'q'
   await wpiszTekst(zlaLitera)
-  sprawdz('krzyzowka: litera z klawiatury wchodzi w aktywne pole', (await literyKrzyzowki()) === zlaLitera.toUpperCase(), await literyKrzyzowki())
+  // Gdy kursor stal na literze danej, pierwsze nacisniecie tylko ja przeskakuje - wtedy piszemy raz jeszcze.
+  if ((await wypelnioneKrzyzowki()) === daneNaStarcie) await wpiszTekst(zlaLitera)
+  sprawdz(
+    'krzyzowka: litera z klawiatury wchodzi w aktywne pole',
+    (await wypelnioneKrzyzowki()) === daneNaStarcie + 1 && (await literyKrzyzowki()).includes(zlaLitera.toUpperCase()),
+    `${await literyKrzyzowki()} (dane: ${daneNaStarcie})`,
+  )
   await tapnij('#krzyzowka-sprawdz')
   await czekaj(150)
-  sprawdz('krzyzowka: "Sprawdź" koloruje bledna litere', (await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)) === 1 && (await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)) === 0, `bledne: ${await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)}`)
+  sprawdz(
+    'krzyzowka: "Sprawdź" koloruje bledna litere, a litery dane sa poprawne',
+    (await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)) === 1 &&
+      (await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)) === daneNaStarcie,
+    `bledne: ${await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)}, poprawne: ${await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)}`,
+  )
   await klawiszSurowy('Backspace', 8)
   await czekaj(150)
-  sprawdz('krzyzowka: Backspace cofa litere', (await literyKrzyzowki()) === '', JSON.stringify(await literyKrzyzowki()))
+  sprawdz(
+    'krzyzowka: Backspace cofa wpisane litery, a dane zostaja',
+    (await wypelnioneKrzyzowki()) === daneNaStarcie,
+    `wypelnione: ${await wypelnioneKrzyzowki()}, dane: ${daneNaStarcie}`,
+  )
 
+  sprawdz('krzyzowka: kursor da sie ustawic na pierwszej literze hasla', await ustawKursorNaPoczatku())
   await wpiszTekst(pierwszeSlowo)
   await tapnij('#krzyzowka-sprawdz')
   await czekaj(150)
-  sprawdz('krzyzowka: poprawne haslo podswietla sie na zielono', (await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)) === pierwszeSlowo.length, `${await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)} z ${pierwszeSlowo.length}`)
+  const poprawneWKrzyzowce = await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)
+  sprawdz(
+    'krzyzowka: poprawne haslo podswietla sie na zielono',
+    poprawneWKrzyzowce >= pierwszeSlowo.length && poprawneWKrzyzowce <= pierwszeSlowo.length + daneNaStarcie,
+    `${poprawneWKrzyzowce} przy hasle na ${pierwszeSlowo.length} liter i ${daneNaStarcie} literach danych`,
+  )
   const literyPrzedPodpowiedzia = (await literyKrzyzowki()).length
   await tapnij('#krzyzowka-podpowiedz')
   await czekaj(200)
@@ -1338,6 +1376,7 @@ try {
         bezSlowa += 1
         continue
       }
+      await ustawKursorNaPoczatku()
       await wpiszTekst(slowo)
     }
   }
@@ -1363,9 +1402,9 @@ try {
   sprawdz('literki: przycisk "Literki" otwiera ekran gry', await czekajNa(`!!document.getElementById('literki-kafelki')`, 8000), (await scenaTekst()).replace(/\n+/g, ' | '))
   sprawdz('literki: seria ma 10 slow', (await js(`document.getElementById('literki-postep').textContent`)) === '1 / 10', await js(`document.getElementById('literki-postep').textContent`))
   sprawdz(
-    'literki: kafelki to cele dotyku min. 44 px w jednym albo dwoch rzedach',
+    'literki: kafelki to cele dotyku min. 44 px w najwyzej trzech rzedach',
     await js(`[...document.querySelectorAll('.literka')].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 })`) &&
-      (await js(`new Set([...document.querySelectorAll('.literka')].map((b) => Math.round(b.getBoundingClientRect().top))).size`)) <= 2,
+      (await js(`new Set([...document.querySelectorAll('.literka')].map((b) => Math.round(b.getBoundingClientRect().top))).size`)) <= 3,
     await js(`[...document.querySelectorAll('.literka')].map((b) => Math.round(b.getBoundingClientRect().height)).join(', ')`),
   )
   const znaczenieLiterek = () => js(`document.getElementById('literki-znaczenie').textContent`)
@@ -1385,6 +1424,13 @@ try {
   const pierwszeLiterki = poPl.get(await znaczenieLiterek())
   sprawdz('literki: u gory stoi polskie znaczenie slowa z talii', !!pierwszeLiterki, await znaczenieLiterek())
   sprawdz('literki: pod znaczeniem jest tyle miejsc, ile liter', (await js(`document.querySelectorAll('.literki-slot').length`)) === pierwszeLiterki.length, `${await js(`document.querySelectorAll('.literki-slot').length`)} z ${pierwszeLiterki.length}`)
+  // Zbedne litery to caly ciezar gry: bez nich kafelki sa dokladnie slowem do przepisania.
+  const kafelkiNaStarcie = (await kafelkiLiterek()).length
+  sprawdz(
+    'literki: kafelkow jest wiecej niz liter w slowie',
+    kafelkiNaStarcie >= pierwszeLiterki.length + 1 && kafelkiNaStarcie <= 14,
+    `${kafelkiNaStarcie} kafelkow na ${pierwszeLiterki.length} liter`,
+  )
   await zrzut('v4-literki')
 
   // Blad: pelna, ale zla odpowiedz tylko drga i zostawia mozliwosc poprawy. Bez kary i bez przejscia dalej.
@@ -1459,7 +1505,14 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
   await czekaj(300)
   await przeciagnij('#krzyzowka-siatka', 0, 170)
-  sprawdz('gry: gest w dol wychodzi z gry', await czekajNa(`!!document.getElementById('gra-powtorki')`, 5000), (await scenaTekst()).replace(/\n+/g, ' | '))
+  await czekaj(600)
+  sprawdz(
+    'krzyzowka: przewijanie w dol nie konczy gry (tam sie wpisuje litery)',
+    await js(`!!document.getElementById('krzyzowka-siatka')`),
+    (await scenaTekst()).replace(/\n+/g, ' | '),
+  )
+  await tapnij('#krzyzowka-zamknij')
+  sprawdz('krzyzowka: krzyzyk w rogu wychodzi z gry', await czekajNa(`!!document.getElementById('gra-powtorki')`, 5000), (await scenaTekst()).replace(/\n+/g, ' | '))
   await tapnij('#gra-literki')
   await czekajNa(`!!document.getElementById('literki-kafelki')`, 8000)
   await przeciagnij('#literki-kafelki', 0, 170)

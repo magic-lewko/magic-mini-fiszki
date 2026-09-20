@@ -55,12 +55,17 @@ test('przygotujLiterki daje wszystkie litery slowa plus dodatkowe', () => {
   // Litera zbedna nie moze byc litera ze slowa, bo nie dalo by sie jej odroznic.
   for (const litera of kot.dodane) assert.ok(!'CAT'.includes(litera), litera)
 
-  // Slowa dluzsze niz 6 znakow graja bez dodatkowych liter.
+  // Dlugie slowa tez dostaja litery zbedne, tylko mniej: kafelki musza zmiescic sie na ekranie.
   const dlugie = li.przygotujLiterki('beautiful', { ziarno: 1 })
-  assert.deepEqual(dlugie.dodane, [])
-  assert.equal(posortowane(dlugie.litery.join('')), posortowane('beautiful'))
-  assert.equal(li.przygotujLiterki('orange', { ziarno: 1 }).dodane.length >= li.DODATKOWE_MIN, true, '6 znakow to jeszcze krotkie slowo')
-  assert.deepEqual(li.przygotujLiterki('oranges', { ziarno: 1 }).dodane, [], '7 znakow to juz dlugie slowo')
+  assert.ok(dlugie.dodane.length > 0, 'slowo dluzsze niz 6 znakow tez ma litery zbedne')
+  assert.ok(dlugie.litery.length <= li.MAKS_KAFELKOW, `kafelkow: ${dlugie.litery.length}`)
+  assert.equal(li.przygotujLiterki('orange', { ziarno: 1 }).dodane.length >= li.DODATKOWE_MIN, true)
+  assert.ok(li.przygotujLiterki('oranges', { ziarno: 1 }).dodane.length >= 1, '7 znakow tez z dodatkami')
+
+  // Slowo tak dlugie, ze nie miesci sie juz ani jedna litera zbedna.
+  const bardzoDlugie = li.przygotujLiterki('responsibility', { ziarno: 1 })
+  assert.equal(bardzoDlugie.litery.length, 14)
+  assert.ok(bardzoDlugie.litery.length <= li.MAKS_KAFELKOW)
 })
 
 test('powtarzajace sie litery dostaja osobne kafelki', () => {
