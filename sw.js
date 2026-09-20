@@ -1,5 +1,5 @@
 // Wygenerowane przez zbuduj.mjs. Nie edytuj recznie.
-const WERSJA = 'eeb304a0b1a8'
+const WERSJA = 'f3a6f5b2fa41'
 const PLIKI = [
   './',
   './index.html',
