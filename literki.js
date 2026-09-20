@@ -1,12 +1,14 @@
 // Gra "Literki": ukladanie angielskiego slowa z rozsypanych liter. Czysty modul: bez DOM, bez timerow,
 // bez Math.random. Stan ukladania jest przekazywany i zwracany, nigdy zmieniany w miejscu.
-// Przy krotkich slowach (do 6 znakow) dokladamy 2-3 litery zbedne, ale tylko takie, ktore z reszta
-// nie ulozyla by sie w inne slowo z talii - inaczej gracz ulozylby poprawne slowo i dostal blad.
+// Do kazdego slowa dokladamy kilka liter zbednych (bez nich gra byla za latwa, a slowa powyzej 6 znakow
+// szly z samych wlasnych liter). Zbedna moze byc tylko taka litera, ktora z reszta nie ulozyla by sie w
+// inne slowo z talii - inaczej gracz ulozylby poprawne slowo i dostal blad. Kafelkow nigdy nie ma wiecej
+// niz MAKS_KAFELKOW, zeby zmiescily sie na ekranie telefonu jako cele dotyku po 44 px.
 
 export const MIN_DLUGOSC = 3
-export const DLUGOSC_Z_DODATKAMI = 6
-export const DODATKOWE_MIN = 2
-export const DODATKOWE_MAKS = 3
+export const MAKS_KAFELKOW = 14
+export const DODATKOWE_MIN = 4
+export const DODATKOWE_MAKS = 6
 export const DLUGOSC_RUNDY = 10
 
 const ALFABET = 'abcdefghijklmnopqrstuvwxyz'
@@ -97,10 +99,11 @@ function wybierzDodatkowe(male, ile, talia, los) {
   return dodane
 }
 
+// Im dluzsze slowo, tym mniej zbednych liter sie miesci: limit kafelkow obejmuje oba skladniki.
 const ileDodatkowych = (dlugosc, dodatkowe, los) => {
   if (typeof dodatkowe === 'number') return Math.max(0, Math.trunc(dodatkowe))
-  if (dlugosc > DLUGOSC_Z_DODATKAMI) return 0
-  return DODATKOWE_MIN + Math.floor(los() * (DODATKOWE_MAKS - DODATKOWE_MIN + 1))
+  const ile = DODATKOWE_MIN + Math.floor(los() * (DODATKOWE_MAKS - DODATKOWE_MIN + 1))
+  return Math.max(0, Math.min(ile, MAKS_KAFELKOW - dlugosc))
 }
 
 // Przygotowuje kafelki dla jednego slowa. `slowo` to napis albo pozycja talii, `talia` to lista slow,

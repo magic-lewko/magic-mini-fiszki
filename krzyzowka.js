@@ -9,6 +9,8 @@
 export const MAKS_SIATKA = 11
 export const MIN_DLUGOSC = 3
 export const MAKS_PODPOWIEDZI = 3
+// Ile pol dostajesz wypelnionych na starcie. "Kilka" znaczy najwyzej co drugie haslo i nie wiecej niz tyle.
+export const MAKS_DANYCH = 4
 export const PROBY_UKLADANIA = 6
 
 export const KIERUNKI = { poziomo: 'poziomo', pionowo: 'pionowo' }
@@ -319,6 +321,37 @@ export function sprawdzKrzyzowke(siatka, odpowiedzi = {}) {
   }
   const wszystkie = poprawne + bledne + puste
   return { oceny, poprawne, bledne, puste, wszystkie, ukonczone: wszystkie > 0 && poprawne === wszystkie }
+}
+
+// Litery dane z gory: kilka pol jest wypelnionych juz na starcie, najwyzej po jednej na haslo. Pusta
+// siatka zniechecala do wejscia w gre, a jedna litera hasla nie rozwiazuje za gracza. Litera na
+// skrzyzowaniu liczy sie obu haslom naraz. Czysta funkcja: to samo ziarno daje ten sam uklad.
+export function daneLitery(siatka = [], hasla = [], { ziarno = 0, maks = MAKS_DANYCH } = {}) {
+  if (!hasla.length) return {}
+  const los = generator(`dane|${ziarno}`)
+  const ile = Math.max(1, Math.min(maks, Math.floor(hasla.length / 2)))
+  const komorki = hasla.map((h) => komorkiHasla(h).map((c) => kluczPola(c.wiersz, c.kolumna)))
+  const obsluzone = new Set()
+  const wynik = {}
+  for (const i of wymieszaj(
+    hasla.map((_, indeks) => indeks),
+    los,
+  )) {
+    if (Object.keys(wynik).length >= ile) break
+    if (obsluzone.has(i)) continue
+    // Pole nie moze nalezec do hasla, ktore juz dostalo litere.
+    const wolne = komorki[i].filter((kl) => !komorki.some((lista, j) => obsluzone.has(j) && lista.includes(kl)))
+    if (!wolne.length) continue
+    const kl = wolne[Math.floor(los() * wolne.length)]
+    const [w, k] = kl.split(',').map(Number)
+    const litera = pole(siatka, w, k)
+    if (litera === PUSTE) continue
+    wynik[kl] = litera
+    komorki.forEach((lista, j) => {
+      if (lista.includes(kl)) obsluzone.add(j)
+    })
+  }
+  return wynik
 }
 
 // Odkrywa jedna litere. `stan` to { siatka, odpowiedzi, uzyte, ziarno, komorki?, maks? }:
