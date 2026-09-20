@@ -2,7 +2,7 @@
 # Wdrazanie fiszek na GitHub Pages: dist/ trafia na galaz gh-pages repozytorium magic-lewko/magic-mini-fiszki.
 # Galaz main jest na kod zrodlowy (ten folder), gh-pages tylko na zbudowana apke.
 # Logowanie: token z Git Credential Manager (konto magic-lewko, zakres repo).
-# Uzycie: node zbuduj.mjs && bash wdroz.sh
+# Uzycie: bash wdroz.sh (buduje sam; z DIST=... wypchnie gotowy katalog bez budowania).
 set -euo pipefail
 
 WLASCICIEL=magic-lewko
@@ -16,6 +16,11 @@ ADRES="https://$WLASCICIEL.github.io/$REPO/"
 ROBOCZY="$(mktemp -d)"
 trap 'rm -rf "$ROBOCZY"' EXIT
 
+# Budujemy tuz przed wypchnieciem: recznie odpalany "node zbuduj.mjs" raz zostal pominiety i na serwer
+# poszla poprzednia wersja apki, z ta sama suma kontrolna w sw.js.
+if [ -z "${DIST+ustawione}" ]; then
+  node "$KORZEN/zbuduj.mjs" > /dev/null
+fi
 [ -f "$DIST/index.html" ] && [ -f "$DIST/sw.js" ] || { echo "Brak zbudowanej apki w $DIST (uruchom node zbuduj.mjs)"; exit 1; }
 WERSJA=$(sed -n "s/^const WERSJA = '\([0-9a-f]*\)'.*/\1/p" "$DIST/sw.js")
 [ -n "$WERSJA" ] || { echo "Nie ma WERSJA w $DIST/sw.js"; exit 1; }
