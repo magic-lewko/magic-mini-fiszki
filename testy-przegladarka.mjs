@@ -1,8 +1,7 @@
 // Test dymny apki w prawdziwym Chrome (headless) przez CDP. v4: apka sterowana gestem.
 // Sprawdza import pliku, start od razu na karcie, samouczek gestow, gesty w cztery strony
 // (Input.dispatchTouchEvent), dwukrotne tapniecie jako cofniecie, brak przyciskow i menu na ekranie nauki,
-// pasek postepu bez cyfr, ramke zmieniajaca kolor z czasem odpowiedzi, degradacje "Umiem" do "Prawie"
-// po 8 s, ekran wyboru z trzema przyciskami, obie gry od startu do wyniku, talie (wlaczanie, wylaczanie,
+// pasek postepu bez cyfr, ramke zmieniajaca kolor z czasem odpowiedzi, ciche obnizenie oceny po 8 s, ekran wyboru z trzema przyciskami, obie gry od startu do wyniku, talie (wlaczanie, wylaczanie,
 // dodanie i usuniecie), prefers-reduced-motion, brak przewijania w bok, offline,
 // aktualizacje SW i kopie zapasowa, a na koncu silnik: sufit powtorek i kolejnosc po pilnosci, tryb
 // nadrabiania, seria z zamrozeniami, podpowiedz po 7 s, interferencje, leech i odznake na ikonie.
@@ -417,11 +416,11 @@ try {
   sprawdz('samouczek gestow pokazuje sie przy pierwszej karcie', await czekajNa(`!document.getElementById('samouczek').hidden`, 5000))
   const samouczek = await js(`document.getElementById('samouczek').innerText`)
   sprawdz(
-    'samouczek: cztery strzalki z podpisami i zdanie o tapnieciu',
-    (await js(`document.querySelectorAll('#samouczek .samouczek-gest').length`)) === 4 &&
-      (await js(`[...document.querySelectorAll('#samouczek .samouczek-strzalka')].map((e) => e.textContent).join('')`)) === '→←↑↓' &&
-      samouczek.includes('Umiem') && samouczek.includes('Nie umiem') && samouczek.includes('Prawie') && samouczek.includes('Koniec nauki') &&
-      samouczek.includes('dwukrotne cofa'),
+    'samouczek: trzy strzalki z podpisami i zdanie o tapnieciu',
+    (await js(`document.querySelectorAll('#samouczek .samouczek-gest').length`)) === 3 &&
+      (await js(`[...document.querySelectorAll('#samouczek .samouczek-strzalka')].map((e) => e.textContent).join('')`)) === '→←↓' &&
+      samouczek.includes('Umiem') && samouczek.includes('Nie umiem') && samouczek.includes('Wyrzucam') &&
+      samouczek.includes('dwukrotne cofa') && samouczek.includes('krzyżykiem'),
     samouczek.replace(/\n+/g, ' | '),
   )
   sprawdz('samouczek: nie przewija sie w bok', (await przewijaWBok()) === '', await przewijaWBok())
@@ -507,7 +506,7 @@ try {
   const ukryteOdkryte = await ukrytePrzyciski()
   sprawdz(
     'po odslonieciu ukryte przyciski ocen sa dostepne dla czytnika ekranu',
-    ukryteOdkryte.includes('Nie umiem') && ukryteOdkryte.includes('Prawie') && ukryteOdkryte.includes('Umiem'),
+    ukryteOdkryte.includes('Nie umiem') && ukryteOdkryte.includes('Umiem') && !ukryteOdkryte.includes('Prawie'),
     JSON.stringify(ukryteOdkryte),
   )
   await zrzut('v4-karta-odkryta')
@@ -586,8 +585,14 @@ try {
   await czekajNa(`document.querySelector('#karta .slowo')?.textContent === 'family'`)
   expPrzed = await exp()
   const slowoPrzedCofnieciem = await slowoKarty()
+  // Po usunieciu oceny "Prawie" ruch w gore nie znaczy nic: karta zostaje na swoim miejscu.
   await odslonIOcen('gora')
-  sprawdz('swipe w gore = Prawie (+30)', await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzed + 30}`), `${expPrzed} -> ${await exp()}`)
+  await czekaj(500)
+  sprawdz(
+    'swipe w gore nic nie robi (nie ma juz "Prawie")',
+    (await exp()) === expPrzed && (await slowoKarty()) === slowoPrzedCofnieciem,
+    `${expPrzed} -> ${await exp()} pkt, ${await slowoKarty()}`,
+  )
 
   // ---------------------------------------------------------------------------------------------
   // A: dwukrotne tapniecie cofa ocene
@@ -624,10 +629,20 @@ try {
   )
 
   // ---------------------------------------------------------------------------------------------
-  // A: gest w dol wychodzi z sesji, takze przed odslonieciem
+  // A: gest w dol wyrzuca slowo z nauki, a nauke konczy krzyzyk na karcie
   // ---------------------------------------------------------------------------------------------
+  await czekajNaSwiezaKarte()
+  const slowoDoKosza = await slowoKarty()
+  const pominietePrzed = Object.keys((await zapis()).pominiete || {}).length
   await gest('dol')
-  sprawdz('gest w dol konczy nauke i pokazuje ekran wyboru', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000), (await scenaTekst()).replace(/\n+/g, ' | '))
+  await czekaj(600)
+  sprawdz(
+    'gest w dol wyrzuca slowo z nauki (kosz)',
+    Object.keys((await zapis()).pominiete || {}).length === pominietePrzed + 1 && (await slowoKarty()) !== slowoDoKosza,
+    `${slowoDoKosza} -> ${await slowoKarty()}, pominietych: ${Object.keys((await zapis()).pominiete || {}).length}`,
+  )
+  await tapnij('#karta .wyjdz')
+  sprawdz('krzyzyk na karcie konczy nauke i pokazuje ekran wyboru', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000), (await scenaTekst()).replace(/\n+/g, ' | '))
   await klikPoTekscie('#scena', 'Powtórki')
   await czekajNa(`!!document.getElementById('karta')`)
   await czekajNa(`!document.getElementById('karta').classList.contains('wjazd')`, 3000)
@@ -648,10 +663,10 @@ try {
   await klawisz(' ')
   await czekaj(120)
   await klawisz('ArrowUp')
-  sprawdz('klawiatura: strzalka w gore to Prawie', await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedKlawiszami + 80}`), String(await exp()))
-  await czekaj(350)
-  await klawisz('ArrowDown')
-  sprawdz('klawiatura: strzalka w dol konczy nauke', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000))
+  await czekaj(400)
+  sprawdz('klawiatura: strzalka w gore nic nie robi', (await exp()) === expPrzedKlawiszami + 50, String(await exp()))
+  await klawisz('Escape')
+  sprawdz('klawiatura: Escape konczy nauke', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000))
 
   // ---------------------------------------------------------------------------------------------
   // D: ekran konca serii z trzema liczbami
@@ -893,11 +908,11 @@ try {
   const expPrzedWolnym = await exp()
   await gest('prawo')
   sprawdz(
-    'czas: po 8 s swipe "Umiem" zapisuje sie jako "Prawie" (+30, nie +50)',
+    'czas: po 8 s swipe "Umiem" zapisuje sie jako slabsze trafienie (+30, nie +50)',
     await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedWolnym + 30}`, 4000),
     `${expPrzedWolnym} -> ${await exp()} pkt`,
   )
-  sprawdz('czas: mikro-notka tlumaczy degradacje', (await notkaTekst()) === 'wolno, liczę jako Prawie', await notkaTekst())
+  sprawdz('czas: obnizenie oceny idzie po cichu, bez napisu na ekranie', (await notkaTekst()) === '', await notkaTekst())
   sprawdz('czas: mediana czasu odpowiedzi trafia do historii dnia', ((await zapis()).historia?.[dataDzis]?.tempo ?? 0) >= 8, JSON.stringify((await zapis()).historia?.[dataDzis]))
 
   // Szybka odpowiedz nie jest degradowana.
@@ -977,13 +992,13 @@ try {
   sprawdz('podpowiedz: przycisk nie odslania karty', await js(`!document.getElementById('karta').classList.contains('odkryta')`))
   await tapnij('#karta', true)
   await czekajNa(`document.getElementById('karta').classList.contains('odkryta')`)
-  sprawdz('podpowiedz: ukryty przycisk "Umiem" znika dla czytnika ekranu', !(await ukrytePrzyciski()).includes('Umiem'), JSON.stringify(await ukrytePrzyciski()))
   const expPrzedProba = await exp()
   await gest('prawo')
-  await czekaj(500)
-  sprawdz('podpowiedz: gest w prawo nie ocenia na "Umiem"', (await exp()) === expPrzedProba, `${expPrzedProba} -> ${await exp()}`)
-  await gest('gora')
-  sprawdz('podpowiedz: "Prawie" dalej dziala (+30)', await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedProba + 30}`), String(await exp()))
+  sprawdz(
+    'podpowiedz: "Umiem" dziala, ale zapisuje sie jako slabsze trafienie (+30, nie +50)',
+    await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedProba + 30}`, 4000),
+    `${expPrzedProba} -> ${await exp()}`,
+  )
 
   // --- A6: blokada interferencji przy doborze nowych slow ---
   let paraKolizji = null
@@ -1143,18 +1158,6 @@ try {
     !!wynikLewo && wynikLewo.znak === '✗' && wynikLewo.kolor === 'rgb(255, 111, 60)' && wynikLewo.klasy.includes('wylot-lewo'),
     JSON.stringify(wynikLewo),
   )
-  await czekajNaSwiezaKarte()
-  await obserwujWynik()
-  await tapnij('#karta', true)
-  await czekajNa(`document.getElementById('karta').classList.contains('odkryta')`)
-  await gest('gora')
-  await czekaj(600)
-  const wynikGora = await js(`window.__wynik`)
-  sprawdz(
-    'I: swipe w gore daje bursztyn, znak ~ i wylot w gore',
-    !!wynikGora && wynikGora.znak === '~' && wynikGora.kolor === 'rgb(230, 159, 0)' && wynikGora.klasy.includes('wylot-gora'),
-    JSON.stringify(wynikGora),
-  )
 
   // --- Paleta i kontrasty ---
   const tokeny = await js(`(() => {
@@ -1257,7 +1260,6 @@ try {
     )
   const polePo = (c) => `.krzyzowka-pole[data-w="${c.w}"][data-k="${c.k}"]`
   const wypelnioneKrzyzowki = () => js(`[...document.querySelectorAll('.krzyzowka-pole .krzyzowka-litera')].filter((e) => e.textContent).length`)
-  const daneKrzyzowki = () => js(`document.querySelectorAll('.krzyzowka-pole.dana').length`)
   // Kursor musi stac na pierwszej komorce wybranego hasla, inaczej wpisywanie calego slowa idzie
   // z przesunieciem. Pierwsza komorka ".wybrane" w DOM to poczatek hasla w obu kierunkach.
   const naPoczatkuHasla = () =>
@@ -1307,12 +1309,7 @@ try {
 
   const starty = await startyKrzyzowki()
   sprawdz('krzyzowka: hasla sa ponumerowane jak w papierowej', starty.length >= 3, `${starty.length} pol z numerem`)
-  const daneNaStarcie = await daneKrzyzowki()
-  sprawdz(
-    'krzyzowka: kilka liter jest danych z gory i nic wiecej nie jest wypelnione',
-    daneNaStarcie >= 1 && daneNaStarcie <= 4 && (await wypelnioneKrzyzowki()) === daneNaStarcie,
-    `dane: ${daneNaStarcie}, wypelnione: ${await wypelnioneKrzyzowki()}`,
-  )
+  sprawdz('krzyzowka: siatka startuje pusta', (await wypelnioneKrzyzowki()) === 0, String(await wypelnioneKrzyzowki()))
   await tapnij(polePo(starty[0]))
   const pierwszeHaslo = await hasloKrzyzowki()
   sprawdz('krzyzowka: tapniecie w pole pokazuje tresc hasla nad klawiatura', /^\d+ (poziomo|pionowo) · .+/.test(pierwszeHaslo), pierwszeHaslo)
@@ -1323,39 +1320,25 @@ try {
   // Bledna litera: kolor cynobrowy po "Sprawdź", potem Backspace ja cofa.
   const zlaLitera = pierwszeSlowo[0].toUpperCase() === 'Q' ? 'z' : 'q'
   await wpiszTekst(zlaLitera)
-  // Gdy kursor stal na literze danej, pierwsze nacisniecie tylko ja przeskakuje - wtedy piszemy raz jeszcze.
-  if ((await wypelnioneKrzyzowki()) === daneNaStarcie) await wpiszTekst(zlaLitera)
-  sprawdz(
-    'krzyzowka: litera z klawiatury wchodzi w aktywne pole',
-    (await wypelnioneKrzyzowki()) === daneNaStarcie + 1 && (await literyKrzyzowki()).includes(zlaLitera.toUpperCase()),
-    `${await literyKrzyzowki()} (dane: ${daneNaStarcie})`,
-  )
+  sprawdz('krzyzowka: litera z klawiatury wchodzi w aktywne pole', (await literyKrzyzowki()) === zlaLitera.toUpperCase(), await literyKrzyzowki())
   await tapnij('#krzyzowka-sprawdz')
   await czekaj(150)
   sprawdz(
-    'krzyzowka: "Sprawdź" koloruje bledna litere, a litery dane sa poprawne',
+    'krzyzowka: "Sprawdź" koloruje bledna litere',
     (await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)) === 1 &&
-      (await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)) === daneNaStarcie,
-    `bledne: ${await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)}, poprawne: ${await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)}`,
+      (await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)) === 0,
+    `bledne: ${await js(`document.querySelectorAll('.krzyzowka-pole.bledna').length`)}`,
   )
   await klawiszSurowy('Backspace', 8)
   await czekaj(150)
-  sprawdz(
-    'krzyzowka: Backspace cofa wpisane litery, a dane zostaja',
-    (await wypelnioneKrzyzowki()) === daneNaStarcie,
-    `wypelnione: ${await wypelnioneKrzyzowki()}, dane: ${daneNaStarcie}`,
-  )
+  sprawdz('krzyzowka: Backspace cofa litere', (await wypelnioneKrzyzowki()) === 0, String(await wypelnioneKrzyzowki()))
 
   sprawdz('krzyzowka: kursor da sie ustawic na pierwszej literze hasla', await ustawKursorNaPoczatku())
   await wpiszTekst(pierwszeSlowo)
   await tapnij('#krzyzowka-sprawdz')
   await czekaj(150)
   const poprawneWKrzyzowce = await js(`document.querySelectorAll('.krzyzowka-pole.poprawna').length`)
-  sprawdz(
-    'krzyzowka: poprawne haslo podswietla sie na zielono',
-    poprawneWKrzyzowce >= pierwszeSlowo.length && poprawneWKrzyzowce <= pierwszeSlowo.length + daneNaStarcie,
-    `${poprawneWKrzyzowce} przy hasle na ${pierwszeSlowo.length} liter i ${daneNaStarcie} literach danych`,
-  )
+  sprawdz('krzyzowka: poprawne haslo podswietla sie na zielono', poprawneWKrzyzowce === pierwszeSlowo.length, `${poprawneWKrzyzowce} z ${pierwszeSlowo.length}`)
   const literyPrzedPodpowiedzia = (await literyKrzyzowki()).length
   await tapnij('#krzyzowka-podpowiedz')
   await czekaj(200)
@@ -1522,7 +1505,10 @@ try {
   await tapnij('#gra-literki')
   await czekajNa(`!!document.getElementById('literki-kafelki')`, 8000)
   await przeciagnij('#literki-kafelki', 0, 170)
-  sprawdz('literki: gest w dol takze wychodzi z gry', await czekajNa(`!!document.getElementById('gra-powtorki')`, 5000))
+  await czekaj(600)
+  sprawdz('literki: przewijanie w dol nie konczy gry', await js(`!!document.getElementById('literki-kafelki')`))
+  await tapnij('#literki-zamknij')
+  sprawdz('literki: krzyzyk w rogu wychodzi z gry', await czekajNa(`!!document.getElementById('gra-powtorki')`, 5000))
   await tapnij('#gra-krzyzowka')
   await czekajNa(`!!document.getElementById('krzyzowka-siatka')`, 8000)
   await js(`document.getElementById('krzyzowka-zamknij').click(); 1`)

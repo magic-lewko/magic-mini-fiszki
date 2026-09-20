@@ -2916,8 +2916,9 @@ function klawisze(e) {
     odslon()
   } else if (e.key === 'ArrowRight') ocenKarte(3)
   else if (e.key === 'ArrowLeft') ocenKarte(1)
-  else if (e.key === 'ArrowUp') ocenKarte(2)
-  else if (e.key === 'ArrowDown') wyjdzDoWyboru()
+  // Strzalka w dol robi to samo co gest w dol (kosz), a nauke konczy Escape - jak krzyzyk na karcie.
+  else if (e.key === 'ArrowDown') pomijajAktualna()
+  else if (e.key === 'Escape') wyjdzDoWyboru()
   else if (e.key === 'z' || e.key === 'Z') ocenKarte(4)
 }
 
