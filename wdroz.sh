@@ -9,6 +9,8 @@ WLASCICIEL=magic-lewko
 REPO=magic-mini-fiszki
 GALAZ=gh-pages
 KORZEN="$(cd "$(dirname "$0")" && pwd)"
+# Zapamietane przed ustawieniem domyslnej wartosci: inaczej warunek nizej zawsze widzialby DIST jako podane.
+DIST_PODANY="${DIST+tak}"
 DIST="${DIST:-$KORZEN/dist}"
 API=https://api.github.com
 ADRES_GIT="https://github.com/$WLASCICIEL/$REPO.git"
@@ -18,7 +20,7 @@ trap 'rm -rf "$ROBOCZY"' EXIT
 
 # Budujemy tuz przed wypchnieciem: recznie odpalany "node zbuduj.mjs" raz zostal pominiety i na serwer
 # poszla poprzednia wersja apki, z ta sama suma kontrolna w sw.js.
-if [ -z "${DIST+ustawione}" ]; then
+if [ -z "$DIST_PODANY" ]; then
   node "$KORZEN/zbuduj.mjs" > /dev/null
 fi
 [ -f "$DIST/index.html" ] && [ -f "$DIST/sw.js" ] || { echo "Brak zbudowanej apki w $DIST (uruchom node zbuduj.mjs)"; exit 1; }
