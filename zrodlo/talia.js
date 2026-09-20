@@ -290,10 +290,10 @@ export const PROG_RUCHU = 14
 export const MS_DWUKROTNEGO_TAPNIECIA = 280
 
 export const KIERUNKI = ['prawo', 'lewo', 'gora', 'dol']
-// Prawo "Umiem", lewo "Nie umiem". Trzecia ocena ("Prawie") zniknela z ekranu: przy dwoch mozliwosciach
-// decyzja jest szybsza, a ocena 2 zostala w srodku algorytmu jako slabsze trafienie (wolna odpowiedz
-// albo podpowiedz). Dol to kosz - slowo znane na pewno wypada z nauki.
-export const OCENY_GESTU = { prawo: 3, lewo: 1 }
+// Prawo "Umiem", lewo "Nie umiem", gora "Prawie" (slowo wrocilo, ale z wahaniem). Dol to kosz -
+// slowo znane na pewno wypada z nauki. Ocena 2 powstaje tez po cichu: po odpowiedzi ponad 8 s
+// i po uzyciu podpowiedzi.
+export const OCENY_GESTU = { prawo: 3, lewo: 1, gora: 2 }
 export const GEST_KOSZA = 'dol'
 
 export const oceneZGestu = (kierunek) => OCENY_GESTU[kierunek] ?? null
@@ -311,10 +311,9 @@ export function kierunekGestu({ dx = 0, dy = 0, vx = 0, vy = 0 } = {}) {
 }
 
 // Kazdy gest dziala od razu, takze na karcie zakrytej: slowo, ktore siedzi, konczy sie jednym ruchem,
-// bez tapniecia na odsloniecie. Ruch w gore nie znaczy juz nic (byla tam ocena "Prawie"), wiec karta
-// wraca na srodek - lepsze to niz przypisywanie mu na sile nowego znaczenia.
+// bez tapniecia na odsloniecie.
 export function gestDozwolony(kierunek) {
-  return kierunek === 'prawo' || kierunek === 'lewo' || kierunek === GEST_KOSZA
+  return !!kierunek
 }
 
 // Stan dnia (sekundy nauki, dodatkowe nowe, zrobione powtorki) zeruje sie o lokalnej polnocy.

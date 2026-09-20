@@ -39,9 +39,7 @@ const WARTOWNIK_WPISU = ' '
 // ok. 8% mezczyzn ma zaburzenie widzenia barw).
 const STATUSY = {
   1: { klasa: 'nie', ikona: '✗', etykieta: 'Nie umiem', kierunek: 'lewo' },
-  // Ocena 2 nie ma juz swojego gestu: powstaje po cichu z wolnej odpowiedzi albo po podpowiedzi,
-  // wiec na ekranie wyglada jak zwykle "Umiem".
-  2: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem', kierunek: 'prawo' },
+  2: { klasa: 'prawie', ikona: '~', etykieta: 'Prawie', kierunek: 'gora' },
   3: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem', kierunek: 'prawo' },
   // "Znam" na nowej karcie to tez sukces, wiec karta wylatuje w prawo jak przy "Umiem".
   4: { klasa: 'tak', ikona: '✓', etykieta: 'Znam', kierunek: 'prawo' },
@@ -52,6 +50,7 @@ const STATUSY = {
 const KIERUNKI_GESTU = {
   prawo: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem' },
   lewo: { klasa: 'nie', ikona: '✗', etykieta: 'Nie umiem' },
+  gora: { klasa: 'prawie', ikona: '~', etykieta: 'Prawie' },
   dol: { klasa: 'wyjscie', ikona: '🗑', etykieta: 'Wyrzucam' },
 }
 
@@ -59,6 +58,7 @@ const KIERUNKI_GESTU = {
 const GESTY_SAMOUCZKA = [
   ['→', 'Umiem'],
   ['←', 'Nie umiem'],
+  ['↑', 'Prawie'],
   ['↓', 'Wyrzucam słowo'],
 ]
 
@@ -535,20 +535,11 @@ function pokazKarte() {
       // Krzyzyk konczy nauke. Stoi na karcie, a nie w pasku u gory: pasek ma zostac czystym postepem,
       // a 44 px celu dotyku nie zmiescilo by sie tam bez spychania karty w dol.
       el('button', {
-        klasa: 'wyjdz bez-odsloniecia',
+        klasa: 'zamknij na-karcie bez-odsloniecia',
         type: 'button',
         'aria-label': 'Zakończ naukę',
         tekst: '✕',
         onclick: wyjdzDoWyboru,
-      }),
-      // Kosz: slowo znane na sto procent ("map") wypada z nauki jednym tapnieciem, bez chodzenia
-      // do Menu > Slowka. To samo robi gest w dol. Dwukrotne tapniecie w karte cofa.
-      el('button', {
-        klasa: 'kosz bez-odsloniecia',
-        type: 'button',
-        'aria-label': 'Znam na pewno, wyrzuć to słowo z nauki',
-        tekst: '🗑',
-        onclick: pomijajAktualna,
       }),
     ].filter(Boolean),
   )
@@ -603,6 +594,7 @@ function odswiezAkcje() {
       !odkryta && ukrytyPrzycisk('Odsłoń kartę', odslon),
       // Oceny sa dostepne od razu, tak samo jak gest: czytnik ekranu nie musi najpierw odslaniac karty.
       ukrytyPrzycisk('Nie umiem', () => ocenKarte(1)),
+      ukrytyPrzycisk('Prawie', () => ocenKarte(2)),
       ukrytyPrzycisk('Umiem', () => ocenKarte(3)),
       nowa && ukrytyPrzycisk('Znam', () => ocenKarte(4)),
       ukrytyPrzycisk('Pomijam to słowo', pomijajAktualna),
@@ -2919,6 +2911,7 @@ function klawisze(e) {
     odslon()
   } else if (e.key === 'ArrowRight') ocenKarte(3)
   else if (e.key === 'ArrowLeft') ocenKarte(1)
+  else if (e.key === 'ArrowUp') ocenKarte(2)
   // Strzalka w dol robi to samo co gest w dol (kosz), a nauke konczy Escape - jak krzyzyk na karcie.
   else if (e.key === 'ArrowDown') pomijajAktualna()
   else if (e.key === 'z' || e.key === 'Z') ocenKarte(4)

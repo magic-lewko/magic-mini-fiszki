@@ -416,10 +416,10 @@ try {
   sprawdz('samouczek gestow pokazuje sie przy pierwszej karcie', await czekajNa(`!document.getElementById('samouczek').hidden`, 5000))
   const samouczek = await js(`document.getElementById('samouczek').innerText`)
   sprawdz(
-    'samouczek: trzy strzalki z podpisami i zdanie o tapnieciu',
-    (await js(`document.querySelectorAll('#samouczek .samouczek-gest').length`)) === 3 &&
-      (await js(`[...document.querySelectorAll('#samouczek .samouczek-strzalka')].map((e) => e.textContent).join('')`)) === '→←↓' &&
-      samouczek.includes('Umiem') && samouczek.includes('Nie umiem') && samouczek.includes('Wyrzucam') &&
+    'samouczek: cztery strzalki z podpisami i zdanie o tapnieciu',
+    (await js(`document.querySelectorAll('#samouczek .samouczek-gest').length`)) === 4 &&
+      (await js(`[...document.querySelectorAll('#samouczek .samouczek-strzalka')].map((e) => e.textContent).join('')`)) === '→←↑↓' &&
+      samouczek.includes('Umiem') && samouczek.includes('Nie umiem') && samouczek.includes('Prawie') && samouczek.includes('Wyrzucam') &&
       samouczek.includes('dwukrotne cofa') && samouczek.includes('krzyżykiem'),
     samouczek.replace(/\n+/g, ' | '),
   )
@@ -506,7 +506,7 @@ try {
   const ukryteOdkryte = await ukrytePrzyciski()
   sprawdz(
     'po odslonieciu ukryte przyciski ocen sa dostepne dla czytnika ekranu',
-    ukryteOdkryte.includes('Nie umiem') && ukryteOdkryte.includes('Umiem') && !ukryteOdkryte.includes('Prawie'),
+    ukryteOdkryte.includes('Nie umiem') && ukryteOdkryte.includes('Prawie') && ukryteOdkryte.includes('Umiem'),
     JSON.stringify(ukryteOdkryte),
   )
   await zrzut('v4-karta-odkryta')
@@ -585,18 +585,8 @@ try {
   await czekajNa(`document.querySelector('#karta .slowo')?.textContent === 'family'`)
   expPrzed = await exp()
   const slowoPrzedCofnieciem = await slowoKarty()
-  // Po usunieciu oceny "Prawie" ruch w gore nie znaczy nic: karta zostaje na swoim miejscu.
   await odslonIOcen('gora')
-  await czekaj(500)
-  sprawdz(
-    'swipe w gore nic nie robi (nie ma juz "Prawie")',
-    (await exp()) === expPrzed && (await slowoKarty()) === slowoPrzedCofnieciem,
-    `${expPrzed} -> ${await exp()} pkt, ${await slowoKarty()}`,
-  )
-
-  // Karta jest juz odkryta, wiec gest w prawo ocenia ja od razu. To wlasnie ta ocena bedzie cofana.
-  await gest('prawo')
-  await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzed + 50}`, 4000)
+  sprawdz('swipe w gore = Prawie (+30)', await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzed + 30}`), `${expPrzed} -> ${await exp()}`)
 
   // ---------------------------------------------------------------------------------------------
   // A: dwukrotne tapniecie cofa ocene
@@ -609,7 +599,7 @@ try {
   const kliki = await js(`window.__kliki`)
   sprawdz(
     `dwukrotne tapniecie cofa ostatnia ocene i wraca do karty "${slowoPrzedCofnieciem}"`,
-    await czekajNa(`document.querySelector('#karta .slowo')?.textContent === ${JSON.stringify(slowoPrzedCofnieciem)} && JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedCofnieciem - 50}`, 4000),
+    await czekajNa(`document.querySelector('#karta .slowo')?.textContent === ${JSON.stringify(slowoPrzedCofnieciem)} && JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedCofnieciem - 30}`, 4000),
     `${przedCofnieciem} -> ${await slowoKarty()}, ${expPrzedCofnieciem} -> ${await exp()} pkt, kliki ${JSON.stringify(kliki)}, odstep ${kliki.length > 1 ? kliki[1] - kliki[0] : '-'} ms`,
   )
   sprawdz('po cofnieciu karta wraca od razu odkryta', await js(`document.getElementById('karta').classList.contains('odkryta')`))
@@ -650,7 +640,7 @@ try {
     (await toastTekst()).includes('Przywrócisz je w Menu'),
     await toastTekst(),
   )
-  await tapnij('#karta .wyjdz')
+  await tapnij('#karta .zamknij')
   sprawdz('krzyzyk na karcie konczy nauke i pokazuje ekran wyboru', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000), (await scenaTekst()).replace(/\n+/g, ' | '))
   await klikPoTekscie('#scena', 'Powtórki')
   await czekajNa(`!!document.getElementById('karta')`)
@@ -664,7 +654,7 @@ try {
     Object.keys((await zapis()).pominiete || {}).length === pominieteZakryte + 1 && (await slowoKarty()) !== doKoszaZakryte,
     `${doKoszaZakryte} -> ${await slowoKarty()}`,
   )
-  await tapnij('#karta .wyjdz')
+  await tapnij('#karta .zamknij')
   await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000)
 
   // ---------------------------------------------------------------------------------------------
@@ -681,8 +671,8 @@ try {
   await klawisz(' ')
   await czekaj(120)
   await klawisz('ArrowUp')
-  await czekaj(400)
-  sprawdz('klawiatura: strzalka w gore nic nie robi', (await exp()) === expPrzedKlawiszami + 50, String(await exp()))
+  sprawdz('klawiatura: strzalka w gore to Prawie', await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedKlawiszami + 80}`), String(await exp()))
+  await czekaj(350)
   await klawisz('Escape')
   sprawdz('klawiatura: Escape konczy nauke', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000))
 
@@ -1248,7 +1238,7 @@ try {
   await czekajNa(`!!document.getElementById('karta')`)
   sprawdz('iPhone SE: karta bez przewijania w pionie i w bok', (await miesciSie('#karta')) && (await przewijaWBok()) === '', await przewijaWBok())
   sprawdz('iPhone SE: ekran nauki dalej bez widocznych przyciskow', (await widocznePrzyciski()).length === 0)
-  await tapnij('#karta .wyjdz')
+  await tapnij('#karta .zamknij')
   await czekajNa(`!!document.getElementById('gra-powtorki')`, 4000)
   sprawdz('iPhone SE: ekran wyboru miesci sie bez przewijania', await miesciSie('#scena .ekran'), await js(`(() => { const e = document.querySelector('#scena .ekran'); return e.scrollHeight + ' / ' + e.clientHeight })()`))
   sprawdz(
@@ -1317,7 +1307,7 @@ try {
   // Gry nie zmieniaja harmonogramu: ten zapis kart musi byc identyczny po obu grach.
   const kartyPrzedGrami = await js(`JSON.stringify(JSON.parse(localStorage.getItem('mmf-v1')).karty)`)
   await czekajNaSwiezaKarte()
-  await tapnij('#karta .wyjdz')
+  await tapnij('#karta .zamknij')
   sprawdz('gry: krzyzyk na karcie wraca na ekran wyboru', await czekajNa(`!!document.getElementById('gra-krzyzowka')`, 5000))
 
   await tapnij('#gra-krzyzowka')
