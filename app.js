@@ -39,7 +39,9 @@ const WARTOWNIK_WPISU = ' '
 // ok. 8% mezczyzn ma zaburzenie widzenia barw).
 const STATUSY = {
   1: { klasa: 'nie', ikona: '✗', etykieta: 'Nie umiem', kierunek: 'lewo' },
-  2: { klasa: 'prawie', ikona: '~', etykieta: 'Prawie', kierunek: 'gora' },
+  // Ocena 2 nie ma juz swojego gestu: powstaje po cichu z wolnej odpowiedzi albo po podpowiedzi,
+  // wiec na ekranie wyglada jak zwykle "Umiem".
+  2: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem', kierunek: 'prawo' },
   3: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem', kierunek: 'prawo' },
   // "Znam" na nowej karcie to tez sukces, wiec karta wylatuje w prawo jak przy "Umiem".
   4: { klasa: 'tak', ikona: '✓', etykieta: 'Znam', kierunek: 'prawo' },
@@ -50,16 +52,14 @@ const STATUSY = {
 const KIERUNKI_GESTU = {
   prawo: { klasa: 'tak', ikona: '✓', etykieta: 'Umiem' },
   lewo: { klasa: 'nie', ikona: '✗', etykieta: 'Nie umiem' },
-  gora: { klasa: 'prawie', ikona: '~', etykieta: 'Prawie' },
-  dol: { klasa: 'wyjscie', ikona: '↓', etykieta: 'Koniec' },
+  dol: { klasa: 'wyjscie', ikona: '🗑', etykieta: 'Wyrzucam' },
 }
 
 // Cztery strzalki samouczka gestow (A). Tekst interfejsu, wiec z polskimi znakami.
 const GESTY_SAMOUCZKA = [
   ['→', 'Umiem'],
   ['←', 'Nie umiem'],
-  ['↑', 'Prawie'],
-  ['↓', 'Koniec nauki'],
+  ['↓', 'Wyrzucam słowo'],
 ]
 
 const CZESCI_MOWY = {
@@ -204,13 +204,15 @@ function notka(tekst) {
   }, MS_NOTKI)
 }
 
-// Blysk na krawedzi ekranu przy co piatej poprawnej karcie pod rzad (I). Nie blokuje niczego.
-function blysk() {
+// Blysk na krawedzi ekranu: mocny przy co piatej poprawnej karcie pod rzad (I), slabszy i w kolorze oceny
+// przy kazdej zmianie karty. Na iPhonie gest nie moze zawibrowac, wiec zmiane karty potwierdza kolor.
+function blysk(klasa = 'tak', mocny = true) {
   const b = $('blysk')
   b.hidden = false
-  b.classList.remove('widoczny')
+  b.classList.remove('widoczny', 'slaby', 'blysk-tak', 'blysk-nie', 'blysk-wyjscie')
   void b.offsetWidth
-  b.classList.add('widoczny')
+  b.classList.add('widoczny', `blysk-${klasa}`)
+  if (!mocny) b.classList.add('slaby')
   clearTimeout(czasBlysku)
   czasBlysku = setTimeout(() => {
     b.hidden = true
@@ -530,8 +532,17 @@ function pokazKarte() {
     ...[
       seria.trening && el('div', { klasa: 'trening-znacznik', tekst: 'Trening: terminy bez zmian' }),
       kartZeWskazowka < KART_ZE_WSKAZOWKA && el('div', { klasa: 'wskazowka', tekst: 'Dotknij, aby odsłonić' }),
+      // Krzyzyk konczy nauke. Stoi na karcie, a nie w pasku u gory: pasek ma zostac czystym postepem,
+      // a 44 px celu dotyku nie zmiescilo by sie tam bez spychania karty w dol.
+      el('button', {
+        klasa: 'wyjdz bez-odsloniecia',
+        type: 'button',
+        'aria-label': 'Zakończ naukę',
+        tekst: '✕',
+        onclick: wyjdzDoWyboru,
+      }),
       // Kosz: slowo znane na sto procent ("map") wypada z nauki jednym tapnieciem, bez chodzenia
-      // do Menu > Slowka. Dwukrotne tapniecie w karte cofa to tak samo jak ocene.
+      // do Menu > Slowka. To samo robi gest w dol. Dwukrotne tapniecie w karte cofa.
       el('button', {
         klasa: 'kosz bez-odsloniecia',
         type: 'button',
@@ -586,15 +597,13 @@ function odswiezAkcje() {
     return
   }
   const nowa = talia.jestNowa(stan.karty[talia.aktualnaKarta(seria)])
-  const umiemZablokowane = talia.regulyPodpowiedzi({ uzyto: uzytoPodpowiedzi }).umiemZablokowane
   akcje.hidden = false
   akcje.replaceChildren(
     ...[
       !odkryta && ukrytyPrzycisk('Odsłoń kartę', odslon),
       // Oceny sa dostepne od razu, tak samo jak gest: czytnik ekranu nie musi najpierw odslaniac karty.
       ukrytyPrzycisk('Nie umiem', () => ocenKarte(1)),
-      ukrytyPrzycisk('Prawie', () => ocenKarte(2)),
-      !umiemZablokowane && ukrytyPrzycisk('Umiem', () => ocenKarte(3)),
+      ukrytyPrzycisk('Umiem', () => ocenKarte(3)),
       nowa && ukrytyPrzycisk('Znam', () => ocenKarte(4)),
       ukrytyPrzycisk('Pomijam to słowo', pomijajAktualna),
       // Gest cofa bezterminowo, wiec czytnik ekranu tez: 6 sekund dotyczy tylko podpowiedzi na ekranie.
@@ -664,13 +673,14 @@ function ocenKarte(ocena) {
   // "Znam" ma sens tylko na pierwszej ekspozycji slowa. Pozostale oceny dzialaja takze na karcie
   // zakrytej: gest ma konczyc slowo od razu, bez tapniecia na odsloniecie.
   if (ocena === 4 && !pierwszaEkspozycja) return
-  if (ocena === 3 && talia.regulyPodpowiedzi({ uzyto: uzytoPodpowiedzi }).umiemZablokowane) return
   const teraz = new Date()
-  // Czas odpowiedzi liczony od odsloniecia. Powyzej 8 s "Umiem" zapisuje sie jako "Prawie" (C);
-  // pierwsza ekspozycja slowa i trening sa z tego wylaczone, bo tam czas nic nie mowi o wiedzy.
+  // Czas odpowiedzi liczony od odsloniecia: powyzej 8 s "Umiem" zapisuje sie jako slabsze trafienie.
+  // Tak samo dziala podpowiedz - zamiast blokowac ocene (nie ma juz "Prawie", w ktore mozna by ja zbic),
+  // obniza ja po cichu. Pierwsza ekspozycja i trening sa z tego wylaczone: tam czas nic nie mowi o wiedzy.
   const czas = talia.czasKarty(czasOdpowiedzi())
   const poCzasie = talia.ocenaPoCzasie({ ocena, sekundy: czas, nowa: pierwszaEkspozycja, trening: seria.trening })
-  const ocenaKoncowa = poCzasie.ocena
+  const poPodpowiedzi = uzytoPodpowiedzi && !pierwszaEkspozycja && !seria.trening && poCzasie.ocena === 3
+  const ocenaKoncowa = poPodpowiedzi ? 2 : poCzasie.ocena
   zatrzymajTempo()
   // W treningu ocena liczy sie do punktow, combo, celu dnia i streaka, ale nie rusza karty ani terminu.
   let nowa = null
@@ -713,9 +723,10 @@ function ocenKarte(ocena) {
   else if (seria.bonus) wibruj('combo')
   else wibruj({ 1: 'nieUmiem', 2: 'prawie' }[ocenaKoncowa] || 'umiem')
   if (dzien.zamrozono) toast(TEKST_ZAMROZENIA)
-  // Co piata poprawna karta pod rzad: krotki blysk na krawedzi zamiast liczby punktow (I).
-  if (seria.bonus) blysk()
-  if (poCzasie.obnizona) notka(talia.NOTKA_WOLNO)
+  // Co piata poprawna karta pod rzad: mocny blysk zamiast liczby punktow (I). Poza tym kazda zmiana karty
+  // dostaje slaby blysk w kolorze oceny - to jedyne potwierdzenie, jakie da sie dac przy gescie.
+  if (seria.bonus) blysk(status?.klasa || 'tak')
+  else blysk(status?.klasa || 'tak', false)
   odswiezPasekTalii()
   const leech = nowa && talia.czyPanelLeecha(nowa) ? k : null
   wylot(STATUSY[ocenaKoncowa], STATUSY[ocenaKoncowa].kierunek, () => {
@@ -1014,8 +1025,9 @@ function podepnijGest(karta) {
     if (!anulowane && talia.gestDozwolony(kierunek)) {
       podswietl('')
       karta.classList.remove('ciagniecie')
+      // Dol to kosz: slowo znane na pewno wypada z nauki. Z sesji wychodzi sie krzyzykiem u gory.
       if (kierunek === 'dol') {
-        wyjdzDoWyboru()
+        pomijajAktualna()
         return
       }
       ocenKarte(talia.oceneZGestu(kierunek))
@@ -1095,7 +1107,7 @@ function pokazSamouczek() {
           ),
         ),
       ),
-      el('p', { klasa: 'samouczek-opis', tekst: 'Gest działa od razu. Tapnięcie odsłania, dwukrotne cofa ocenę.' }),
+      el('p', { klasa: 'samouczek-opis', tekst: 'Gest działa od razu. Tapnięcie odsłania, dwukrotne cofa. Wyjście krzyżykiem.' }),
       el('button', { klasa: 'przycisk glowny', id: 'samouczek-ok', type: 'button', tekst: 'Zaczynamy' }),
     ),
   )
@@ -1320,39 +1332,6 @@ function wyjdzZGry() {
   pokazWybor()
 }
 
-// Wyjscie gestem w dol, tak jak z nauki. Prog jest ten sam (80 px), wiec tapniecia w pola i kafelki
-// dzialaja normalnie. Gest liczy sie tylko przy ekranie przewinietym na sam gore, zeby przewijanie
-// dlugiej siatki nie konczylo gry.
-// Zdarzenia dotyku, a nie wskaznika: ekran gry jest przewijalny, wiec przy ruchu w pionie przegladarka
-// przejmuje gest na przewijanie i konczy zdarzenia wskaznika przez pointercancel. Wskaznik zostaje dla myszy.
-function podepnijWyjscieGestem(element, wyjscie) {
-  let start = null
-  const zacznij = (x, y) => {
-    start = element.scrollTop === 0 ? { x, y } : null
-  }
-  const skoncz = (x, y) => {
-    if (!start) return
-    const dy = y - start.y
-    const dx = Math.abs(x - start.x)
-    start = null
-    if (dy > talia.PROG_GESTU_PION && dx < dy && element.scrollTop === 0) wyjscie()
-  }
-  element.addEventListener('touchstart', (e) => zacznij(e.touches[0].clientX, e.touches[0].clientY), { passive: true })
-  element.addEventListener('touchend', (e) => {
-    const dotyk = e.changedTouches[0]
-    if (dotyk) skoncz(dotyk.clientX, dotyk.clientY)
-  })
-  element.addEventListener('touchcancel', () => {
-    start = null
-  })
-  element.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse') zacznij(e.clientX, e.clientY)
-  })
-  element.addEventListener('pointerup', (e) => {
-    if (e.pointerType === 'mouse') skoncz(e.clientX, e.clientY)
-  })
-}
-
 const gornyPasekGry = (tytul, idTytulu, idZamkniecia) =>
   el(
     'div',
@@ -1403,15 +1382,12 @@ function zacznijKrzyzowke() {
     toast('Z tych słów nie ułożyła się krzyżówka. Spróbuj jutro.')
     return
   }
-  // Kilka liter jest danych z gory (najwyzej po jednej na haslo): pusta siatka zniechecala do startu.
-  const dane = krzyzowka.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno })
   gra = {
     rodzaj: 'krzyzowka',
     siatka: ulozona.siatka,
     hasla: ulozona.hasla,
     komorki: ulozona.hasla.map(krzyzowka.komorkiHasla),
-    dane: new Set(Object.keys(dane)),
-    odpowiedzi: { ...dane },
+    odpowiedzi: {},
     uzyte: 0,
     ziarno,
     wybrane: 0,
@@ -1447,7 +1423,7 @@ function rysujKrzyzowke() {
           type: 'button',
           'data-w': w,
           'data-k': k,
-          'aria-label': `Pole ${w + 1}, ${k + 1}${gra.dane.has(klucz) ? ', litera dana' : ''}`,
+          'aria-label': `Pole ${w + 1}, ${k + 1}`,
           // Bez tego tapniecie w pole zabiera fokus ukrytemu polu i klawiatura systemowa chowa sie.
           onmousedown: (e) => e.preventDefault(),
           onclick: () => tapnijPole(w, k),
@@ -1501,7 +1477,6 @@ function odswiezKrzyzowke() {
   for (const [klucz, pole] of gra.pola) {
     const [w, k] = klucz.split(',').map(Number)
     pole.querySelector('.krzyzowka-litera').textContent = gra.odpowiedzi[klucz] || ''
-    pole.classList.toggle('dana', gra.dane.has(klucz))
     pole.classList.toggle('wybrane', wybrane.has(klucz))
     pole.classList.toggle('aktywne', klucz === aktywne)
     const ocena = gra.oceny ? gra.oceny[w][k] : null
@@ -1551,13 +1526,6 @@ const bezPola = (odpowiedzi, klucz) => Object.fromEntries(Object.entries(odpowie
 function wpiszLitere(znak) {
   const litera = String(znak || '').toUpperCase()
   if (!gra?.pole || !/^\p{L}$/u.test(litera)) return
-  // Litera dana z gory zostaje na planszy, a kursor idzie dalej: wpisywanie calego hasla przez nia
-  // przechodzi, wiec nie trzeba celowac w same puste pola.
-  if (gra.dane.has(krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna))) {
-    przesunPole(1)
-    odswiezKrzyzowke()
-    return
-  }
   gra.odpowiedzi = { ...gra.odpowiedzi, [krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna)]: litera }
   gra.oceny = null
   przesunPole(1)
@@ -1568,9 +1536,8 @@ function wpiszLitere(znak) {
 function cofnijLitereKrzyzowki() {
   if (!gra?.pole) return
   const klucz = () => krzyzowka.kluczPola(gra.pole.wiersz, gra.pole.kolumna)
-  // Liter danych z gory nie kasujemy: kursor cofa sie przez nie dalej, tak jak przechodzi przy pisaniu.
-  if (!gra.odpowiedzi[klucz()] || gra.dane.has(klucz())) przesunPole(-1)
-  if (!gra.dane.has(klucz())) gra.odpowiedzi = bezPola(gra.odpowiedzi, klucz())
+  if (!gra.odpowiedzi[klucz()]) przesunPole(-1)
+  gra.odpowiedzi = bezPola(gra.odpowiedzi, klucz())
   gra.oceny = null
   odswiezKrzyzowke()
 }
@@ -1664,7 +1631,6 @@ function rysujLiterki() {
       el('button', { klasa: 'przycisk', id: 'literki-podpowiedz', type: 'button', onclick: podpowiedzLiterki }),
     ),
   )
-  podepnijWyjscieGestem(sekcja, wyjdzZGry)
   pokazEkran('literki', sekcja)
   odswiezLiterki()
 }
