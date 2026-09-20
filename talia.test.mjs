@@ -456,21 +456,19 @@ test('progi gestu: 90 px w poziomie, 80 px w pionie albo flick', () => {
   assert.equal(t.kierunekGestu({ dx: 95, dy: 200 }), 'dol')
 })
 
-test('oceny z gestu i zasada "najpierw sprobuj sobie przypomniec"', () => {
+test('oceny z gestu; kazdy gest dziala takze na karcie zakrytej', () => {
   assert.equal(t.oceneZGestu('prawo'), 3)
   assert.equal(t.oceneZGestu('lewo'), 1)
   assert.equal(t.oceneZGestu('gora'), 2)
   assert.equal(t.oceneZGestu('dol'), null, 'gest w dol to wyjscie, nie ocena')
   assert.equal(t.oceneZGestu(''), null)
 
-  // przed odslonieciem dziala tylko gest w dol
-  for (const kierunek of ['prawo', 'lewo', 'gora']) {
-    assert.equal(t.gestDozwolony(kierunek, false), false)
-    assert.equal(t.gestDozwolony(kierunek, true), true)
+  // kazdy kierunek dziala od razu, niezaleznie od tego, czy karta jest odkryta
+  for (const kierunek of ['prawo', 'lewo', 'gora', 'dol']) {
+    assert.equal(t.gestDozwolony(kierunek), true)
+    assert.equal(t.gestDozwolony(kierunek, false), true)
   }
-  assert.equal(t.gestDozwolony('dol', false), true)
-  assert.equal(t.gestDozwolony('dol', true), true)
-  assert.equal(t.gestDozwolony('', true), false)
+  assert.equal(t.gestDozwolony(''), false, 'ruch ponizej progu to nie ocena')
 })
 
 test('ocena "Prawie" zdejmuje karte jak "Umiem" i daje 30 EXP', () => {

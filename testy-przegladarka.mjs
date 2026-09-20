@@ -461,6 +461,12 @@ try {
   })()`)
   sprawdz('ekran nauki: gora to sam pasek postepu, bez cyfr i bez tekstu', gora.tekst === '' && gora.paski === 2, JSON.stringify(gora))
   sprawdz('ekran nauki: dol ekranu nie zajmuje miejsca', gora.wysokoscAkcji <= 1, `${gora.wysokoscAkcji} px`)
+  // Karta konczy sie razem z ekranem: wczesniej odcinal ja dolny margines siatki i odstep nad pustym footerem.
+  const pionKarty = await js(`(() => {
+    const r = document.getElementById('karta').getBoundingClientRect()
+    return { odDolu: Math.round(innerHeight - r.bottom), odGory: Math.round(r.top), wewnatrz: getComputedStyle(document.getElementById('karta')).paddingBottom }
+  })()`)
+  sprawdz('karta siega do dolnej krawedzi ekranu', pionKarty.odDolu === 0 && pionKarty.odGory > 0, JSON.stringify(pionKarty))
   const kartaPrzed = await js(`document.getElementById('karta').innerText`)
   sprawdz('karta: bez etykiety "CO TO ZNACZY?"', !/co to znaczy/i.test(kartaPrzed), kartaPrzed.replace(/\n+/g, ' | '))
   sprawdz('karta: podpis "Dotknij, aby odsłonić" na pierwszych kartach po samouczku', kartaPrzed.includes('Dotknij, aby odsłonić'), kartaPrzed.replace(/\n+/g, ' | '))
@@ -474,12 +480,15 @@ try {
   // ---------------------------------------------------------------------------------------------
   // A: gesty w cztery strony
   // ---------------------------------------------------------------------------------------------
+  // Ocena dziala od razu, bez tapniecia na odsloniecie. Cofniecie oddaje ten sam punkt startu
+  // kolejnym krokom (karta "apple", zero punktow), a przy okazji sprawdza cofniecie karty zakrytej.
   await przeciagnij('#karta', 170, 0)
   await czekaj(400)
-  sprawdz('gest poziomy przed odslonieciem nic nie robi', (await slowoKarty()) === 'apple' && (await exp()) === 0, `${await slowoKarty()}, ${await exp()} pkt`)
-  await przeciagnij('#karta', 0, -150)
+  sprawdz('gest w prawo ocenia karte zakryta, bez tapniecia', (await slowoKarty()) !== 'apple' && (await exp()) === 50, `${await slowoKarty()}, ${await exp()} pkt`)
+  await dwukrotneTapniecie('#karta')
   await czekaj(400)
-  sprawdz('gest w gore przed odslonieciem nic nie robi', (await slowoKarty()) === 'apple' && (await exp()) === 0, `${await slowoKarty()}, ${await exp()} pkt`)
+  sprawdz('dwukrotne tapniecie cofa ocene z karty zakrytej', (await slowoKarty()) === 'apple' && (await exp()) === 0, `${await slowoKarty()}, ${await exp()} pkt`)
+  sprawdz('karta po cofnieciu wraca zakryta', await js(`!document.getElementById('karta').classList.contains('odkryta')`))
 
   await tapnij('#karta', true)
   sprawdz('pojedyncze tapniecie odslania kartę od razu, bez czekania na drugie', await czekajNa(`document.getElementById('karta').classList.contains('odkryta')`, 200))

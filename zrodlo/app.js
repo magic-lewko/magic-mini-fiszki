@@ -325,6 +325,8 @@ function pokazEkran(nazwa, ...zawartosc) {
   }
   // W trakcie nauki gora nie ma nic do klikania (B): menu wraca dopiero na ekranie wyboru.
   $('menu-przycisk').hidden = nazwa === 'karta'
+  // Na ekranie nauki karta siega do dolnej krawedzi ekranu (patrz "#aplikacja.nauka" w stylach).
+  $('aplikacja').classList.toggle('nauka', nazwa === 'karta')
   odswiezPasekTalii()
   odswiezZnacznik()
 }
@@ -582,9 +584,10 @@ function odswiezAkcje() {
   akcje.replaceChildren(
     ...[
       !odkryta && ukrytyPrzycisk('Odsłoń kartę', odslon),
-      odkryta && ukrytyPrzycisk('Nie umiem', () => ocenKarte(1)),
-      odkryta && ukrytyPrzycisk('Prawie', () => ocenKarte(2)),
-      odkryta && !umiemZablokowane && ukrytyPrzycisk('Umiem', () => ocenKarte(3)),
+      // Oceny sa dostepne od razu, tak samo jak gest: czytnik ekranu nie musi najpierw odslaniac karty.
+      ukrytyPrzycisk('Nie umiem', () => ocenKarte(1)),
+      ukrytyPrzycisk('Prawie', () => ocenKarte(2)),
+      !umiemZablokowane && ukrytyPrzycisk('Umiem', () => ocenKarte(3)),
       nowa && ukrytyPrzycisk('Znam', () => ocenKarte(4)),
       ukrytyPrzycisk('Pomijam to słowo', pomijajAktualna),
       // Gest cofa bezterminowo, wiec czytnik ekranu tez: 6 sekund dotyczy tylko podpowiedzi na ekranie.
@@ -651,7 +654,9 @@ function ocenKarte(ocena) {
   const k = talia.aktualnaKarta(seria)
   const przed = stan.karty[k]
   const pierwszaEkspozycja = talia.jestNowa(przed)
-  if (ocena === 4 ? !pierwszaEkspozycja : !odkryta) return
+  // "Znam" ma sens tylko na pierwszej ekspozycji slowa. Pozostale oceny dzialaja takze na karcie
+  // zakrytej: gest ma konczyc slowo od razu, bez tapniecia na odsloniecie.
+  if (ocena === 4 && !pierwszaEkspozycja) return
   if (ocena === 3 && talia.regulyPodpowiedzi({ uzyto: uzytoPodpowiedzi }).umiemZablokowane) return
   const teraz = new Date()
   // Czas odpowiedzi liczony od odsloniecia. Powyzej 8 s "Umiem" zapisuje sie jako "Prawie" (C);
@@ -901,8 +906,8 @@ function wylot(status, kierunek, potem) {
 // Gesty w cztery strony (A). Karta podaza za palcem w obu osiach i obraca sie lekko przy ruchu poziomym.
 // Po przekroczeniu progu (90 px w poziomie, 80 px w pionie albo szybki flick) kierunek podswietla sie
 // kolorem i ikona statusu, jeszcze zanim uzytkownik puisci palec: to jedyna informacja o tym, co robi.
-// Prawo "Umiem", lewo "Nie umiem", gora "Prawie", dol wyjscie z sesji. Oceny dzialaja tylko po
-// odslonieciu, gest w dol zawsze. Ponizej PROG_RUCHU puszczenie palca liczy sie jak tapniecie.
+// Prawo "Umiem", lewo "Nie umiem", gora "Prawie", dol wyjscie z sesji. Kazdy z nich dziala takze na
+// karcie zakrytej. Ponizej PROG_RUCHU puszczenie palca liczy sie jak tapniecie.
 // Znacznik kierunku stoi nad karta (w #aplikacja), a nie w niej: karta odjezdza za palcem, a status
 // ma zostac na srodku ekranu az do puszczenia palca.
 function podswietlKierunek(kierunek) {
@@ -985,7 +990,7 @@ function podepnijGest(karta) {
     if (!dotyk.ciagnie) return
     // Podswietlenie liczy sie z samej drogi, bez flicka: ma pokazywac stan "puszczam teraz i to sie stanie".
     const kierunek = talia.kierunekGestu({ dx, dy })
-    const aktywny = talia.gestDozwolony(kierunek, odkryta) ? kierunek : ''
+    const aktywny = talia.gestDozwolony(kierunek) ? kierunek : ''
     przesun(dx, dy, !!aktywny)
     podswietl(aktywny)
   })
@@ -999,7 +1004,7 @@ function podepnijGest(karta) {
     dotyk = null
     if (!ciagnie) return
     ignorujKlik = true
-    if (!anulowane && talia.gestDozwolony(kierunek, odkryta)) {
+    if (!anulowane && talia.gestDozwolony(kierunek)) {
       podswietl('')
       karta.classList.remove('ciagniecie')
       if (kierunek === 'dol') {
@@ -1083,7 +1088,7 @@ function pokazSamouczek() {
           ),
         ),
       ),
-      el('p', { klasa: 'samouczek-opis', tekst: 'Tapnięcie odsłania, dwukrotne cofa ocenę.' }),
+      el('p', { klasa: 'samouczek-opis', tekst: 'Gest działa od razu. Tapnięcie odsłania, dwukrotne cofa ocenę.' }),
       el('button', { klasa: 'przycisk glowny', id: 'samouczek-ok', type: 'button', tekst: 'Zaczynamy' }),
     ),
   )
@@ -2302,7 +2307,7 @@ const ZASADY_NAUKI = [
   ],
   [
     'Najpierw spróbuj sobie przypomnieć, nawet gdy nie wiesz.',
-    'Nieudana próba plus poprawna odpowiedź uczy więcej niż samo patrzenie na odpowiedź. Dlatego apka nie pokazuje tłumaczenia od razu i nie da się tego wyłączyć.',
+    'Nieudana próba plus poprawna odpowiedź uczy więcej niż samo patrzenie na odpowiedź. Dlatego apka nigdy nie pokazuje tłumaczenia sama z siebie. Słowo, które siedzi na pewno, oceniaj gestem od razu - ale przy każdym wahaniu najpierw odsłoń i sprawdź.',
   ],
   [
     '„Prawie” to sukces, nie porażka.',

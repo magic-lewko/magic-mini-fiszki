@@ -11,7 +11,7 @@ Algorytm powtórek `lib/fsrs.mjs` (z testem `lib/fsrs.test.mjs`) to kopia z `mag
 1. **Aplikacja otwiera się od razu na karcie.** Żadnego ekranu startowego: jeśli jest co powtarzać, pierwsza karta czeka na dotknięcie.
 2. **Dotknięcie odsłania** odpowiedź. **Dwukrotne dotknięcie** (drugie w ciągu 280 ms) cofa ostatnią ocenę. Pierwsze dotknięcie działa od razu i na nic nie czeka.
 3. **Ocena to gest**: w **prawo** "Umiem", w **lewo** "Nie umiem", w **górę** "Prawie", w **dół** koniec nauki i powrót na ekran wyboru. Karta podąża za palcem w obu osiach; po przekroczeniu progu (90 px w poziomie, 80 px w pionie albo szybki flick) kierunek podświetla się kolorem i ikoną, jeszcze zanim puścisz palec. Poniżej progu karta wraca na środek.
-4. **Oceny działają tylko po odsłonięciu** (najpierw spróbuj sobie przypomnieć). Gest w dół działa zawsze.
+4. **Ocena działa od razu, także na zakrytej karcie**: słowo, które siedzi, kończysz jednym ruchem, bez dotykania go wcześniej. Dotknięcie zostaje dla słów, których chcesz się upewnić - i tylko wtedy liczy się czas odpowiedzi. Wyjątek: "Znam" (`z`) działa wyłącznie na pierwszej ekspozycji słowa.
 5. **Ekran nauki nie ma żadnego widocznego przycisku.** Na górze jest wyłącznie cienki pasek postępu całej talii, na dole nic. Przyciski ocen zostały dla czytnika ekranu (klasa `tylko-czytnik`), a do testów i klawiatury zewnętrznej są skróty: spacja odsłania, strzałki w cztery strony odpowiadają czterem gestom, `z` to "Znam".
 6. **Ekran wyboru** (po serii, po geście w dół i gdy nie ma czego powtarzać): pasek całej talii z jedną liczbą ("412 / 2981"), trzy duże przyciski **Powtórki**, **Krzyżówka**, **Literki** oraz trzy kropki menu w rogu.
 7. **Koniec serii**: najwyżej trzy liczby (co przybyło, ile kart dziś, ile jutro) i te same trzy przyciski, co na ekranie wyboru.
@@ -26,7 +26,7 @@ To jedyny wskaźnik postępu w aplikacji: rangi, poziomów, punktów tygodnia i 
 
 ### Czas odpowiedzi
 
-Po odsłonięciu karty jej ramka zmienia kolor wraz z czasem: 0-3 s neutralna, 3-8 s bursztynowa, powyżej 8 s cynobrowa. Zmiana jest płynna, bez cyfr i bez tykania.
+Po odsłonięciu karty jej ramka zmienia kolor wraz z czasem: 0-3 s neutralna, 3-8 s bursztynowa, powyżej 8 s cynobrowa. Zmiana jest płynna, bez cyfr i bez tykania. Karta oceniona gestem bez odsłaniania nie ma czasu odpowiedzi (liczy się jako zero sekund), więc żadna degradacja jej nie dotyczy.
 
 **Powyżej 8 sekund gest "Umiem" zapisuje się jako "Prawie"** (ocena 2), a pod kartą pojawia się na 900 ms mikro-notka "wolno, liczę jako Prawie". Odpowiedź po tak długim szukaniu nie jest wiedzą gotową do użycia. Nie dotyczy to pierwszej ekspozycji słowa (nowa karta) ani treningu, bo tam czas nic nie mówi o wiedzy. Progi (`SEKUNDY_TEMPA_SREDNIEGO`, `SEKUNDY_TEMPA_WOLNEGO`) są stałymi w `talia.js`. Mediana czasów odpowiedzi z dnia trafia do historii jako `tempo` i widać ją w statystykach.
 

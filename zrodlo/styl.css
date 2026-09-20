@@ -230,6 +230,25 @@ p {
   will-change: transform;
 }
 
+/* Ekran nauki: karta idzie do samej dolnej krawedzi. Dolne wypelnienie siatki i odstep nad pustym
+   footerem tylko odcinaly panel od dolu ekranu. Wciecie systemowe przenosi sie do wnetrza karty,
+   wiec tresc nadal nie wchodzi pod pasek gestu iPhone'a, a sam panel konczy sie razem z ekranem. */
+#aplikacja.nauka {
+  padding-bottom: 0;
+  row-gap: 0;
+}
+
+#aplikacja.nauka .gora {
+  margin-bottom: 10px;
+}
+
+#aplikacja.nauka .karta {
+  padding-bottom: calc(44px + env(safe-area-inset-bottom));
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
 .karta.wjazd {
   animation: wjazd var(--czas-wjazd) var(--wejscie);
 }
