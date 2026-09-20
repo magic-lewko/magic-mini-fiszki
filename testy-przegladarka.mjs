@@ -464,9 +464,20 @@ try {
   // Karta konczy sie razem z ekranem: wczesniej odcinal ja dolny margines siatki i odstep nad pustym footerem.
   const pionKarty = await js(`(() => {
     const r = document.getElementById('karta').getBoundingClientRect()
-    return { odDolu: Math.round(innerHeight - r.bottom), odGory: Math.round(r.top), wewnatrz: getComputedStyle(document.getElementById('karta')).paddingBottom }
+    const s = getComputedStyle(document.getElementById('karta'))
+    return {
+      odDolu: Math.round(innerHeight - r.bottom),
+      odBoku: Math.round(r.left),
+      odGory: Math.round(r.top),
+      zaokraglenie: s.borderBottomLeftRadius,
+      wewnatrz: s.paddingBottom,
+    }
   })()`)
-  sprawdz('karta siega do dolnej krawedzi ekranu', pionKarty.odDolu === 0 && pionKarty.odGory > 0, JSON.stringify(pionKarty))
+  sprawdz(
+    'karta schodzi nisko, z tym samym odstepem co po bokach i z zaokragleniem',
+    pionKarty.odDolu === pionKarty.odBoku && pionKarty.odDolu <= 16 && pionKarty.odGory > 0 && parseFloat(pionKarty.zaokraglenie) > 0,
+    JSON.stringify(pionKarty),
+  )
   const kartaPrzed = await js(`document.getElementById('karta').innerText`)
   sprawdz('karta: bez etykiety "CO TO ZNACZY?"', !/co to znaczy/i.test(kartaPrzed), kartaPrzed.replace(/\n+/g, ' | '))
   sprawdz('karta: podpis "Dotknij, aby odsłonić" na pierwszych kartach po samouczku', kartaPrzed.includes('Dotknij, aby odsłonić'), kartaPrzed.replace(/\n+/g, ' | '))

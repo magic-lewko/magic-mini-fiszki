@@ -11,10 +11,11 @@ Algorytm powtórek `lib/fsrs.mjs` (z testem `lib/fsrs.test.mjs`) to kopia z `mag
 1. **Aplikacja otwiera się od razu na karcie.** Żadnego ekranu startowego: jeśli jest co powtarzać, pierwsza karta czeka na dotknięcie.
 2. **Dotknięcie odsłania** odpowiedź. **Dwukrotne dotknięcie** (drugie w ciągu 280 ms) cofa ostatnią ocenę. Pierwsze dotknięcie działa od razu i na nic nie czeka.
 3. **Ocena to gest**: w **prawo** "Umiem", w **lewo** "Nie umiem", w **górę** "Prawie", w **dół** koniec nauki i powrót na ekran wyboru. Karta podąża za palcem w obu osiach; po przekroczeniu progu (90 px w poziomie, 80 px w pionie albo szybki flick) kierunek podświetla się kolorem i ikoną, jeszcze zanim puścisz palec. Poniżej progu karta wraca na środek.
-4. **Ocena działa od razu, także na zakrytej karcie**: słowo, które siedzi, kończysz jednym ruchem, bez dotykania go wcześniej. Dotknięcie zostaje dla słów, których chcesz się upewnić - i tylko wtedy liczy się czas odpowiedzi. Wyjątek: "Znam" (`z`) działa wyłącznie na pierwszej ekspozycji słowa.
-5. **Ekran nauki nie ma żadnego widocznego przycisku.** Na górze jest wyłącznie cienki pasek postępu całej talii, na dole nic. Przyciski ocen zostały dla czytnika ekranu (klasa `tylko-czytnik`), a do testów i klawiatury zewnętrznej są skróty: spacja odsłania, strzałki w cztery strony odpowiadają czterem gestom, `z` to "Znam".
-6. **Ekran wyboru** (po serii, po geście w dół i gdy nie ma czego powtarzać): pasek całej talii z jedną liczbą ("412 / 2981"), trzy duże przyciski **Powtórki**, **Krzyżówka**, **Literki** oraz trzy kropki menu w rogu.
-7. **Koniec serii**: najwyżej trzy liczby (co przybyło, ile kart dziś, ile jutro) i te same trzy przyciski, co na ekranie wyboru.
+4. **Karta zajmuje cały ekran nauki**: dolny odstęp jest taki sam jak boczne, więc panel schodzi nisko, ale zaokrąglenie zostaje widoczne. Wcięcie systemowe (pasek gestu iPhone'a) jest doliczone do wypełnienia wewnątrz karty.
+5. **Ocena działa od razu, także na zakrytej karcie**: słowo, które siedzi, kończysz jednym ruchem, bez dotykania go wcześniej. Dotknięcie zostaje dla słów, których chcesz się upewnić - i tylko wtedy liczy się czas odpowiedzi. Wyjątek: "Znam" (`z`) działa wyłącznie na pierwszej ekspozycji słowa.
+6. **Ekran nauki nie ma żadnego widocznego przycisku.** Na górze jest wyłącznie cienki pasek postępu całej talii, na dole nic. Przyciski ocen zostały dla czytnika ekranu (klasa `tylko-czytnik`), a do testów i klawiatury zewnętrznej są skróty: spacja odsłania, strzałki w cztery strony odpowiadają czterem gestom, `z` to "Znam".
+7. **Ekran wyboru** (po serii, po geście w dół i gdy nie ma czego powtarzać): pasek całej talii z jedną liczbą ("412 / 2981"), trzy duże przyciski **Powtórki**, **Krzyżówka**, **Literki** oraz trzy kropki menu w rogu.
+8. **Koniec serii**: najwyżej trzy liczby (co przybyło, ile kart dziś, ile jutro) i te same trzy przyciski, co na ekranie wyboru.
 
 ### Pasek całej talii
 
