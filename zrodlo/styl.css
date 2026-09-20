@@ -543,30 +543,39 @@ p {
   font-weight: 600;
 }
 
-/* Litery dane z gory: przygaszone, zeby bylo widac, ze to nie jest wpisana odpowiedz. */
-.krzyzowka-pole.dana .krzyzowka-litera {
-  color: var(--przygaszony);
-}
-
-/* Kosz w rogu karty: ma byc pod kciukiem, ale nie przyciagac wzroku, stad przygaszenie. */
-.karta .kosz {
+/* Kosz w prawym dolnym rogu i krzyzyk w prawym gornym: oba maja byc pod kciukiem, ale nie przyciagac
+   wzroku, stad przygaszenie. Kosz jest wiekszy - uzywa sie go czesciej niz wyjscia. */
+.karta .kosz,
+.karta .wyjdz {
   position: absolute;
   right: 4px;
-  bottom: 4px;
-  width: 44px;
-  height: 44px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  font-size: 17px;
   line-height: 1;
-  opacity: 0.28;
+  opacity: 0.3;
   transition: opacity var(--czas-tap) ease-out;
 }
 
-.karta .kosz:active {
-  opacity: 0.85;
+.karta .kosz {
+  bottom: 2px;
+  width: 54px;
+  height: 54px;
+  font-size: 22px;
+}
+
+.karta .wyjdz {
+  top: 2px;
+  width: 44px;
+  height: 44px;
+  color: var(--tekst);
+  font-size: 17px;
+}
+
+.karta .kosz:active,
+.karta .wyjdz:active {
+  opacity: 0.9;
 }
 
 .trening-znacznik {
@@ -731,6 +740,29 @@ p {
 
 .blysk.widoczny {
   animation: blysk-krawedzi 300ms var(--swieto);
+}
+
+/* Blysk w kolorze oceny przy kazdej zmianie karty. Gest na iPhonie nie moze zawibrowac, wiec to jedyne
+   potwierdzenie, ze karta poszla dalej. Slaby, zeby przy dziesiatkach kart nie meczyl. */
+.blysk.blysk-nie {
+  box-shadow: inset 0 0 0 4px var(--nie-umiem);
+}
+
+.blysk.blysk-wyjscie {
+  box-shadow: inset 0 0 0 4px var(--przygaszony);
+}
+
+.blysk.slaby.widoczny {
+  animation: blysk-slaby 260ms var(--swieto);
+}
+
+@keyframes blysk-slaby {
+  30% {
+    opacity: 0.32;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes blysk-krawedzi {

@@ -217,39 +217,6 @@ test('przy 6-12 slowach uklada co najmniej polowe', () => {
   )
 })
 
-test('daneLitery daja kilka liter, najwyzej po jednej na haslo', () => {
-  const ulozona = kr.ulozKrzyzowke(OWOCE, { ziarno: 11 })
-  const dane = kr.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno: 11 })
-  const klucze = Object.keys(dane)
-  assert.ok(klucze.length >= 1 && klucze.length <= kr.MAKS_DANYCH, `liter danych: ${klucze.length}`)
-  assert.ok(klucze.length <= Math.max(1, Math.floor(ulozona.hasla.length / 2)), 'najwyzej co drugie haslo')
-
-  // Kazda litera zgadza sie z siatka, wiec dana litera jest zawsze poprawna.
-  for (const [klucz, litera] of Object.entries(dane)) {
-    const [w, k] = klucz.split(',').map(Number)
-    assert.equal(ulozona.siatka[w][k], litera)
-  }
-
-  // Zadne haslo nie dostaje dwoch liter - takze przez skrzyzowanie z innym haslem.
-  for (const h of ulozona.hasla) {
-    const ile = kr.komorkiHasla(h).filter((c) => kr.kluczPola(c.wiersz, c.kolumna) in dane).length
-    assert.ok(ile <= 1, `haslo ${h.numer} ${h.kierunek} dostalo ${ile} liter`)
-  }
-
-  // To samo ziarno daje ten sam uklad, inne ziarno zwykle inny.
-  assert.deepEqual(kr.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno: 11 }), dane)
-  assert.deepEqual(kr.daneLitery([], [], { ziarno: 11 }), {}, 'brak hasel to brak liter')
-  assert.equal(Object.keys(kr.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno: 11, maks: 1 })).length, 1, 'limit obowiazuje')
-})
-
-test('litera dana nie jest juz podpowiedzia', () => {
-  const ulozona = kr.ulozKrzyzowke(OWOCE, { ziarno: 3 })
-  const dane = kr.daneLitery(ulozona.siatka, ulozona.hasla, { ziarno: 3 })
-  const wynik = kr.podpowiedzLitere({ siatka: ulozona.siatka, odpowiedzi: dane, ziarno: 3 })
-  const klucz = wynik.podpowiedz && kr.kluczPola(wynik.podpowiedz.wiersz, wynik.podpowiedz.kolumna)
-  assert.ok(klucz && !(klucz in dane), 'podpowiedz nie moze odkrywac pola juz wypelnionego')
-})
-
 test('12 slow uklada sie ponizej 50 ms', () => {
   const czasy = []
   for (let ziarno = 0; ziarno < 20; ziarno++) {

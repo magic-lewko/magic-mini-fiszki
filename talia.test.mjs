@@ -100,7 +100,7 @@ test('limit mowienia jest osobny od limitu EN', () => {
   assert.deepEqual(seria, ['c|en'])
 })
 
-test('nie umiem wstawia karte ponownie jako czwarta, seria konczy sie po oczyszczeniu wszystkich', () => {
+test('nie umiem wstawia karte jako czwarta, a bez miejsca na odstep karta wypada z serii', () => {
   let seria = t.nowaSeria(['a', 'b', 'c', 'd', 'e', 'f'])
   seria = t.poOcenie(seria, 1)
   assert.deepEqual(seria.kolejka, ['b', 'c', 'd', 'a', 'e', 'f'])
@@ -114,21 +114,19 @@ test('nie umiem wstawia karte ponownie jako czwarta, seria konczy sie po oczyszc
   assert.equal(t.aktualnaKarta(seria), 'a')
   assert.equal(t.postepSerii(seria), 0.5)
 
+  // Dalej w kolejce zostaja dwie karty, wiec pomylka nie ma przed soba trzech innych: zamiast wracac
+  // od razu (czyli przepisywac odpowiedz z pamieci krotkotrwalej), karta wypada z serii.
   seria = t.poOcenie(seria, 4)
+  assert.deepEqual(seria.kolejka, ['e', 'f'])
+  const wszystkiePrzed = seria.wszystkie
   seria = t.poOcenie(seria, 1)
-  assert.deepEqual(seria.kolejka, ['f', 'e'])
-  seria = t.poOcenie(seria, 3)
-  assert.deepEqual(seria.kolejka, ['e'])
-  seria = t.poOcenie(seria, 1)
-  assert.deepEqual(seria.kolejka, ['e'])
-  assert.equal(t.koniecSerii(seria), false)
-  seria = t.poOcenie(seria, 3)
+  assert.deepEqual(seria.kolejka, ['f'], 'karta nie wraca jako nastepna')
+  assert.equal(seria.wszystkie, wszystkiePrzed - 1, 'pasek postepu przestaje jej oczekiwac')
 
+  seria = t.poOcenie(seria, 3)
   assert.equal(t.koniecSerii(seria), true)
   assert.equal(t.postepSerii(seria), 1)
-  assert.equal(seria.umiem, 6)
-  assert.equal(seria.nieUmiem, 3)
-  assert.equal(seria.exp, 3 * 10 + 5 * 50 + 20)
+  assert.equal(seria.nieUmiem, 2)
 })
 
 test('pasek postepu przyspiesza w drugiej polowie', () => {
@@ -415,7 +413,6 @@ test('powyzej 8 s "Umiem" schodzi do "Prawie", ale nie na nowej karcie i nie w t
   for (const ocena of [1, 2, 4]) {
     assert.deepEqual(t.ocenaPoCzasie({ ocena, sekundy: 30 }), { ocena, obnizona: false })
   }
-  assert.equal(t.NOTKA_WOLNO, 'wolno, liczę jako Prawie')
 })
 
 test('mediana czasow odpowiedzi', () => {
@@ -459,16 +456,17 @@ test('progi gestu: 90 px w poziomie, 80 px w pionie albo flick', () => {
 test('oceny z gestu; kazdy gest dziala takze na karcie zakrytej', () => {
   assert.equal(t.oceneZGestu('prawo'), 3)
   assert.equal(t.oceneZGestu('lewo'), 1)
-  assert.equal(t.oceneZGestu('gora'), 2)
-  assert.equal(t.oceneZGestu('dol'), null, 'gest w dol to wyjscie, nie ocena')
+  assert.equal(t.oceneZGestu('gora'), null, 'ruch w gore nie jest juz ocena')
+  assert.equal(t.oceneZGestu('dol'), null, 'gest w dol to kosz, nie ocena')
   assert.equal(t.oceneZGestu(''), null)
 
-  // kazdy kierunek dziala od razu, niezaleznie od tego, czy karta jest odkryta
-  for (const kierunek of ['prawo', 'lewo', 'gora', 'dol']) {
+  // prawo, lewo i dol dzialaja od razu, takze na karcie zakrytej; gora nie robi juz nic
+  for (const kierunek of ['prawo', 'lewo', 'dol']) {
     assert.equal(t.gestDozwolony(kierunek), true)
-    assert.equal(t.gestDozwolony(kierunek, false), true)
   }
+  assert.equal(t.gestDozwolony('gora'), false, 'po usunieciu "Prawie" ruch w gore nic nie znaczy')
   assert.equal(t.gestDozwolony(''), false, 'ruch ponizej progu to nie ocena')
+  assert.equal(t.GEST_KOSZA, 'dol')
 })
 
 test('ocena "Prawie" zdejmuje karte jak "Umiem" i daje 30 EXP', () => {
@@ -480,9 +478,9 @@ test('ocena "Prawie" zdejmuje karte jak "Umiem" i daje 30 EXP', () => {
   assert.equal(seria.umiem, 0)
   assert.equal(seria.oczyszczone, 1)
   assert.equal(seria.exp, 30)
-  // tylko "Nie umiem" wraca do kolejki
+  // "Nie umiem" wraca do kolejki tylko wtedy, gdy zmiesci sie przed nia odstep trzech kart
   seria = t.poOcenie(seria, 1)
-  assert.deepEqual(seria.kolejka, ['c', 'b'])
+  assert.deepEqual(seria.kolejka, ['c'])
 })
 
 test('combo: zerowane przez "Nie umiem", bonus co piate', () => {
@@ -1095,20 +1093,6 @@ test('panel leecha po 6 pomylkach, odlozenie na 3 tygodnie i licznik proponowani
 
 // Podpowiedz jako trudnosc pozadana (A5)
 
-test('reguly podpowiedzi: widoczna po 7 s, po uzyciu ocena najwyzej Prawie', () => {
-  assert.equal(t.SEKUNDY_DO_PODPOWIEDZI, 7)
-  assert.deepEqual(t.regulyPodpowiedzi(), { widoczna: false, umiemZablokowane: false, podpisUmiem: '' })
-  assert.equal(t.regulyPodpowiedzi({ sekundy: 6.9 }).widoczna, false)
-  assert.equal(t.regulyPodpowiedzi({ sekundy: 7 }).widoczna, true)
-  assert.equal(t.regulyPodpowiedzi({ sekundy: 30 }).umiemZablokowane, false)
-  const poUzyciu = t.regulyPodpowiedzi({ sekundy: 8, uzyto: true })
-  assert.equal(poUzyciu.umiemZablokowane, true)
-  assert.equal(poUzyciu.podpisUmiem, t.PODPIS_BLOKADY_UMIEM)
-  assert.equal(poUzyciu.podpisUmiem, 'z podpowiedzią maks. Prawie')
-  // Podpowiedz uzyta przed uplywem 7 s (np. po cofnieciu) zostaje widoczna.
-  assert.equal(t.regulyPodpowiedzi({ sekundy: 0, uzyto: true }).widoczna, true)
-})
-
 test('domyslne ustawienia po przebudowie silnika', () => {
   assert.deepEqual(t.DOMYSLNE_USTAWIENIA, {
     noweDziennie: 10,
@@ -1201,7 +1185,8 @@ test('seria liczy nowe slowa wprowadzone w jej trakcie', () => {
 })
 
 test('nowe slowo po "Nie umiem" liczy sie raz, mimo powrotu karty do kolejki', () => {
-  let s = t.nowaSeria(['a|en', 'b|en'])
+  // Cztery karty, zeby po pomylce zmiescil sie odstep i karta naprawde wrocila do kolejki.
+  let s = t.nowaSeria(['a|en', 'b|en', 'c|en', 'd|en'])
   s = t.poOcenie(s, 1, true)
   assert.equal(s.nowe, 1)
   assert.equal(s.kolejka.includes('a|en'), true)

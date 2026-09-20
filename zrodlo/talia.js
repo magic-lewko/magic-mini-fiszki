@@ -251,7 +251,6 @@ export function postepTalii({ slowa, karty, wylaczoneTalie }) {
 export const SEKUNDY_TEMPA_SREDNIEGO = 3
 export const SEKUNDY_TEMPA_WOLNEGO = 8
 export const TEMPA = ['szybko', 'srednio', 'wolno']
-export const NOTKA_WOLNO = 'wolno, liczę jako Prawie'
 
 export function tempoOdpowiedzi(sekundy) {
   const s = Math.max(Number(sekundy) || 0, 0)
@@ -260,8 +259,9 @@ export function tempoOdpowiedzi(sekundy) {
   return 'szybko'
 }
 
-// Powyzej 8 s "Umiem" zapisuje sie jako "Prawie": odpowiedz po tak dlugim szukaniu nie jest wiedza gotowa
-// do uzycia. Nie dotyczy pierwszej ekspozycji slowa (nowa karta) ani treningu, bo tam czas nic nie znaczy.
+// Powyzej 8 s "Umiem" zapisuje sie jako slabsze trafienie (ocena 2 w FSRS): odpowiedz po tak dlugim
+// szukaniu nie jest wiedza gotowa do uzycia. Dzieje sie to po cichu - uzytkownik widzi tylko kolor ramki.
+// Nie dotyczy pierwszej ekspozycji slowa (nowa karta) ani treningu, bo tam czas nic nie znaczy.
 export function ocenaPoCzasie({ ocena, sekundy = 0, nowa = false, trening = false }) {
   if (ocena !== 3 || nowa || trening) return { ocena, obnizona: false }
   if (tempoOdpowiedzi(sekundy) !== 'wolno') return { ocena, obnizona: false }
@@ -290,8 +290,11 @@ export const PROG_RUCHU = 14
 export const MS_DWUKROTNEGO_TAPNIECIA = 280
 
 export const KIERUNKI = ['prawo', 'lewo', 'gora', 'dol']
-// Prawo "Umiem", lewo "Nie umiem", gora "Prawie". Dol to wyjscie z sesji, wiec nie ma oceny.
-export const OCENY_GESTU = { prawo: 3, lewo: 1, gora: 2 }
+// Prawo "Umiem", lewo "Nie umiem". Trzecia ocena ("Prawie") zniknela z ekranu: przy dwoch mozliwosciach
+// decyzja jest szybsza, a ocena 2 zostala w srodku algorytmu jako slabsze trafienie (wolna odpowiedz
+// albo podpowiedz). Dol to kosz - slowo znane na pewno wypada z nauki.
+export const OCENY_GESTU = { prawo: 3, lewo: 1 }
+export const GEST_KOSZA = 'dol'
 
 export const oceneZGestu = (kierunek) => OCENY_GESTU[kierunek] ?? null
 
@@ -308,9 +311,10 @@ export function kierunekGestu({ dx = 0, dy = 0, vx = 0, vy = 0 } = {}) {
 }
 
 // Kazdy gest dziala od razu, takze na karcie zakrytej: slowo, ktore siedzi, konczy sie jednym ruchem,
-// bez tapniecia na odsloniecie. Kto chce najpierw sprawdzic odpowiedz, dalej moze tapnac w karte.
+// bez tapniecia na odsloniecie. Ruch w gore nie znaczy juz nic (byla tam ocena "Prawie"), wiec karta
+// wraca na srodek - lepsze to niz przypisywanie mu na sile nowego znaczenia.
 export function gestDozwolony(kierunek) {
-  return !!kierunek
+  return kierunek === 'prawo' || kierunek === 'lewo' || kierunek === GEST_KOSZA
 }
 
 // Stan dnia (sekundy nauki, dodatkowe nowe, zrobione powtorki) zeruje sie o lokalnej polnocy.
@@ -746,9 +750,11 @@ export const aktualnaKarta = (seria) => seria.kolejka[0]
 
 export const koniecSerii = (seria) => seria.kolejka.length === 0
 
-// "Nie umiem" odklada karte tak, ze wraca jako czwarta z kolei (albo ostatnia, gdy kolejka jest krotsza), i zeruje
-// combo. Kazda inna ocena (takze "Prawie") zdejmuje karte z serii i podbija combo. `bonus` to EXP doliczone za
-// combo przy tej wlasnie ocenie, zeby interfejs wiedzial, kiedy pokazac toast.
+// "Nie umiem" odklada karte tak, ze wraca jako czwarta z kolei, i zeruje combo. Gdy w serii nie ma przed nia
+// tylu kart, slowo wypada z serii zamiast wracac od razu: to samo slowo zaraz po pomylce to nie powtorka,
+// tylko przepisanie odpowiedzi z pamieci krotkotrwalej. FSRS stawia mu termin za kilka minut, wiec wraca
+// w nastepnych powtorkach. Kazda inna ocena zdejmuje karte z serii i podbija combo. `bonus` to EXP doliczone
+// za combo przy tej wlasnie ocenie, zeby interfejs wiedzial, kiedy pokazac toast.
 // `nowa` mowi, ze ta karta wchodzi do nauki pierwszy raz: licznik `nowe` niesie ekran konca serii ("co przybylo").
 // Karta bez daty wprowadzenia jest nowa tylko przy pierwszej ocenie, wiec "Nie umiem" nie policzy jej dwa razy.
 export function poOcenie(seria, ocena, nowa = false) {
@@ -756,8 +762,20 @@ export function poOcenie(seria, ocena, nowa = false) {
   if (karta === undefined) return seria
   const nowe = (seria.nowe || 0) + (nowa ? 1 : 0)
   if (ocena === 1) {
-    reszta.splice(Math.min(ODSTEP_PO_POMYLCE - 1, reszta.length), 0, karta)
-    return { ...seria, kolejka: reszta, nieUmiem: seria.nieUmiem + 1, nowe, exp: seria.exp + EXP_ZA_OCENE[1], combo: 0, bonus: 0 }
+    const odstep = ODSTEP_PO_POMYLCE - 1
+    const wraca = reszta.length >= odstep
+    if (wraca) reszta.splice(odstep, 0, karta)
+    return {
+      ...seria,
+      kolejka: reszta,
+      // Karta, ktora wypadla z serii, nie jest zaliczona - znika tez z mianownika paska postepu.
+      wszystkie: wraca ? seria.wszystkie : Math.max(seria.wszystkie - 1, seria.oczyszczone),
+      nieUmiem: seria.nieUmiem + 1,
+      nowe,
+      exp: seria.exp + EXP_ZA_OCENE[1],
+      combo: 0,
+      bonus: 0,
+    }
   }
   const combo = seria.combo + 1
   const bonus = bonusComba(combo)
@@ -949,14 +967,6 @@ export function nastepnaPodpowiedz(poziom) {
 }
 
 // Trudnosc pozadana (A5): przycisk podpowiedzi jest niewidoczny przez pierwsze 7 sekund, a po jej uzyciu
-// karta nie moze dostac "Umiem" w tej odslonie. Latwiejsze wydobycie z pamieci daje mniejszy zysk.
-export function regulyPodpowiedzi({ sekundy = 0, uzyto = false } = {}) {
-  return {
-    widoczna: uzyto || (Number(sekundy) || 0) >= SEKUNDY_DO_PODPOWIEDZI,
-    umiemZablokowane: !!uzyto,
-    podpisUmiem: uzyto ? PODPIS_BLOKADY_UMIEM : '',
-  }
-}
 
 // Slowa oporne (A7). Panel pokazuje sie po kazdych PROG_LEECHA pomylkach od ostatniego pokazania: pole `leech`
 // trzyma liczbe pomylek z chwili, gdy uzytkownik ostatnio o nim decydowal.
