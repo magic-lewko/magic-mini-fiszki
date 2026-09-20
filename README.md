@@ -121,7 +121,19 @@ Polecenia z katalogu projektu:
 node narzedzia/ikony.mjs   # tylko przy zmianie ikon, PNG leżą w zrodlo/
 node zbuduj.mjs            # zrodlo/ + lib/fsrs.mjs -> dist/ (+ dist/sw.js, dist/.nojekyll)
 node --test                # testy logiki i algorytmu; z katalogu wyżej: node --test magic-mini-fiszki/
+node testy-przegladarka.mjs # cała apka w Chrome headless (gesty, gry, talie, offline, silnik)
+node testy-na-zywo.mjs      # wdrożona apka z GitHub Pages: instalacja, import talii, ocena, offline
 ```
+
+Testy przeglądarkowe sterują prawdziwym Chrome przez CDP (dotyk, nie klikanie w DOM), więc łapią to, czego
+testy jednostkowe nie widzą: nakładkę zasłaniającą kartę, gest poniżej progu, przewijanie w bok.
+
+- `testy-przegladarka.mjs` wymaga zbudowanego `dist/` (`node zbuduj.mjs`) i talii `talie/oxford3000.json`
+  (scenariusze silnika potrzebują dużej talii; sama talia zostaje poza repo),
+- `testy-na-zywo.mjs` sprawdza to, co naprawdę leży na Pages, więc odpalaj go po `./wdroz.sh`,
+- zmienne: `CHROME` (inna ścieżka do przeglądarki), `MMF_TALIA` (inna talia), `MMF_ROBOCZY` (katalog na
+  profil Chrome i zrzuty; domyślnie `%TEMP%/mmf-testy`, musi być krótki, bo inaczej Chrome nie utworzy
+  CacheStorage), `MMF_URL` (inny adres dla testu na żywo).
 
 ## Test lokalny
 

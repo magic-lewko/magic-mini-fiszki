@@ -9,6 +9,8 @@
     "ikony": "node narzedzia/ikony.mjs",
     "build": "node zbuduj.mjs",
     "start": "node zbuduj.mjs && node serwer.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "test:przegladarka": "node zbuduj.mjs && node testy-przegladarka.mjs",
+    "test:na-zywo": "node testy-na-zywo.mjs"
   }
 }
