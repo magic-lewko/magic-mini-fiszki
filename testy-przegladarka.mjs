@@ -594,6 +594,10 @@ try {
     `${expPrzed} -> ${await exp()} pkt, ${await slowoKarty()}`,
   )
 
+  // Karta jest juz odkryta, wiec gest w prawo ocenia ja od razu. To wlasnie ta ocena bedzie cofana.
+  await gest('prawo')
+  await czekajNa(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzed + 50}`, 4000)
+
   // ---------------------------------------------------------------------------------------------
   // A: dwukrotne tapniecie cofa ocene
   // ---------------------------------------------------------------------------------------------
@@ -605,7 +609,7 @@ try {
   const kliki = await js(`window.__kliki`)
   sprawdz(
     `dwukrotne tapniecie cofa ostatnia ocene i wraca do karty "${slowoPrzedCofnieciem}"`,
-    await czekajNa(`document.querySelector('#karta .slowo')?.textContent === ${JSON.stringify(slowoPrzedCofnieciem)} && JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedCofnieciem - 30}`, 4000),
+    await czekajNa(`document.querySelector('#karta .slowo')?.textContent === ${JSON.stringify(slowoPrzedCofnieciem)} && JSON.parse(localStorage.getItem('mmf-v1')).exp === ${expPrzedCofnieciem - 50}`, 4000),
     `${przedCofnieciem} -> ${await slowoKarty()}, ${expPrzedCofnieciem} -> ${await exp()} pkt, kliki ${JSON.stringify(kliki)}, odstep ${kliki.length > 1 ? kliki[1] - kliki[0] : '-'} ms`,
   )
   sprawdz('po cofnieciu karta wraca od razu odkryta', await js(`document.getElementById('karta').classList.contains('odkryta')`))
@@ -641,13 +645,27 @@ try {
     Object.keys((await zapis()).pominiete || {}).length === pominietePrzed + 1 && (await slowoKarty()) !== slowoDoKosza,
     `${slowoDoKosza} -> ${await slowoKarty()}, pominietych: ${Object.keys((await zapis()).pominiete || {}).length}`,
   )
+  sprawdz(
+    'kosz przy pierwszym uzyciu tlumaczy, gdzie przywrocic slowo',
+    (await toastTekst()).includes('Przywrócisz je w Menu'),
+    await toastTekst(),
+  )
   await tapnij('#karta .wyjdz')
   sprawdz('krzyzyk na karcie konczy nauke i pokazuje ekran wyboru', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000), (await scenaTekst()).replace(/\n+/g, ' | '))
   await klikPoTekscie('#scena', 'Powtórki')
   await czekajNa(`!!document.getElementById('karta')`)
   await czekajNa(`!document.getElementById('karta').classList.contains('wjazd')`, 3000)
+  const doKoszaZakryte = await slowoKarty()
+  const pominieteZakryte = Object.keys((await zapis()).pominiete || {}).length
   await gest('dol')
-  sprawdz('gest w dol dziala takze przed odslonieciem karty', await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000))
+  await czekaj(600)
+  sprawdz(
+    'gest w dol wyrzuca slowo takze przed odslonieciem karty',
+    Object.keys((await zapis()).pominiete || {}).length === pominieteZakryte + 1 && (await slowoKarty()) !== doKoszaZakryte,
+    `${doKoszaZakryte} -> ${await slowoKarty()}`,
+  )
+  await tapnij('#karta .wyjdz')
+  await czekajNa(`!document.getElementById('karta') && !!document.getElementById('gra-powtorki')`, 4000)
 
   // ---------------------------------------------------------------------------------------------
   // Klawiatura odwzorowuje cztery gesty (skroty do testow i dla klawiatury zewnetrznej)
@@ -720,7 +738,11 @@ try {
   const przyciskiSlowa = await js(`(() => { const w = [...document.querySelectorAll('#lista-slow .slowo-wiersz')].find((e) => e.querySelector('b').textContent === 'apple'); return [...w.querySelectorAll('button')].map((b) => b.textContent).join(',') })()`)
   sprawdz('slowka: "Pomijam" zostaje dostepne w przegladzie talii', przyciskiSlowa.includes('Pomijam'), przyciskiSlowa)
   await js(`[...document.querySelectorAll('#lista-slow button')].find((b) => b.textContent === 'Pomijam').click(); 1`)
-  sprawdz('slowka: "Pomijam" wyrzuca slowo z nauki i tlumaczy, gdzie je przywrocic', await czekajNa(`!!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple && document.getElementById('toast').textContent.includes('Przywrócisz je w Menu')`), await toastTekst())
+  sprawdz(
+    'slowka: "Pomijam" wyrzuca slowo z nauki',
+    await czekajNa(`!!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple && /wypada z nauki|Przywrócisz je w Menu/.test(document.getElementById('toast').textContent)`),
+    await toastTekst(),
+  )
   await js(`[...document.querySelectorAll('#lista-slow button')].find((b) => b.textContent === 'Przywróć').click(); 1`)
   sprawdz('slowka: "Przywróć" oddaje slowo do nauki', await czekajNa(`!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple`))
   await js(`document.querySelector('#menu .zamknij').click(); 1`)
@@ -1226,7 +1248,7 @@ try {
   await czekajNa(`!!document.getElementById('karta')`)
   sprawdz('iPhone SE: karta bez przewijania w pionie i w bok', (await miesciSie('#karta')) && (await przewijaWBok()) === '', await przewijaWBok())
   sprawdz('iPhone SE: ekran nauki dalej bez widocznych przyciskow', (await widocznePrzyciski()).length === 0)
-  await gest('dol')
+  await tapnij('#karta .wyjdz')
   await czekajNa(`!!document.getElementById('gra-powtorki')`, 4000)
   sprawdz('iPhone SE: ekran wyboru miesci sie bez przewijania', await miesciSie('#scena .ekran'), await js(`(() => { const e = document.querySelector('#scena .ekran'); return e.scrollHeight + ' / ' + e.clientHeight })()`))
   sprawdz(
@@ -1295,8 +1317,8 @@ try {
   // Gry nie zmieniaja harmonogramu: ten zapis kart musi byc identyczny po obu grach.
   const kartyPrzedGrami = await js(`JSON.stringify(JSON.parse(localStorage.getItem('mmf-v1')).karty)`)
   await czekajNaSwiezaKarte()
-  await gest('dol')
-  sprawdz('gry: gest w dol z karty wraca na ekran wyboru', await czekajNa(`!!document.getElementById('gra-krzyzowka')`, 5000))
+  await tapnij('#karta .wyjdz')
+  sprawdz('gry: krzyzyk na karcie wraca na ekran wyboru', await czekajNa(`!!document.getElementById('gra-krzyzowka')`, 5000))
 
   await tapnij('#gra-krzyzowka')
   sprawdz('krzyzowka: przycisk "Krzyżówka" otwiera ekran gry', await czekajNa(`!!document.getElementById('krzyzowka-siatka')`, 8000), (await scenaTekst()).replace(/\n+/g, ' | '))

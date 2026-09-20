@@ -679,7 +679,7 @@ function ocenKarte(ocena) {
   // obniza ja po cichu. Pierwsza ekspozycja i trening sa z tego wylaczone: tam czas nic nie mowi o wiedzy.
   const czas = talia.czasKarty(czasOdpowiedzi())
   const poCzasie = talia.ocenaPoCzasie({ ocena, sekundy: czas, nowa: pierwszaEkspozycja, trening: seria.trening })
-  const poPodpowiedzi = uzytoPodpowiedzi && !pierwszaEkspozycja && !seria.trening && poCzasie.ocena === 3
+  const poPodpowiedzi = uzytoPodpowiedzi && !seria.trening && poCzasie.ocena === 3
   const ocenaKoncowa = poPodpowiedzi ? 2 : poCzasie.ocena
   zatrzymajTempo()
   // W treningu ocena liczy sie do punktow, combo, celu dnia i streaka, ale nie rusza karty ani terminu.
@@ -2899,11 +2899,14 @@ function klawisze(e) {
   }
   if (e.target.closest?.('textarea, input')) return
   if (e.key === 'Escape') {
+    const cosOtwarte = samouczekOtwarty || !$('menu').hidden || !$('jak').hidden || !$('dodawanie').hidden
     zakonczCelebracje()
     zamknijSamouczek()
     zamknijMenu()
     zamknijJak()
     if (!$('dodawanie').hidden) zamknijDodawanie()
+    // Gdy nic nie bylo otwarte, Escape na ekranie nauki konczy nauke - tak samo jak krzyzyk na karcie.
+    if (!cosOtwarte && ekran === 'karta') wyjdzDoWyboru()
     return
   }
   if (samouczekOtwarty) {
@@ -2918,7 +2921,6 @@ function klawisze(e) {
   else if (e.key === 'ArrowLeft') ocenKarte(1)
   // Strzalka w dol robi to samo co gest w dol (kosz), a nauke konczy Escape - jak krzyzyk na karcie.
   else if (e.key === 'ArrowDown') pomijajAktualna()
-  else if (e.key === 'Escape') wyjdzDoWyboru()
   else if (e.key === 'z' || e.key === 'Z') ocenKarte(4)
 }
 
