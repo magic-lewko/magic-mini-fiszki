@@ -543,39 +543,18 @@ p {
   font-weight: 600;
 }
 
-/* Kosz w prawym dolnym rogu i krzyzyk w prawym gornym: oba maja byc pod kciukiem, ale nie przyciagac
-   wzroku, stad przygaszenie. Kosz jest wiekszy - uzywa sie go czesciej niz wyjscia. */
-.karta .kosz,
-.karta .wyjdz {
+/* Krzyzyk na karcie to ten sam przycisk, co w grach i arkuszach (klasa "zamknij"): rozny krzyzyk
+   w kazdym miejscu apki wygladal jak przypadek. Na karcie tylko go pozycjonujemy i przygaszamy. */
+.karta .zamknij.na-karcie {
   position: absolute;
-  right: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  line-height: 1;
-  opacity: 0.3;
+  top: 6px;
+  right: 6px;
+  opacity: 0.45;
   transition: opacity var(--czas-tap) ease-out;
 }
 
-.karta .kosz {
-  bottom: 2px;
-  width: 54px;
-  height: 54px;
-  font-size: 22px;
-}
-
-.karta .wyjdz {
-  top: 2px;
-  width: 44px;
-  height: 44px;
-  color: var(--tekst);
-  font-size: 17px;
-}
-
-.karta .kosz:active,
-.karta .wyjdz:active {
-  opacity: 0.9;
+.karta .zamknij.na-karcie:active {
+  opacity: 1;
 }
 
 .trening-znacznik {
