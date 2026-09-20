@@ -354,46 +354,7 @@ test('statystyki per talia i poziom, podsumowanie dnia', () => {
   assert.deepEqual(dzien, { zalegle: 1, pozniejDzis: 1, noweDostepne: 2, doZrobienia: 3, nadrabianie: false })
 })
 
-test('ranga: progi i pasek do nastepnego progu', () => {
-  assert.deepEqual(
-    t.PROGI_RANG.map(([prog]) => prog),
-    [0, 50, 150, 350, 700, 1200, 1800, 2500, 2981],
-  )
-  assert.deepEqual(
-    t.PROGI_RANG.map(([, nazwa]) => nazwa),
-    ['Start', 'Pierwsze słowa', 'Turysta', 'Rozmowa', 'Swobodnie', 'Pewnie', 'Biegle', 'Prawie natywnie', 'Cała talia'],
-  )
-  for (const [i, [prog]] of t.PROGI_RANG.entries()) {
-    assert.equal(t.ranga(prog).stopien, i, `prog ${prog} zaczyna swoja range`)
-    if (i > 0) assert.equal(t.ranga(prog - 1).stopien, i - 1)
-  }
-
-  const start = t.ranga(0)
-  assert.equal(start.nazwa, 'Start')
-  assert.equal(start.doNastepnej, 50)
-  assert.equal(start.nastepnaNazwa, 'Pierwsze słowa')
-  assert.equal(start.procent, 0)
-  const wPolowie = t.ranga(100)
-  assert.equal(wPolowie.nazwa, 'Pierwsze słowa')
-  assert.equal(wPolowie.procent, 50)
-  assert.equal(wPolowie.doNastepnej, 50)
-  // Pasek nie pokazuje 100% przed samym awansem.
-  assert.equal(t.ranga(149).procent, 99)
-  assert.equal(t.ranga(149).nazwa, 'Pierwsze słowa')
-
-  const najwyzsza = t.ranga(5000)
-  assert.equal(najwyzsza.nazwa, 'Cała talia')
-  assert.equal(najwyzsza.ostatnia, true)
-  assert.equal(najwyzsza.doNastepnej, 0)
-  assert.equal(najwyzsza.procent, 100)
-  // Liczba spoza zakresu nie moze dac NaN w pasku postepu.
-  assert.equal(t.ranga(-5).stopien, 0)
-  assert.equal(t.ranga('x').utrwalone, 0)
-  assert.equal(t.opisRangi(t.ranga(100)), 'Pierwsze słowa · 100 / 150 słów utrwalonych')
-  assert.equal(t.opisRangi(najwyzsza), 'Cała talia · 5000 słów utrwalonych')
-})
-
-test('ranga liczy sie z kart EN o stabilnosci co najmniej 30 dni', () => {
+test('pasek calej talii: poznane, utrwalone i ulamki do rysowania', () => {
   const teraz = new Date(2026, 8, 15, 12, 0)
   assert.equal(t.PROG_UTRWALENIA, 30)
   const lista = slowa('a', 'b', 'c', 'd', 'e')
@@ -401,40 +362,115 @@ test('ranga liczy sie z kart EN o stabilnosci co najmniej 30 dni', () => {
     'a|en': karta('powtorka', teraz, { stabilnosc: 30 }),
     'b|en': karta('powtorka', teraz, { stabilnosc: 29.9 }),
     'c|en': karta('powtorka', teraz, { stabilnosc: 200 }),
-    // karta mowienia nie liczy sie do rangi, nowa karta tez nie
+    // karta mowienia nie liczy sie do paska, nowa karta tez nie
     'c|pl': karta('powtorka', teraz, { stabilnosc: 200 }),
     'd|en': karta('nowa', teraz, { stabilnosc: 90 }),
     'e|en': karta('powtorka', teraz, { stabilnosc: 45 }),
   }
-  assert.equal(t.liczbaUtrwalonych({ slowa: lista, karty }), 3)
+  const p = t.postepTalii({ slowa: lista, karty })
+  assert.equal(p.wszystkie, 5)
+  assert.equal(p.poznane, 4, 'poznane to karty EN, ktore nie sa juz nowe')
+  assert.equal(p.utrwalone, 3, 'utrwalone to stabilnosc co najmniej 30 dni')
+  assert.equal(p.ulamekPoznanych, 4 / 5)
+  assert.equal(p.ulamekUtrwalonych, 3 / 5)
   assert.equal(t.statystyki({ slowa: lista, karty }).utrwalone, 3)
-  assert.equal(t.ranga(t.liczbaUtrwalonych({ slowa: lista, karty })).nazwa, 'Start')
+  // Pusta talia nie moze dac NaN w transformie paska.
+  assert.deepEqual(t.postepTalii({ slowa: [], karty: {} }), {
+    poznane: 0,
+    utrwalone: 0,
+    wszystkie: 0,
+    ulamekPoznanych: 0,
+    ulamekUtrwalonych: 0,
+  })
 
-  // Karta po "Znam" ma stabilnosc ok. 8 dni, wiec rangi nie zawyza.
+  // Karta po "Znam" ma stabilnosc ok. 8 dni, wiec paska utrwalonych nie zawyza.
   const znam = t.kartaZnam({ ...nowaKarta(), ...ocen(nowaKarta(), 4, teraz) }, 'x|en', teraz)
   assert.ok(znam.stabilnosc < t.PROG_UTRWALENIA, `stabilnosc po "Znam": ${znam.stabilnosc}`)
-  assert.equal(t.liczbaUtrwalonych({ slowa: slowa('x'), karty: { 'x|en': znam } }), 0)
+  assert.equal(t.postepTalii({ slowa: slowa('x'), karty: { 'x|en': znam } }).utrwalone, 0)
 })
 
-test('punkty tygodnia: licznik zerowany w poniedzialek rano', () => {
-  const wtorek = new Date(2026, 8, 15, 12, 0)
-  const niedziela = new Date(2026, 8, 20, 23, 30)
-  const poniedzialek = new Date(2026, 8, 21, 0, 10)
-  assert.equal(t.poczatekTygodnia(wtorek), '2026-09-14')
-  assert.equal(t.poczatekTygodnia(niedziela), '2026-09-14')
-  assert.equal(t.poczatekTygodnia(poniedzialek), '2026-09-21')
-  assert.equal(t.poczatekTygodnia(new Date(2026, 8, 14, 0, 0)), '2026-09-14')
+// --- C: czas odpowiedzi jako sygnal ---
 
-  let p = t.dolozPunkty(undefined, 50, wtorek)
-  assert.deepEqual(p, { tydzien: '2026-09-14', punkty: 50 })
-  p = t.dolozPunkty(p, 30, niedziela)
-  assert.deepEqual(p, { tydzien: '2026-09-14', punkty: 80 })
-  // Poniedzialek rano zaczyna nowy licznik, laczne punkty (expRazem) zostaja poza nim.
-  assert.deepEqual(t.punktyTygodnia(p, poniedzialek), { tydzien: '2026-09-21', punkty: 0 })
-  assert.deepEqual(t.dolozPunkty(p, 10, poniedzialek), { tydzien: '2026-09-21', punkty: 10 })
-  assert.deepEqual(t.punktyTygodnia(p, niedziela), p)
-  assert.deepEqual(t.punktyTygodnia({ tydzien: '2026-09-14', punkty: -5 }, wtorek), { tydzien: '2026-09-14', punkty: 0 })
-  assert.equal(t.dolozPunkty(p, -100, niedziela).punkty, 80, 'ujemne punkty nie zabieraja licznika')
+test('progi czasu odpowiedzi: 0-3 s, 3-8 s, powyzej 8 s', () => {
+  assert.equal(t.SEKUNDY_TEMPA_SREDNIEGO, 3)
+  assert.equal(t.SEKUNDY_TEMPA_WOLNEGO, 8)
+  assert.deepEqual([0, 1.5, 2.999].map(t.tempoOdpowiedzi), ['szybko', 'szybko', 'szybko'])
+  assert.deepEqual([3, 5, 7.9].map(t.tempoOdpowiedzi), ['srednio', 'srednio', 'srednio'])
+  assert.deepEqual([8, 12, 99].map(t.tempoOdpowiedzi), ['wolno', 'wolno', 'wolno'])
+  // Smieci nie moga dac undefined: ramka karty zawsze ma jakis kolor.
+  assert.equal(t.tempoOdpowiedzi(undefined), 'szybko')
+  assert.equal(t.tempoOdpowiedzi(-5), 'szybko')
+  assert.equal(t.tempoOdpowiedzi('x'), 'szybko')
+})
+
+test('powyzej 8 s "Umiem" schodzi do "Prawie", ale nie na nowej karcie i nie w treningu', () => {
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 2 }), { ocena: 3, obnizona: false })
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 7.9 }), { ocena: 3, obnizona: false })
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 8 }), { ocena: 2, obnizona: true })
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 30 }), { ocena: 2, obnizona: true })
+  // Pierwsza ekspozycja slowa: uzytkownik go jeszcze nie zna, wiec czas nic nie mowi.
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 30, nowa: true }), { ocena: 3, obnizona: false })
+  assert.deepEqual(t.ocenaPoCzasie({ ocena: 3, sekundy: 30, trening: true }), { ocena: 3, obnizona: false })
+  // Inne oceny zostaja bez zmian, takze "Znam".
+  for (const ocena of [1, 2, 4]) {
+    assert.deepEqual(t.ocenaPoCzasie({ ocena, sekundy: 30 }), { ocena, obnizona: false })
+  }
+  assert.equal(t.NOTKA_WOLNO, 'wolno, liczę jako Prawie')
+})
+
+test('mediana czasow odpowiedzi', () => {
+  assert.equal(t.mediana([]), 0)
+  assert.equal(t.mediana(undefined), 0)
+  assert.equal(t.mediana([5]), 5)
+  assert.equal(t.mediana([9, 1, 5]), 5, 'kolejnosc nie ma znaczenia')
+  assert.equal(t.mediana([1, 2, 3, 10]), 2.5)
+  assert.equal(t.mediana([1, 'x', 3, null]), 2, 'smieci odpadaja')
+  assert.equal(t.mediana([1.234, 1.234]), 1.2, 'wynik zaokraglony do dziesiatych')
+})
+
+// --- A: gesty w cztery strony ---
+
+test('progi gestu: 90 px w poziomie, 80 px w pionie albo flick', () => {
+  assert.equal(t.PROG_GESTU_POZIOM, 90)
+  assert.equal(t.PROG_GESTU_PION, 80)
+  assert.equal(t.MS_DWUKROTNEGO_TAPNIECIA, 280)
+
+  // ponizej progu karta wraca na srodek
+  assert.equal(t.kierunekGestu({ dx: 89, dy: 0 }), '')
+  assert.equal(t.kierunekGestu({ dx: 0, dy: 79 }), '')
+  assert.equal(t.kierunekGestu({}), '')
+
+  assert.equal(t.kierunekGestu({ dx: 90, dy: 0 }), 'prawo')
+  assert.equal(t.kierunekGestu({ dx: -90, dy: 0 }), 'lewo')
+  assert.equal(t.kierunekGestu({ dx: 0, dy: -80 }), 'gora')
+  assert.equal(t.kierunekGestu({ dx: 0, dy: 80 }), 'dol')
+
+  // flick: krotki, ale szybki ruch liczy sie jak przekroczenie progu
+  assert.equal(t.kierunekGestu({ dx: 40, dy: 0, vx: 1.2 }), 'prawo')
+  assert.equal(t.kierunekGestu({ dx: 0, dy: -40, vy: -1.2 }), 'gora')
+  assert.equal(t.kierunekGestu({ dx: 29, dy: 0, vx: 5 }), '', 'sama predkosc bez drogi to nie gest')
+  assert.equal(t.kierunekGestu({ dx: 40, dy: 0, vx: 0.5 }), '', 'za wolno na flick')
+
+  // ukosny ruch: wygrywa os, ktora przekroczyla swoj prog mocniej
+  assert.equal(t.kierunekGestu({ dx: 200, dy: 85 }), 'prawo')
+  assert.equal(t.kierunekGestu({ dx: 95, dy: 200 }), 'dol')
+})
+
+test('oceny z gestu i zasada "najpierw sprobuj sobie przypomniec"', () => {
+  assert.equal(t.oceneZGestu('prawo'), 3)
+  assert.equal(t.oceneZGestu('lewo'), 1)
+  assert.equal(t.oceneZGestu('gora'), 2)
+  assert.equal(t.oceneZGestu('dol'), null, 'gest w dol to wyjscie, nie ocena')
+  assert.equal(t.oceneZGestu(''), null)
+
+  // przed odslonieciem dziala tylko gest w dol
+  for (const kierunek of ['prawo', 'lewo', 'gora']) {
+    assert.equal(t.gestDozwolony(kierunek, false), false)
+    assert.equal(t.gestDozwolony(kierunek, true), true)
+  }
+  assert.equal(t.gestDozwolony('dol', false), true)
+  assert.equal(t.gestDozwolony('dol', true), true)
+  assert.equal(t.gestDozwolony('', true), false)
 })
 
 test('ocena "Prawie" zdejmuje karte jak "Umiem" i daje 30 EXP', () => {
@@ -478,9 +514,9 @@ test('combo: zerowane przez "Nie umiem", bonus co piate', () => {
 test('historia dni i cel dzienny', () => {
   const teraz = new Date(2026, 8, 15, 12, 0)
   let historia = {}
-  historia = t.dopiszDzien(historia, { oceny: 1, nowe: 1, exp: 50, sekundy: 4.2 }, teraz)
-  historia = t.dopiszDzien(historia, { oceny: 1, nowe: 0, exp: 30, sekundy: 3.1 }, teraz)
-  assert.deepEqual(historia['2026-09-15'], { oceny: 2, nowe: 1, exp: 80, sekundy: 7.3 })
+  historia = t.dopiszDzien(historia, { oceny: 1, nowe: 1, exp: 50, sekundy: 4.2, czas: 4.2 }, teraz)
+  historia = t.dopiszDzien(historia, { oceny: 1, nowe: 0, exp: 30, sekundy: 3.1, czas: 2 }, teraz)
+  assert.deepEqual(historia['2026-09-15'], { oceny: 2, nowe: 1, exp: 80, sekundy: 7.3, tempo: 3.1, czasy: [4.2, 2] })
   assert.equal(t.ocenioneDzis(historia, teraz), 2)
   assert.equal(t.ocenioneDzis(historia, new Date(2026, 8, 16, 12, 0)), 0)
   assert.equal(t.ocenioneDzis(undefined, teraz), 0)
@@ -496,12 +532,37 @@ test('historia dni i cel dzienny', () => {
 
   assert.deepEqual([0, 1, 9, 10, 25, 500].map(t.stopienDnia), [0, 1, 1, 2, 3, 4])
 
-  const dni = t.historiaDni({ '2026-09-15': { oceny: 30, nowe: 3, exp: 0, sekundy: 0 } }, 30, teraz)
+  const dni = t.historiaDni({ '2026-09-15': { oceny: 30, nowe: 3, exp: 0, sekundy: 0, tempo: 2.5 } }, 30, teraz)
   assert.equal(dni.length, 30)
-  assert.deepEqual(dni.at(-1), { data: '2026-09-15', oceny: 30, nowe: 3, stopien: 3 })
-  assert.deepEqual(dni[0], { data: '2026-08-17', oceny: 0, nowe: 0, stopien: 0 })
+  assert.deepEqual(dni.at(-1), { data: '2026-09-15', oceny: 30, nowe: 3, tempo: 2.5, stopien: 3 })
+  assert.deepEqual(dni[0], { data: '2026-08-17', oceny: 0, nowe: 0, tempo: 0, stopien: 0 })
   // przelom roku
   assert.equal(t.historiaDni({}, 3, new Date(2027, 0, 2, 12, 0))[0].data, '2026-12-31')
+})
+
+test('statystyki w zdaniach: karty w tygodniu, najdluzsza seria dni i tempo', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const historia = {
+    '2026-09-15': { oceny: 12, nowe: 2, exp: 0, sekundy: 0, tempo: 2 },
+    '2026-09-14': { oceny: 30, nowe: 0, exp: 0, sekundy: 0, tempo: 4 },
+    '2026-09-13': { oceny: 18, nowe: 0, exp: 0, sekundy: 0 },
+    // przerwa 12 wrzesnia
+    '2026-09-11': { oceny: 5, nowe: 0, exp: 0, sekundy: 0 },
+    '2026-09-10': { oceny: 7, nowe: 0, exp: 0, sekundy: 0 },
+    // dzien bez ani jednej oceny nie przedluza serii
+    '2026-09-09': { oceny: 0, nowe: 0, exp: 0, sekundy: 0 },
+    '2026-09-01': { oceny: 9, nowe: 0, exp: 0, sekundy: 0, tempo: 9 },
+  }
+  assert.equal(t.DNI_TYGODNIA_NAUKI, 7)
+  assert.equal(t.kartyWTygodniu(historia, teraz), 12 + 30 + 18 + 5 + 7, 'siedem dni konczac na dzisiaj')
+  assert.equal(t.kartyWTygodniu({}, teraz), 0)
+  assert.equal(t.najdluzszaSeriaDni(historia), 3, '13-15 wrzesnia')
+  assert.equal(t.najdluzszaSeriaDni({}), 0)
+  assert.equal(t.najdluzszaSeriaDni(undefined), 0)
+  // Mediana z median dni, ktore maja tempo; dzien sprzed okresu nie wchodzi.
+  assert.equal(t.tempoOstatnich(historia, 14, teraz), 3)
+  assert.equal(t.tempoOstatnich(historia, 30, teraz), 4, 'z trzema dniami mediana to srodkowa wartosc')
+  assert.equal(t.tempoOstatnich({}, 14, teraz), 0, 'brak danych to zero, nie null')
 })
 
 test('przycinanie historii do 180 dni', () => {
@@ -515,6 +576,22 @@ test('przycinanie historii do 180 dni', () => {
   }
   assert.deepEqual(Object.keys(t.przytnijHistorie(historia, teraz)).sort(), ['2026-03-20', '2026-09-15'])
   assert.deepEqual(t.przytnijHistorie(undefined, teraz), {})
+
+  // Surowe czasy odpowiedzi zostaja tylko przy dzisiejszym dniu: mediana jest juz policzona.
+  const zCzasami = {
+    '2026-09-15': { ...pusty, tempo: 3, czasy: [2, 3, 4] },
+    '2026-09-14': { ...pusty, tempo: 5, czasy: [4, 5, 6] },
+  }
+  const przyciete = t.przytnijHistorie(zCzasami, teraz)
+  assert.deepEqual(przyciete['2026-09-15'].czasy, [2, 3, 4])
+  assert.equal(przyciete['2026-09-14'].czasy, undefined)
+  assert.equal(przyciete['2026-09-14'].tempo, 5, 'mediana zamknietego dnia zostaje')
+
+  // Zapis nie moze rosnac bez konca: dzien trzyma najwyzej MAKS_CZASOW_DNIA czasow.
+  let dlugi = {}
+  for (let i = 0; i < t.MAKS_CZASOW_DNIA + 20; i++) dlugi = t.dopiszDzien(dlugi, { oceny: 1, czas: 3 }, teraz)
+  assert.equal(dlugi['2026-09-15'].czasy.length, t.MAKS_CZASOW_DNIA)
+  assert.equal(dlugi['2026-09-15'].oceny, t.MAKS_CZASOW_DNIA + 20)
 })
 
 test('prognoza ukonczenia talii', () => {
@@ -575,7 +652,6 @@ test('cofniecie oceny: funkcje nie zmieniaja poprzedniego stanu', () => {
   const seriaPrzed = t.nowaSeria(['a|en', 'b|en', 'c|en'])
   const stanPrzed = {
     expRazem: 500,
-    punktyTygodnia: { tydzien: '2026-09-14', punkty: 200 },
     streak: { ...t.PUSTY_STREAK, dni: 2, ostatniDzien: '2026-09-14' },
     dzis: { data: '2026-09-15', sekundy: 55, dodatkoweNowe: 0, powtorki: 3 },
     historia: { '2026-09-15': { oceny: 4, nowe: 1, exp: 200, sekundy: 55 } },
@@ -586,14 +662,12 @@ test('cofniecie oceny: funkcje nie zmieniaja poprzedniego stanu', () => {
   const seriaPo = t.poOcenie(seriaPrzed, 3)
   const dzisPo = t.zaliczCzas(stanPrzed.dzis, 8, teraz)
   const streakPo = t.zaliczDzien(stanPrzed.streak, teraz)
-  const punktyPo = t.dolozPunkty(stanPrzed.punktyTygodnia, 50, teraz)
   const historiaPo = t.dopiszDzien(stanPrzed.historia, { oceny: 1, nowe: 0, exp: 50, sekundy: 8 }, teraz)
 
   // stan po ocenie naprawde sie zmienil
   assert.equal(seriaPo.exp, 50)
   assert.equal(dzisPo.sekundy, 63)
   assert.equal(streakPo.streak.dni, 3)
-  assert.equal(punktyPo.punkty, 250)
   assert.equal(historiaPo['2026-09-15'].oceny, 5)
 
   // a migawka dalej pokazuje stan sprzed oceny
@@ -601,7 +675,6 @@ test('cofniecie oceny: funkcje nie zmieniaja poprzedniego stanu', () => {
   assert.deepEqual(
     {
       expRazem: migawka.expRazem,
-      punktyTygodnia: migawka.punktyTygodnia,
       streak: migawka.streak,
       dzis: migawka.dzis,
       historia: migawka.historia,
@@ -1048,7 +1121,8 @@ test('domyslne ustawienia po przebudowie silnika', () => {
     celDzienny: 60,
     podpowiedzMowienie: 'brak',
     kotwica: '',
-    kotwicaPytano: false,
+    samouczekGestow: false,
+    wylaczoneTalie: [],
   })
   assert.deepEqual(t.OPCJE_NOWYCH, [5, 8, 10, 15, 20, 30])
   assert.deepEqual(t.OPCJE_SUFITU, [40, 60, 100, 0])
@@ -1192,4 +1266,134 @@ test('W5: cofniety zegar nie cofa ani nie zrywa serii', () => {
   const powrot = t.zaliczDzien(wczoraj.streak, new Date(2026, 8, 20, 10, 0))
   assert.equal(powrot.streak.dni, 51, 'powrot do wlasciwej daty przedluza serie')
   assert.equal(powrot.zerwano, false)
+})
+
+
+// --- H: talie (wlaczanie, wylaczanie, usuwanie) ---
+
+// Slowa z przypisana talia. Slowo bez pola `talia` ma trafiac do talii "Bez nazwy".
+const wTalii = (nazwa, ...ids) => ids.map((id) => ({ id, w: id, pl: `pl-${id}`, talia: nazwa }))
+
+test('wylaczona talia znika z serii, zaleglych, prognozy i trudnych, a postep zostaje', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const lista = [...wTalii('Oxford', 'a', 'b'), ...wTalii('Moja', 'c', 'd')]
+  const karty = {
+    'a|en': karta('powtorka', minut(teraz, -120), { stabilnosc: 40 }),
+    'c|en': karta('powtorka', minut(teraz, -60), { stabilnosc: 40, pomylki: 2 }),
+  }
+  const opcje = { slowa: lista, karty, ustawienia: { mowienie: false }, dzis: null, teraz }
+  assert.deepEqual(t.zbudujSerie(opcje), ['a|en', 'c|en', 'b|en', 'd|en'])
+  assert.deepEqual(t.zbudujSerie({ ...opcje, wylaczoneTalie: ['Moja'] }), ['a|en', 'b|en'])
+  assert.equal(t.liczbaZaleglych({ ...opcje, wylaczoneTalie: ['Moja'] }), 1)
+  assert.equal(t.podsumowanieDnia({ ...opcje, wylaczoneTalie: ['Moja'] }).doZrobienia, 2)
+  assert.equal(t.prognozaNaJutro({ ...opcje, wylaczoneTalie: ['Moja'] }).liczba, 1)
+  assert.equal(t.liczbaTrudnych({ slowa: lista, karty }), 1)
+  assert.equal(t.liczbaTrudnych({ slowa: lista, karty, wylaczoneTalie: ['Moja'] }), 0)
+  assert.deepEqual(t.trudneKarty({ slowa: lista, karty, ustawienia: {}, wylaczoneTalie: ['Moja'] }), [])
+  // Postep wylaczonej talii zostaje w zapisie: karty sa nietkniete, wiec powrot niczego nie kosztuje.
+  assert.ok(karty['c|en'])
+  assert.deepEqual(t.zbudujSerie(opcje), ['a|en', 'c|en', 'b|en', 'd|en'])
+})
+
+test('pasek postepu i lista talii licza tylko talie wlaczone', () => {
+  const lista = [...wTalii('Oxford', 'a', 'b'), ...wTalii('Moja', 'c'), { id: 'd', w: 'd', pl: 'pl-d' }]
+  const karty = {
+    'a|en': karta('powtorka', new Date(2026, 8, 20), { stabilnosc: 40 }),
+    'c|en': karta('powtorka', new Date(2026, 8, 20), { stabilnosc: 40 }),
+  }
+  assert.deepEqual(t.postepTalii({ slowa: lista, karty }), {
+    poznane: 2,
+    utrwalone: 2,
+    wszystkie: 4,
+    ulamekPoznanych: 0.5,
+    ulamekUtrwalonych: 0.5,
+  })
+  const po = t.postepTalii({ slowa: lista, karty, wylaczoneTalie: ['Moja'] })
+  assert.deepEqual([po.poznane, po.utrwalone, po.wszystkie], [1, 1, 3])
+  assert.deepEqual(t.listaTalii({ slowa: lista, karty, wylaczoneTalie: ['Moja'] }), [
+    { nazwa: 'Oxford', wszystkie: 2, poznane: 1, wlaczona: true },
+    { nazwa: 'Moja', wszystkie: 1, poznane: 1, wlaczona: false },
+    { nazwa: t.NAZWA_BEZ_TALII, wszystkie: 1, poznane: 0, wlaczona: true },
+  ])
+})
+
+test('usuniecie talii kasuje jej slowa, karty i pominiecia, reszta zostaje', () => {
+  const lista = [...wTalii('Oxford', 'a'), ...wTalii('Moja', 'c', 'd')]
+  const karty = {
+    'a|en': karta('powtorka', new Date(2026, 8, 20)),
+    'c|en': karta('powtorka', new Date(2026, 8, 20)),
+    'c|pl': karta('nauka', new Date(2026, 8, 20)),
+  }
+  const pominiete = { d: '2026-09-10', a: '2026-09-11' }
+  const wynik = t.bezTalii({ slowa: lista, karty, pominiete }, 'Moja')
+  assert.deepEqual(wynik.slowa.map((s) => s.id), ['a'])
+  assert.deepEqual(Object.keys(wynik.karty), ['a|en'])
+  assert.deepEqual(wynik.pominiete, { a: '2026-09-11' })
+  assert.deepEqual([wynik.usunieteSlowa, wynik.usunieteKarty], [2, 2])
+  // Wejscie zostaje nietkniete: interfejs zapisuje dopiero po potwierdzeniu.
+  assert.equal(lista.length, 3)
+  assert.equal(Object.keys(karty).length, 3)
+})
+
+test('kolizja ze slowem z wylaczonej talii nie blokuje nowego slowa', () => {
+  const teraz = new Date(2026, 8, 19, 20, 0)
+  const lista = [...wTalii('Oxford', 'text'), ...wTalii('Moja', 'test')]
+  const karty = { 'test|en': karta('nauka', new Date(2025, 0, 1), { stabilnosc: 0.5 }) }
+  const kolizje = { text: ['test'], test: ['text'] }
+  const bez = t.zbudujSerie({ slowa: lista, karty, ustawienia: { mowienie: false }, dzis: null, teraz, kolizje })
+  assert.ok(!bez.includes('text|en'), 'bez wylaczenia partner blokuje')
+  const po = t.zbudujSerie({ slowa: lista, karty, ustawienia: { mowienie: false }, dzis: null, teraz, kolizje, wylaczoneTalie: ['Moja'] })
+  assert.deepEqual(po, ['text|en'])
+})
+
+// --- G: slowa do gier (bez zmiany harmonogramu) ---
+
+test('gry biora karty na dzis, a przy mniej niz szesciu dobieraja ostatnio uczone', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const lista = slowa('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h')
+  const uczone = (dni) => ({ stabilnosc: 10, ostatnio: new Date(2026, 8, 15 - dni, 9, 0).toISOString() })
+  const karty = {
+    'a|en': karta('powtorka', minut(teraz, -120), uczone(9)),
+    'b|en': karta('powtorka', minut(teraz, -60), uczone(8)),
+    'c|en': karta('powtorka', minut(teraz, 1440), uczone(1)),
+    'd|en': karta('powtorka', minut(teraz, 2880), uczone(2)),
+    'e|en': karta('powtorka', minut(teraz, 2880), uczone(3)),
+    'f|en': karta('powtorka', minut(teraz, 2880), uczone(4)),
+    'g|en': karta('powtorka', minut(teraz, 2880), uczone(5)),
+  }
+  const opcje = { slowa: lista, karty, ustawienia: { mowienie: false }, teraz, przypomnienie }
+  // Dwie karty na dzis to mniej niz MIN_SLOW_GRY, wiec dochodza ostatnio uczone, najswiezsze pierwsze.
+  assert.deepEqual(t.slowaDoGry(opcje), ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+  assert.deepEqual(t.ostatnioUczone({ slowa: lista, karty, ile: 3 }), ['c', 'd', 'e'])
+  // Nowe slowo ('h') nigdy nie trafia do gry: gracz go jeszcze nie widzial.
+  assert.ok(!t.slowaDoGry(opcje).includes('h'))
+  assert.deepEqual(t.slowaDoGry({ ...opcje, ile: 3 }), ['a', 'b', 'c'])
+  // Wylaczona talia nie podsuwa slow takze grom.
+  const zTaliami = lista.map((s) => ({ ...s, talia: s.id === 'a' ? 'Moja' : 'Oxford' }))
+  assert.ok(!t.slowaDoGry({ ...opcje, slowa: zTaliami, wylaczoneTalie: ['Moja'] }).includes('a'))
+  // Slowo pominiete tez nie.
+  assert.ok(!t.slowaDoGry({ ...opcje, pominiete: { b: '2026-09-14' } }).includes('b'))
+})
+
+test('szesc kart na dzis wystarczy, dobierania juz nie ma', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const lista = slowa('a', 'b', 'c', 'd', 'e', 'f', 'z')
+  const karty = Object.fromEntries(
+    ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => [`${id}|en`, karta('powtorka', minut(teraz, -60 - i), { stabilnosc: 10 })]),
+  )
+  karty['z|en'] = karta('powtorka', minut(teraz, 4320), { stabilnosc: 10 })
+  const wybrane = t.slowaDoGry({ slowa: lista, karty, ustawienia: { mowienie: false }, teraz, przypomnienie })
+  assert.equal(wybrane.length, 6)
+  assert.ok(!wybrane.includes('z'))
+})
+
+test('czas gry ma wlasny sufit i dopisuje sie do sekund dnia', () => {
+  const teraz = new Date(2026, 8, 15, 12, 0)
+  const dzis = { data: '2026-09-15', sekundy: 40, dodatkoweNowe: 0, powtorki: 0 }
+  assert.equal(t.zaliczCzasGry(dzis, 125.44, teraz).sekundy, 165.4)
+  assert.equal(t.czasGry(99999), t.MAKS_SEKUND_GRY)
+  assert.equal(t.czasGry(-5), 0)
+  assert.equal(t.czasGry('nie liczba'), 0)
+  // Nowy dzien zeruje licznik, tak samo jak przy karcie.
+  assert.equal(t.zaliczCzasGry(dzis, 10, new Date(2026, 8, 16, 8, 0)).sekundy, 10)
 })

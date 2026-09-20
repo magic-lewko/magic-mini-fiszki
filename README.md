@@ -1,6 +1,6 @@
 # magic-mini-fiszki
 
-Fiszki na telefon (PWA offline). Nauka słówek w stylu przewijania kart: karta EN (co to znaczy?) i karta mówienia PL (powiedz po angielsku), powtórki FSRS-6. Po pierwszym otwarciu działa bez internetu. Zero zależności, czysty JS i CSS.
+Fiszki na telefon (PWA offline). Nauka jest gestem: karta EN (co to znaczy?) i karta mówienia PL (powiedz po angielsku), ocena przez przesunięcie karty w jedną z czterech stron, powtórki FSRS-6. Po pierwszym otwarciu działa bez internetu. Zero zależności, czysty JS i CSS.
 
 Apka nie ma wbudowanej listy słów. Słówka dodaje się w aplikacji (wklejenie albo plik) i zostają w telefonie (IndexedDB). Postęp jest w localStorage, kopia zapasowa zawiera słówka i postęp.
 
@@ -8,44 +8,31 @@ Algorytm powtórek `lib/fsrs.mjs` (z testem `lib/fsrs.test.mjs`) to kopia z `mag
 
 ## Jak się tego używa
 
-1. **Ekran startu dnia** (po otwarciu apki i po "Koniec na dziś"): ranga z paskiem, cel dzienny, jedna liczba "Dziś do zrobienia" (bez rozbicia na zaległości), liczba trudnych słów, seria i dni nauki w ostatnich 30, duży przycisk **Start** i mniejszy **Trudne słowa**. Po dłuższej przerwie zamiast liczb jest zdanie "Zaczynamy od kart, które najbardziej tego potrzebują".
-2. **Seria**: karta po karcie. Dotknięcie odsłania, dopiero wtedy pojawiają się oceny. Górny rząd akcji jest widoczny od razu: **Znam** (tylko na nowej karcie), **Pomijam** (na każdej) i **Cofnij** (po ocenie).
-3. **Trzy oceny w jednym rzędzie**: **Nie umiem** (czerwony), **Prawie** (bursztynowy, węższy), **Umiem** (zielony). Swipe w górę to Umiem, w dół Nie umiem. Tylko "Nie umiem" wraca do kolejki serii; "Prawie" zdejmuje kartę jak "Umiem", ale daje krótszy termin i mniej punktów. "Prawie" jest sukcesem, a nie pomyłką.
-4. **Koniec serii**: zdobyte punkty, blok awansu (gdy ranga poszła w górę), Umiem / Prawie / Nie umiem, pasek celu dnia, seria i przyciski do następnej serii, treningu albo powrotu na ekran startu.
+1. **Aplikacja otwiera się od razu na karcie.** Żadnego ekranu startowego: jeśli jest co powtarzać, pierwsza karta czeka na dotknięcie.
+2. **Dotknięcie odsłania** odpowiedź. **Dwukrotne dotknięcie** (drugie w ciągu 280 ms) cofa ostatnią ocenę. Pierwsze dotknięcie działa od razu i na nic nie czeka.
+3. **Ocena to gest**: w **prawo** "Umiem", w **lewo** "Nie umiem", w **górę** "Prawie", w **dół** koniec nauki i powrót na ekran wyboru. Karta podąża za palcem w obu osiach; po przekroczeniu progu (90 px w poziomie, 80 px w pionie albo szybki flick) kierunek podświetla się kolorem i ikoną, jeszcze zanim puścisz palec. Poniżej progu karta wraca na środek.
+4. **Oceny działają tylko po odsłonięciu** (najpierw spróbuj sobie przypomnieć). Gest w dół działa zawsze.
+5. **Ekran nauki nie ma żadnego widocznego przycisku.** Na górze jest wyłącznie cienki pasek postępu całej talii, na dole nic. Przyciski ocen zostały dla czytnika ekranu (klasa `tylko-czytnik`), a do testów i klawiatury zewnętrznej są skróty: spacja odsłania, strzałki w cztery strony odpowiadają czterem gestom, `z` to "Znam".
+6. **Ekran wyboru** (po serii, po geście w dół i gdy nie ma czego powtarzać): pasek całej talii z jedną liczbą ("412 / 2981"), trzy duże przyciski **Powtórki**, **Krzyżówka**, **Literki** oraz trzy kropki menu w rogu.
+7. **Koniec serii**: najwyżej trzy liczby (co przybyło, ile kart dziś, ile jutro) i te same trzy przyciski, co na ekranie wyboru.
 
-### Ranga i punkty tygodnia
+### Pasek całej talii
 
-**Ranga** to główny wskaźnik i liczy się wyłącznie z wiedzy: bierze karty EN o **stabilności co najmniej 30 dni** ("utrwalone"). Stabilność rośnie tylko z czasem i z poprawnymi odpowiedziami, więc rangi nie da się wyklikać. Karta po "Znam" ma około 8 dni, więc jej nie zawyża.
+To jedyny wskaźnik postępu w aplikacji: rangi, poziomów, punktów tygodnia i EXP nie ma ani na ekranie, ani w kodzie. Wypełnienie paska to **słowa poznane** (karta EN nie jest już nowa), jaśniejszy segment w środku to **słowa utrwalone** (stabilność co najmniej 30 dni). Pasek nie pokazuje cyfr; liczba "poznane / wszystkie" stoi wyłącznie na ekranie wyboru.
 
-| Utrwalonych słów | Ranga |
-| --- | --- |
-| 0 | Start |
-| 50 | Pierwsze słowa |
-| 150 | Turysta |
-| 350 | Rozmowa |
-| 700 | Swobodnie |
-| 1200 | Pewnie |
-| 1800 | Biegle |
-| 2500 | Prawie natywnie |
-| 2981 | Cała talia |
+`expRazem` zostaje w zapisie pod starym polem `exp` wyłącznie dla zgodności ze starszym telefonem. Punkty nadal naliczają się w tle (są w historii dnia), ale nigdzie nie są pokazywane.
 
-Górny pasek pokazuje nazwę rangi z cienkim paskiem do następnego progu, a ekran startu dokłada "X / Y słów utrwalonych". Awans rangi to rzadkie wydarzenie i ma własny blok na ekranie końca serii.
+**Combo** to kolejne oceny inne niż "Nie umiem" w obrębie jednej serii. Co piąte daje krótki błysk na krawędzi ekranu (300 ms) i osobną wibrację, zamiast liczby punktów.
 
-**Punkty** są tylko szybką informacją zwrotną i nie mają wpływu na rangę:
+### Czas odpowiedzi
 
-| Ocena | punkty |
-| --- | --- |
-| Nie umiem (1) | 10 |
-| Prawie (2) | 30 |
-| Umiem (3) | 50 |
-| Znam (4) | 20 |
-| bonus za co piąte combo | 10 |
+Po odsłonięciu karty jej ramka zmienia kolor wraz z czasem: 0-3 s neutralna, 3-8 s bursztynowa, powyżej 8 s cynobrowa. Zmiana jest płynna, bez cyfr i bez tykania.
 
-Górny pasek pokazuje **punkty tego tygodnia** (licznik zerowany w poniedziałek rano). Łączna suma jest w menu jako "Punkty łącznie". Zapis ze starszej wersji apki przenosi dotychczasowe EXP właśnie tam, a licznik tygodnia startuje od zera; apka mówi o tym jednym zdaniem przy pierwszym uruchomieniu.
+**Powyżej 8 sekund gest "Umiem" zapisuje się jako "Prawie"** (ocena 2), a pod kartą pojawia się na 900 ms mikro-notka "wolno, liczę jako Prawie". Odpowiedź po tak długim szukaniu nie jest wiedzą gotową do użycia. Nie dotyczy to pierwszej ekspozycji słowa (nowa karta) ani treningu, bo tam czas nic nie mówi o wiedzy. Progi (`SEKUNDY_TEMPA_SREDNIEGO`, `SEKUNDY_TEMPA_WOLNEGO`) są stałymi w `talia.js`. Mediana czasów odpowiedzi z dnia trafia do historii jako `tempo` i widać ją w statystykach.
 
-**Combo** to kolejne oceny inne niż "Nie umiem" w obrębie jednej serii. Od 3 w górę widać je na karcie ("combo x4"), co piąte daje 10 punktów bonusu i osobną wibrację. Combo zeruje "Nie umiem" i koniec serii.
+### Samouczek gestów
 
-**Cel dzienny** (30 / 60 / 100 / 150, domyślnie 60) liczy oceniane karty z danego dnia, razem z treningiem. Pasek celu jest na ekranie startu i na końcu serii.
+Przy pierwszym uruchomieniu po aktualizacji pokazuje się jednorazowa nakładka z czterema strzałkami i podpisami, zamykana dotknięciem. Ponownie wywołuje się ją z **Menu > Gesty**. Po zamknięciu samouczka przez trzy karty widać pod kartą podpis "Dotknij, aby odsłonić".
 
 ### Limity dnia i tryb nadrabiania
 
@@ -54,7 +41,7 @@ Górny pasek pokazuje **punkty tego tygodnia** (licznik zerowany w poniedziałek
 - **Kolejność zaległych**: najpierw te najbliższe zapomnieniu, czyli rosnąco po szansie przypomnienia `przypomnienie(t, stabilność)` z FSRS, a nie po dacie terminu. Kroki nauki i karty po pomyłce idą przed powtórkami, bo ich terminy liczą się w minutach.
 - **Odblokowania kart mówienia**: najwyżej 12 dziennie, osobno od limitu nowych słów.
 - **Tryb nadrabiania** włącza się sam, gdy zaległość przekroczy 2x sufit: nowe słowa stają, limit powtórek rośnie do 1,5x sufitu, a ekran powrotu nie pokazuje liczby zaległych. Wyłącza się, gdy zaległość spadnie poniżej sufitu, i przez kolejne trzy dni przepuszcza połowę nowych słów.
-- **Interferencja**: nowe słowo czeka, jeśli słowo kolidujące (ten sam główny polski sens albo pisownia w odległości jednej operacji edycji) weszło do nauki w ciągu ostatnich 7 dni albo jest w stanie nauka/ponowna. Indeks kolizji liczy `zrodlo/kolizje.js` raz po wczytaniu talii (około 60 ms na 2981 słowach) i trzyma go w IndexedDB pod kluczem zależnym od liczby słów i sumy kontrolnej id.
+- **Interferencja**: nowe słowo czeka, jeśli słowo kolidujące (ten sam główny polski sens albo pisownia w odległości jednej operacji edycji) weszło do nauki w ciągu ostatnich 7 dni albo jest w stanie nauka/ponowna. Indeks kolizji liczy `zrodlo/kolizje.js` raz po wczytaniu talii (około 60 ms na 2981 słowach) i trzyma go w IndexedDB pod kluczem zależnym od liczby słów i sumy kontrolnej id. Aplikacja czeka na ten indeks przed pierwszą serią, bo seria powstaje od razu po starcie.
 
 ### Seria bez kary
 
@@ -70,10 +57,10 @@ Po każdych 6 pomyłkach na karcie apka pokazuje panel "To słowo Cię męczy" z
 
 ### "Znam" i "Pomijam"
 
-Talia Oxford 3000 zawiera mnóstwo słów, które już się zna. Są na to dwa różne przyciski w górnym rzędzie akcji.
+Talia Oxford 3000 zawiera mnóstwo słów, które już się zna. Są na to dwa osobne wyjścia. Ekran nauki nie ma przycisków, więc oba stoją w **Menu > Słówka** (a dla czytnika ekranu także wśród ukrytych przycisków karty).
 
-- **Znam** (tylko na nowej karcie, też w przeglądzie talii) to **jednorazowe sprawdzenie za około 45 dni**. Zwykłe FSRS po ocenie "łatwe" dałoby około 8 dni, więc setka słów oznaczonych w trzy dni wróciłaby jedną falą. Karta idzie od razu do powtórek ze stabilnością co najmniej 45 dni; po tym jednym sprawdzeniu liczy się już normalnie.
-- **Pomijam** (na **każdej** karcie, w obu kierunkach, także w treningu) wyrzuca słowo z nauki na dobre: nie ma go w żadnej serii, w limicie nowych ani w "Zaległych". Postęp nie jest kasowany - karty obu kierunków zostają w pamięci nietknięte, więc **Menu > Słówka > Przywróć** oddaje słowo dokładnie w to samo miejsce harmonogramu. Pierwsze użycie pokazuje podpowiedź, gdzie szukać przywracania. "Cofnij" działa też dla pominięcia.
+- **Znam** (tylko dla nowej karty) to **jednorazowe sprawdzenie za około 45 dni**. Zwykłe FSRS po ocenie "łatwe" dałoby około 8 dni, więc setka słów oznaczonych w trzy dni wróciłaby jedną falą. Karta idzie od razu do powtórek ze stabilnością co najmniej 45 dni; po tym jednym sprawdzeniu liczy się już normalnie.
+- **Pomijam** (dla **każdego** słowa, w obu kierunkach) wyrzuca słowo z nauki na dobre: nie ma go w żadnej serii, w limicie nowych ani w "Zaległych". Postęp nie jest kasowany - karty obu kierunków zostają w pamięci nietknięte, więc **Menu > Słówka > Przywróć** oddaje słowo dokładnie w to samo miejsce harmonogramu. Pierwsze użycie pokazuje podpowiedź, gdzie szukać przywracania. "Cofnij" działa też dla pominięcia.
 
 W statystykach pominięte mają własny wiersz. Do "Poznanych słów" liczą się nadal te, które przeszły przez naukę, a prognoza ukończenia talii liczy tylko słowa, które jeszcze mogą być wprowadzone.
 
@@ -85,13 +72,13 @@ Przy pierwszym uruchomieniu po tej zmianie apka raz rozkłada terminy, które ju
 
 ### Tryb "Trudne słowa" (trening)
 
-Przycisk jest na ekranie startu, na ekranie końca serii i w menu, wszędzie z liczbą dostępnych kart; gdy nie ma żadnej karty z pomyłką, jest nieaktywny z podpisem "Brak trudnych słów".
+Przycisk jest w menu, z liczbą dostępnych kart; gdy nie ma żadnej karty z pomyłką, jest nieaktywny z podpisem "Brak trudnych słów".
 
 Do treningu trafiają karty (oba kierunki) z co najmniej jedną pomyłką, najpierw te z największą liczbą pomyłek. **Ocena w treningu nie zmienia stanu karty ani terminu powtórki** - to tylko powtarzanie. Liczą się za to punkty, combo, cel dnia, seria i historia dnia. Na karcie widać znacznik "Trening: terminy bez zmian", a ekran końca pisze wprost, że to był trening.
 
 ### Cofnięcie oceny
 
-Po każdej ocenie (także w treningu) i po "Pomijam" pod kartą, w rzędzie akcji obok „Znam”, pojawia się przycisk **Cofnij**, który znika po 6 sekundach. Dopóki migawka jest ważna, w menu jest też pozycja "Cofnij ostatnią ocenę". Cofnięcie przywraca dokładnie poprzedni stan (kartę, listę pominiętych, punkty łączne i tygodniowe, serię, licznik dnia, combo, historię) i pokazuje kartę w tym samym stanie odsłonięcia, w jakim była. Migawka unieważnia się po kolejnej ocenie, po wyjściu z serii i po starcie apki.
+Cofa się **dwukrotnym dotknięciem karty** (drugie w ciągu 280 ms). Pierwsze dotknięcie działa od razu (odsłania) i nie czeka na ewentualne drugie. Dopóki migawka jest ważna, w menu jest też pozycja "Cofnij ostatnią ocenę", a dla czytnika ekranu ukryty przycisk na karcie. Cofnięcie przywraca dokładnie poprzedni stan (kartę, listę pominiętych, punkty łączne, serię, licznik dnia, combo, historię) i pokazuje kartę w tym samym stanie odsłonięcia, w jakim była. Migawka unieważnia się po kolejnej ocenie, po wyjściu z serii i po starcie apki. Gdy nie ma czego cofać, pojawia się tylko mikro-notka.
 
 ### Podpowiedź na karcie mówienia
 
@@ -99,12 +86,31 @@ Ustawienie `Podpowiedź na karcie mówienia`: **brak** (domyślnie), **długoś�
 
 Przycisk jest **niewidoczny przez pierwsze 7 sekund** od pokazania karty, a karta, na której użyto podpowiedzi, **nie może w tej odsłonie dostać oceny "Umiem"**: przycisk jest wtedy nieaktywny z podpisem "z podpowiedzią maks. Prawie". Łatwiejsze wydobycie z pamięci daje mniejszy zysk, więc podpowiedź ma kosztować.
 
+### Gry: Krzyżówka i Literki
+
+Obie gry wchodzą z ekranu wyboru i **nie zmieniają harmonogramu ani stanu kart** - dokładnie jak trening "Trudne słowa". Do dnia nauki liczy się z nich wyłącznie czas. Słowa biorą się z kart do powtórki na dziś (oba kierunki, bez pominiętych i bez wyłączonych talii); gdy jest ich mniej niż 6, dochodzą ostatnio uczone. Nowe słowa do gier nie trafiają, bo gracz ich jeszcze nie widział. Gdy słów jest za mało, przycisk odpowiada jednym zdaniem zamiast otwierać pustą grę.
+
+**Krzyżówka**: siatka maksymalnie 11x11 (komórka ma co najmniej 28 px, na 375 px wychodzi 30 px), hasła to polskie tłumaczenia, odpowiedzi angielskie. Dotknięcie pola wybiera hasło i podświetla je w całości, a treść hasła stoi nad klawiaturą; kolejne dotknięcie tego samego pola zmienia kierunek, gdy krzyżują się tam dwa hasła. Litery wpisuje klawiatura systemowa (ukryte pole tekstowe), Backspace cofa. "Sprawdź" koloruje litery poprawne na zielono, błędne na cynobrowo, "Podpowiedz literę" odkrywa jedną literę maksymalnie 3 razy i pokazuje, ile zostało. Po uzupełnieniu wszystkich pól krzyżówka sprawdza się sama. Wynik to liczba haseł, liczba podpowiedzi i czas. Generator mieści średnio około 83% podanych słów, więc dostaje ich kilka więcej niż ma ułożyć - nieużyte słowo to normalny wynik, nie błąd.
+
+**Literki**: seria 10 słów. U góry polskie znaczenie, pod nim miejsca na litery odpowiedzi, na dole rozsypane kafelki (co najmniej 44 px, w jednym albo dwóch rzędach; przy słowach do 6 znaków dochodzą 2-3 litery zbędne, dobrane tak, żeby nie ułożyło się z nich inne słowo z talii). Dotknięcie kafelka dostawia literę, dotknięcie odpowiedzi cofa ostatnią. Poprawne słowo daje krótką animację, wymowę na głos i przechodzi dalej; błąd to samo drgnięcie kafelków i możliwość poprawy, bez kary. Na końcu serii: liczba słów, liczba podpowiedzi, czas oraz "Jeszcze raz" i "Wróć".
+
+Z obu gier wychodzi się gestem w dół albo krzyżykiem w rogu.
+
+### Talie (menu)
+
+Sekcja **Talie** wypisuje talie w kolejności dodania, z liczbą słów, liczbą poznanych i przełącznikiem "ucz się z tej talii". Wyłączona talia znika z nauki i z gier (jeden filtr w silniku, ten sam, który odsiewa słowa pominięte), ale jej postęp zostaje w zapisie nietknięty, więc włączenie oddaje wszystko w to samo miejsce harmonogramu. Domyślnie wszystkie talie są włączone, więc przy jednej talii nic się nie zmienia.
+
+Nową talię dodaje się tym samym ekranem "Dodaj słówka", który ma teraz pole **Nazwa talii** (domyślnie nazwa z pliku albo "Wklejone RRRR-MM-DD"). Przycisk "Usuń" kasuje słowa talii **razem z ich postępem**, po potwierdzeniu, które podaje liczbę słów i kart do stracenia.
+
+Lista wyłączonych talii leży w ustawieniach jako opcjonalne pole `wylaczoneTalie`. `WERSJA_ZAPISU` zostaje 1, a zapis bez tego pola wczytuje się bez zmian (wszystkie talie włączone).
+
 ### Statystyki i przegląd talii (menu)
 
+- statystyki zaczynają się od kilku krótkich zdań ("Znasz 412 z 2981 słów, utrwalonych 62.", "W tym tygodniu 340 kart.", "Najdłuższa seria: 13 dni.", "Zwykle odpowiadasz w 2,5 s."), a cała tabela liczb siedzi pod rozwijanym **Szczegóły**,
 - heatmapa ostatnich 30 dni: kolumny to dni tygodnia, 5 stopni intensywności, data i liczba kart w podpowiedzi, a pod siatką podsumowanie („dziś N kart · najlepszy dzień · dni z nauką"),
-- "Utrwalone słowa": karty EN o stabilności co najmniej 30 dni (to z nich liczy się ranga), "Opanowane": co najmniej 21 dni, oraz "Pominięte": ile słów jest poza pulą nauki,
+- "Utrwalone słowa": karty EN o stabilności co najmniej 30 dni (to z nich rośnie jaśniejszy segment paska talii), "Opanowane": co najmniej 21 dni, oraz "Pominięte": ile słów jest poza pulą nauki,
 - prognoza ukończenia talii z tempa nowych słów z ostatnich 14 dni ("Przy tym tempie: około 15 lutego 2027 (413 dni)"); gdy nie ma danych, wypisuje "Brak danych o tempie",
-- sekcja **Słówka**: szukanie po angielskim i po polsku (bez rozróżniania wielkości liter i polskich znaków), maksymalnie 50 wierszy z licznikiem "pokazano 50 z 312". Każdy wiersz ma słowo, tłumaczenie, chip poziomu, stan karty EN po polsku (nowa / w nauce / powtórka za N dni / opanowane) oraz przyciski "Znam" (tylko dla nowej karty, sprawdzenie za około 45 dni bez wchodzenia w serię), "Zresetuj" (kasuje postęp obu kierunków po potwierdzeniu) i "Zgłoś błąd". Słowo pominięte ma stan "pominięte" i zamiast "Znam" i "Zresetuj" przycisk "Przywróć", który oddaje je do nauki bez utraty postępu,
+- sekcja **Słówka**: szukanie po angielskim i po polsku (bez rozróżniania wielkości liter i polskich znaków), maksymalnie 50 wierszy z licznikiem "pokazano 50 z 312". Każdy wiersz ma słowo, tłumaczenie, chip poziomu, stan karty EN po polsku (nowa / w nauce / powtórka za N dni / opanowane) oraz przyciski "Znam" (tylko dla nowej karty, sprawdzenie za około 45 dni bez wchodzenia w serię), "Pomijam" (wyrzuca słowo z nauki bez kasowania postępu), "Zresetuj" (kasuje postęp obu kierunków po potwierdzeniu) i "Zgłoś błąd". Słowo pominięte ma stan "pominięte" i zamiast nich przycisk "Przywróć", który oddaje je do nauki bez utraty postępu,
 - sekcja **Zgłoszone błędy** (widoczna, gdy coś jest): lista, "Kopiuj listę" (JSON do schowka, a gdy schowek jest niedostępny, zaznaczony tekst do skopiowania) i "Wyczyść".
 
 ## Budowanie i testy
@@ -127,7 +133,7 @@ node serwer.mjs
 - przykładowe słowa: `dane/przyklad.json` (Dodaj słówka > Wczytaj z pliku)
 - Chrome DevTools > Application: Service Workers, Cache Storage (`mmf-<wersja>`), IndexedDB (`mmf`), Local Storage (`mmf-v1`)
 - Network > Offline i odśwież stronę: musi się wczytać
-- klawiatura: spacja odsłania, strzałka w górę Umiem, w dół Nie umiem, `z` Znam (oceny "Prawie" i "Pomijam" tylko przyciskiem)
+- klawiatura: spacja odsłania, strzałka w prawo Umiem, w lewo Nie umiem, w górę Prawie, w dół koniec nauki, `z` Znam
 
 ## Wdrożenie (GitHub Pages)
 
@@ -165,13 +171,14 @@ node zbuduj.mjs && bash wdroz.sh
 - [ ] tryb samolotowy, zamknij apkę w przełączniku aplikacji, otwórz z ikony: startuje, słówka są
 - [ ] w trybie samolotowym jedna seria, zamknij apkę i otwórz: punkty, seria i postęp zostały
 - [ ] wyjdź z apki do ekranu początkowego: na ikonie pojawia się odznaka z liczbą kart na dziś (iOS 16.4+, tylko z ikony)
-- [ ] wibracja przy tapnięciu w kartę (odsłonięcie) i w przyciski Nie umiem / Prawie / Umiem / Znam / Pomijam; swipe na iOS nie wibruje, to normalne (Ustawienia > Dźwięki i haptyka > Haptyka systemowa musi być włączona)
-- [ ] trzy przyciski górnego rzędu (Cofnij, Znam, Pomijam) mieszczą się obok siebie i da się w nie trafić kciukiem
-- [ ] ekran startu dnia i ekran końca serii mieszczą się bez przewijania (sprawdzone w Chrome na 375x667, ale iPhone ma inne paski systemowe)
-- [ ] przycisk "Cofnij" nad kartą da się trafić kciukiem i nie łapie przypadkowych tapnięć w kartę
+- [ ] wibracja przy tapnięciu w kartę (odsłonięcie); swipe na iOS nie wibruje, to normalne (Ustawienia > Dźwięki i haptyka > Haptyka systemowa musi być włączona)
+- [ ] gest w cztery strony da się wykonać kciukiem jedną ręką, a podświetlenie kierunku widać przed puszczeniem palca
+- [ ] dwukrotne dotknięcie cofa ocenę, a pojedyncze odsłania od razu (bez zauważalnej zwłoki)
+- [ ] ekran wyboru i ekran końca serii mieszczą się bez przewijania (sprawdzone w Chrome na 375x667, ale iPhone ma inne paski systemowe)
 - [ ] przycisk "Podpowiedź" na karcie mówienia nie odsłania karty przy tapnięciu
 - [ ] 🔊 mówi po angielsku w trybie samolotowym (jeśli milczy: Ustawienia > Dostępność > Treść mówiona > Głosy > Angielski, pobierz głos)
-- [ ] swipe w górę i w dół po odsłonięciu, tapnięcie nie ocenia karty
+- [ ] przewijanie karty gestem nie przewija strony i nie powiększa jej szczypaniem
+- [ ] VoiceOver widzi przyciski ocen mimo że nic nie widać na ekranie
 - [ ] Menu > Zapisz kopię, plik widać w Plikach
 - [ ] nie czyść danych Safari (Ustawienia > Safari > Wymaż historię i dane), to może usunąć postęp
 
@@ -197,7 +204,7 @@ Wymagane są `w` i `pl`. `id` to domyślnie `w` i rozróżnia wielkość liter (
 
 ## Gdzie są dane i jak je odzyskać
 
-- `mmf-v1` (localStorage): postęp w zwartej postaci, zapisywany po każdej ocenie. Format ma nadal `wersja: 1`: nowe pola (`historia`, `zgloszenia`, `pominiete`, `rozproszono`, `punktyTygodnia`, `nadrabianie`, `dzis.powtorki`, dodatkowe pola serii, ustawienia `celDzienny`, `podpowiedzMowienie` i `maksPowtorekDziennie`) są opcjonalne, więc zapis ze starszej wersji apki wczytuje się bez zmian, a brak pola daje wartość domyślną. Pole `exp` zostało w zapisie pod starą nazwą, ale znaczy teraz "punkty łącznie". Karta ma 9 liczb, a dwie kolejne (licznik kolejnych ocen "Umiem" i licznik panelu słów opornych) dopisują się tylko wtedy, gdy nie są zerowe. `historia` to `{ "RRRR-MM-DD": { oceny, nowe, exp, sekundy } }` przycinane przy zapisie do ostatnich 180 dni. `pominiete` to `{ "id słowa": "RRRR-MM-DD" }`, a `rozproszono: 1` znaczy, że jednorazowe rozłożenie terminów już się odbyło.
+- `mmf-v1` (localStorage): postęp w zwartej postaci, zapisywany po każdej ocenie. Format ma nadal `wersja: 1`: nowe pola (`historia`, `zgloszenia`, `pominiete`, `rozproszono`, `nadrabianie`, `dzis.powtorki`, dodatkowe pola serii, ustawienia `celDzienny`, `podpowiedzMowienie`, `maksPowtorekDziennie` i `samouczekGestow`) są opcjonalne, więc zapis ze starszej wersji apki wczytuje się bez zmian, a brak pola daje wartość domyślną. Pole `exp` zostało w zapisie pod starą nazwą i znaczy "punkty łącznie": apka go nie pokazuje, ale nie kasuje. Pole `punktyTygodnia` ze starszego zapisu jest po prostu ignorowane, bo licznika tygodnia już nie ma. Karta ma 9 liczb, a dwie kolejne (licznik kolejnych ocen "Umiem" i licznik panelu słów opornych) dopisują się tylko wtedy, gdy nie są zerowe. `historia` to `{ "RRRR-MM-DD": { oceny, nowe, exp, sekundy, tempo, czasy } }` przycinane przy zapisie do ostatnich 180 dni; `tempo` to mediana czasów odpowiedzi z dnia, a surowe `czasy` (najwyżej 200) zostają tylko przy dzisiejszym dniu. `pominiete` to `{ "id słowa": "RRRR-MM-DD" }`, a `rozproszono: 1` znaczy, że jednorazowe rozłożenie terminów już się odbyło.
 - `mmf-v1-poprzedni`: kopia postępu z początku dnia; gdy `mmf-v1` jest uszkodzony w całości, apka sama z niej wraca, a uszkodzony tekst odkłada do `mmf-v1-uszkodzony`. Pojedyncza uszkodzona karta jest tylko pomijana.
 - `mmf-v1-przed-wczytaniem`: postęp sprzed wczytania kopii z pliku
 - IndexedDB `mmf` / `dane` / `talia`: słówka

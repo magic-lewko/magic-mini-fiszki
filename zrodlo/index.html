@@ -21,38 +21,38 @@
 </head>
 <body>
   <div id="aplikacja">
-    <!-- Gorny pasek jest cichy: liczniki, cienki pasek postepu i menu jako wyjscie awaryjne. W trakcie nauki
-         nie ma tu nic, co trzeba klikac, zeby isc dalej (C1). -->
+    <!-- Gora ekranu nauki to wylacznie cienki pasek postepu calej talii: bez cyfr, bez rangi, bez serii
+         i bez przycisku menu (B). Wypelnienie to slowa poznane, jasniejszy segment to utrwalone.
+         Menu i znacznik offline pokazuja sie dopiero poza nauka. -->
     <header class="gora">
-      <div class="gora-rzad">
-        <div id="poziom" class="licznik poziom" aria-label="Ranga Start">
-          <b id="poziom-tekst">Start</b>
-          <span class="poziom-tor"><i id="poziom-pasek"></i></span>
-        </div>
-        <div id="ciaglosc" class="licznik ciaglosc">
-          <span id="streak">🔥 0</span>
-          <span id="dni30" class="dni30">0/30</span>
-        </div>
-        <div id="punkty" class="licznik punkty" title="Punkty w tym tygodniu">0 pkt</div>
-        <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
-        <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu">⋯</button>
+      <div id="postep-talii" class="postep-talii" role="progressbar" aria-label="Postęp talii">
+        <i id="pasek-poznane" class="pasek-poznane"></i>
+        <i id="pasek-utrwalone" class="pasek-utrwalone"></i>
       </div>
-      <div class="postep" aria-label="Postęp serii">
-        <div class="postep-tor"><i id="pasek"></i></div>
-        <span id="procent" class="tylko-czytnik">0%</span>
-      </div>
+      <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
+      <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu" hidden>⋯</button>
     </header>
     <main id="scena" class="scena">
       <section class="ekran"><p class="przygaszony">Ładowanie…</p></section>
     </main>
+    <!-- Dol ekranu nauki jest pusty. Zostaja tu tylko przyciski dla czytnika ekranu (klasa "tylko-czytnik"),
+         bo bez nich apka sterowana samym gestem bylaby dla VoiceOvera nieobslugiwalna. -->
     <footer id="akcje" class="akcje" hidden></footer>
+    <!-- Kierunek gestu stoi nad karta, a nie w niej: karta odjezdza za palcem, a status ma zostac
+         na srodku ekranu i byc czytelny do samego puszczenia palca. -->
+    <div id="gest-znacznik" class="gest-znacznik" aria-hidden="true">
+      <span class="gest-ikona"></span>
+      <span class="gest-podpis"></span>
+    </div>
+    <div id="notka" class="notka" role="status" hidden></div>
+    <div id="blysk" class="blysk" aria-hidden="true" hidden></div>
   </div>
 
   <div id="komunikaty" class="komunikaty" aria-live="assertive"></div>
   <div id="menu" class="nakladka" hidden></div>
   <div id="jak" class="nakladka" hidden></div>
   <div id="dodawanie" class="nakladka" hidden></div>
-  <div id="swieto" class="swieto" hidden></div>
+  <div id="samouczek" class="samouczek" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
   <input id="plik-slowek" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
   <input id="plik-kopii" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">

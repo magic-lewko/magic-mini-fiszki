@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { nowaKarta, ocen } from './lib/fsrs.mjs'
 import * as m from './zrodlo/magazyn.js'
-import { PUSTE_NADRABIANIE, PUSTY_STREAK, dataLokalna, poczatekTygodnia } from './zrodlo/talia.js'
+import { PUSTE_NADRABIANIE, PUSTY_STREAK, dataLokalna } from './zrodlo/talia.js'
 
 class Pamiec {
   constructor(limitZnakow = Infinity) {
@@ -38,7 +38,6 @@ function stanPrzykladowy() {
   stan.karty['apple|pl'] = { ...nowaKarta(), ...ocen(nowaKarta(), 1, teraz) }
   stan.karty['May|en'] = { ...nowaKarta(), ...ocen(nowaKarta(), 3, teraz) }
   stan.expRazem = 130
-  stan.punktyTygodnia = { tydzien: '2026-09-14', punkty: 40 }
   stan.streak = { ...PUSTY_STREAK, dni: 3, ostatniDzien: '2026-09-15', zamrozenia: 1, doZamrozenia: 3 }
   stan.dzis = { data: '2026-09-15', sekundy: 75.5, dodatkoweNowe: 10, powtorki: 4 }
   stan.ustawienia = {
@@ -50,7 +49,8 @@ function stanPrzykladowy() {
     celDzienny: 100,
     podpowiedzMowienie: 'litera',
     kotwica: '',
-    kotwicaPytano: false,
+    samouczekGestow: true,
+    wylaczoneTalie: [],
   }
   stan.ostatniaKopia = '2026-09-10T08:00:00.000Z'
   return stan
@@ -304,7 +304,6 @@ test('scalanie kopii z obecnym stanem nie cofa nowszego postepu', () => {
       'tylkoTu|en': karta(1, '2026-09-14T10:00:00.000Z', 1),
     },
     expRazem: 500,
-    punktyTygodnia: { tydzien: '2026-09-14', punkty: 120 },
     streak: { ...PUSTY_STREAK, dni: 4, ostatniDzien: '2026-09-15' },
     dzis: { data: '2026-09-15', sekundy: 30, dodatkoweNowe: 0, powtorki: 0 },
     ustawienia: { noweDziennie: 30, dlugoscSerii: 10, autowymowa: false, mowienie: false },
@@ -319,7 +318,6 @@ test('scalanie kopii z obecnym stanem nie cofa nowszego postepu', () => {
       'tylkoWKopii|pl': karta(1, '2026-09-01T10:00:00.000Z', 2),
     },
     expRazem: 900,
-    punktyTygodnia: { tydzien: '2026-09-07', punkty: 900 },
     streak: { ...PUSTY_STREAK, dni: 9, ostatniDzien: '2026-09-12' },
     dzis: { data: '2026-09-12', sekundy: 99, dodatkoweNowe: 10, powtorki: 0 },
     ostatniaKopia: '2026-09-01T08:00:00.000Z',
@@ -332,12 +330,6 @@ test('scalanie kopii z obecnym stanem nie cofa nowszego postepu', () => {
   assert.ok(s.karty['tylkoTu|en'] && s.karty['tylkoWKopii|pl'], 'suma kluczy')
   assert.equal(Object.keys(s.karty).length, 5)
   assert.equal(s.expRazem, 900)
-  assert.deepEqual(s.punktyTygodnia, obecny.punktyTygodnia, 'nowszy tydzien z telefonu wygrywa ze starszym z kopii')
-  assert.deepEqual(
-    m.scalStany(obecny, { ...zKopii, punktyTygodnia: { tydzien: '2026-09-14', punkty: 500 } }).punktyTygodnia,
-    { tydzien: '2026-09-14', punkty: 500 },
-    'ten sam tydzien: wygrywa wyzszy licznik',
-  )
   assert.deepEqual(s.streak, obecny.streak)
   assert.deepEqual(s.dzis, obecny.dzis)
   assert.deepEqual(s.ustawienia, obecny.ustawienia)
@@ -403,7 +395,8 @@ test('ustawienia spoza dozwolonych wartosci wracaja do domyslnych', () => {
     celDzienny: 60,
     podpowiedzMowienie: 'brak',
     kotwica: '',
-    kotwicaPytano: false,
+    samouczekGestow: false,
+    wylaczoneTalie: [],
   })
   assert.deepEqual(wynik.stan.dzis, { data: '', sekundy: 0, dodatkoweNowe: 0, powtorki: 0 })
   // 40 nowych dziennie wypadlo z listy opcji, ale zapisane ustawienie zostaje.
@@ -538,14 +531,12 @@ test('zapis mmf-v1 sprzed rangi: karty, EXP i seria bez straty, EXP staje sie pu
   const pamiec = new Pamiec()
   pamiec.setItem(m.KLUCZ, JSON.stringify(zTelefonu))
   const teraz = new Date(2026, 8, 16, 9, 0)
-  const { stan, ostrzezenie, pominiete, migracja } = m.wczytaj(pamiec, teraz)
+  const { stan, ostrzezenie, pominiete } = m.wczytaj(pamiec, teraz)
 
   assert.equal(ostrzezenie, '')
   assert.equal(pominiete, 0, 'zadna karta nie jest odrzucona')
   assert.equal(Object.keys(stan.karty).length, 380 + Math.ceil(380 / 3), 'wszystkie karty obu kierunkow')
-  assert.equal(stan.expRazem, 25140, 'dotychczasowe EXP zostaje jako punkty laczne')
-  assert.deepEqual(stan.punktyTygodnia, { tydzien: '2026-09-14', punkty: 0 }, 'punkty tygodnia startuja od zera')
-  assert.equal(migracja, true, 'interfejs ma to wytlumaczyc jednym zdaniem')
+  assert.equal(stan.expRazem, 25140, 'expRazem zostaje w zapisie dla zgodnosci, choc apka go nie pokazuje')
   assert.equal(stan.streak.dni, 7)
   assert.equal(stan.streak.ostatniDzien, '2026-09-15')
   assert.equal(stan.streak.zamrozenia, 0, 'brak pola w zapisie daje pusty bank, nie blad')
@@ -556,14 +547,13 @@ test('zapis mmf-v1 sprzed rangi: karty, EXP i seria bez straty, EXP staje sie pu
   assert.equal(stan.ustawienia.noweDziennie, 20)
   assert.equal(stan.ustawienia.maksPowtorekDziennie, 60, 'brak sufitu w zapisie daje wartosc domyslna')
   assert.equal(stan.ustawienia.kotwica, '', 'brak kotwicy w zapisie daje pusta kotwice, nie blad')
-  assert.equal(stan.ustawienia.kotwicaPytano, false, 'apka ma prawo zapytac o kotwice raz')
+  assert.equal(stan.ustawienia.samouczekGestow, false, 'zapis sprzed gestow ma prawo zobaczyc samouczek raz')
   assert.equal(stan.karty['w0|en'].kolejneUmiem, 0)
   assert.equal(stan.karty['w0|en'].leech, 0)
 
-  // Ponowny zapis i odczyt nie gubi niczego, a punkty tygodnia juz sa, wiec komunikat sie nie powtarza.
+  // Ponowny zapis i odczyt nie gubi niczego.
   assert.equal(m.zapisz(stan, pamiec).ok, true)
   const drugi = m.wczytaj(pamiec, teraz)
-  assert.equal(drugi.migracja, false)
   assert.equal(drugi.stan.expRazem, 25140)
   assert.equal(Object.keys(drugi.stan.karty).length, Object.keys(stan.karty).length)
 })
@@ -589,17 +579,32 @@ test('nowe pola karty zapisuja sie tylko, gdy cos trzymaja', () => {
   assert.equal(m.walidujStan({ ...spakowany, karty: { c: [[2, 1000, 1, 5, 1, 0, 0, 250, 240, 1, 2, 3]] } }).pominiete, 1)
 })
 
-test('punkty tygodnia w zapisie: zly format wraca do biezacego tygodnia', () => {
+test('czas odpowiedzi w historii: mediana i surowe czasy sa opcjonalne', () => {
   const teraz = new Date(2026, 8, 16, 9, 0)
-  const dobra = m.spakujStan(stanPrzykladowy(), teraz)
-  assert.deepEqual(m.walidujStan(dobra, teraz).stan.punktyTygodnia, { tydzien: '2026-09-14', punkty: 40 })
-  for (const zle of [null, 'x', { tydzien: 'kiedyś', punkty: 5 }, { tydzien: '2026-09-14', punkty: -1 }]) {
-    const wynik = m.walidujStan({ ...dobra, punktyTygodnia: zle }, teraz)
-    assert.equal(wynik.ok, true)
-    assert.deepEqual(wynik.stan.punktyTygodnia, { tydzien: poczatekTygodnia(teraz), punkty: 0 })
+  const stan = stanPrzykladowy()
+  stan.historia = {
+    '2026-09-16': { oceny: 3, nowe: 1, exp: 90, sekundy: 12, tempo: 2.5, czasy: [1.5, 2.5, 6] },
+    '2026-09-15': { oceny: 2, nowe: 0, exp: 60, sekundy: 8, tempo: 4 },
+    '2026-09-14': { oceny: 1, nowe: 0, exp: 30, sekundy: 3 },
   }
-  // Zapis z EXP 0 i bez punktow tygodnia to nowy uzytkownik, a nie migracja.
-  assert.equal(m.walidujStan({ ...dobra, exp: 0, punktyTygodnia: undefined }, teraz).migracja, false)
+  const spakowany = m.spakujStan(stan, teraz)
+  const wczytany = m.walidujStan(spakowany, teraz).stan
+  assert.deepEqual(wczytany.historia['2026-09-16'].czasy, [1.5, 2.5, 6], 'biezacy dzien trzyma surowe czasy')
+  assert.equal(wczytany.historia['2026-09-16'].tempo, 2.5)
+  assert.equal(wczytany.historia['2026-09-15'].tempo, 4, 'zamkniety dzien zostaje z sama mediana')
+  assert.equal(wczytany.historia['2026-09-15'].czasy, undefined)
+  assert.equal(wczytany.historia['2026-09-14'].tempo, undefined, 'zapis sprzed tej wersji nie ma tempa')
+
+  // Bzdury w nowych polach nie moga uniewaznic calej historii ani postepu.
+  const zepsuty = JSON.parse(JSON.stringify(spakowany))
+  zepsuty.historia['2026-09-16'].tempo = 'szybko'
+  zepsuty.historia['2026-09-16'].czasy = { a: 1 }
+  const drugi = m.walidujStan(zepsuty, teraz)
+  assert.equal(drugi.ok, true)
+  assert.equal(drugi.stan.historia['2026-09-16'].oceny, 3)
+  assert.equal(drugi.stan.historia['2026-09-16'].tempo, undefined)
+  assert.equal(drugi.stan.historia['2026-09-16'].czasy, undefined)
+  assert.equal(Object.keys(drugi.stan.karty).length, Object.keys(stan.karty).length)
 })
 
 // --- D1: kotwica nawyku w zapisie ---
@@ -607,20 +612,20 @@ test('punkty tygodnia w zapisie: zly format wraca do biezacego tygodnia', () => 
 test('kotwica nawyku zapisuje sie i wraca przycieta, a zle wartosci daja domyslne', () => {
   const pamiec = new Pamiec()
   const stan = stanPrzykladowy()
-  stan.ustawienia = { ...stan.ustawienia, kotwica: '  po kawie  ', kotwicaPytano: true }
+  stan.ustawienia = { ...stan.ustawienia, kotwica: '  po kawie  ', samouczekGestow: true }
   assert.equal(m.zapisz(stan, pamiec).ok, true)
   const wczytany = m.wczytaj(pamiec).stan
   assert.equal(wczytany.ustawienia.kotwica, 'po kawie', 'biale znaki z brzegow odpadaja')
-  assert.equal(wczytany.ustawienia.kotwicaPytano, true)
+  assert.equal(wczytany.ustawienia.samouczekGestow, true)
 
   // Zapis z bzdurami w tych polach nie moze uniewaznic calego postepu.
   const zepsuty = JSON.parse(pamiec.getItem(m.KLUCZ))
   zepsuty.ustawienia.kotwica = { a: 1 }
-  zepsuty.ustawienia.kotwicaPytano = 'tak'
+  zepsuty.ustawienia.samouczekGestow = 'tak'
   pamiec.setItem(m.KLUCZ, JSON.stringify(zepsuty))
   const drugi = m.wczytaj(pamiec).stan
   assert.equal(drugi.ustawienia.kotwica, '')
-  assert.equal(drugi.ustawienia.kotwicaPytano, false)
+  assert.equal(drugi.ustawienia.samouczekGestow, false)
   assert.equal(Object.keys(drugi.karty).length, Object.keys(stan.karty).length, 'karty zostaja nietkniete')
 
   // Bardzo dluga kotwica jest przycinana, a nie odrzucana.
@@ -628,4 +633,28 @@ test('kotwica nawyku zapisuje sie i wraca przycieta, a zle wartosci daja domysln
   dlugi.ustawienia.kotwica = 'x'.repeat(200)
   pamiec.setItem(m.KLUCZ, JSON.stringify(dlugi))
   assert.equal(m.wczytaj(pamiec).stan.ustawienia.kotwica.length, 40)
+})
+
+test('wylaczone talie sa polem opcjonalnym: stary zapis daje pusta liste, nowy wraca bez zmian', () => {
+  const pamiec = new Pamiec()
+  const stan = stanPrzykladowy()
+  stan.ustawienia = { ...stan.ustawienia, wylaczoneTalie: ['  Moja talia  ', 'Oxford 3000', 'Moja talia', '', 7] }
+  m.zapisz(stan, pamiec)
+  const zapisany = JSON.parse(pamiec.getItem(m.KLUCZ))
+  assert.equal(zapisany.wersja, m.WERSJA_ZAPISU, 'WERSJA_ZAPISU zostaje 1')
+  // Przyciete, bez powtorzen i bez wartosci, ktore nie sa napisami.
+  assert.deepEqual(m.wczytaj(pamiec).stan.ustawienia.wylaczoneTalie, ['Moja talia', 'Oxford 3000'])
+
+  // Zapis sprzed tej wersji nie ma pola w ogole: wszystkie talie maja zostac wlaczone.
+  delete zapisany.ustawienia.wylaczoneTalie
+  pamiec.setItem(m.KLUCZ, JSON.stringify(zapisany))
+  const stary = m.wczytaj(pamiec)
+  assert.equal(stary.ostrzezenie, '')
+  assert.deepEqual(stary.stan.ustawienia.wylaczoneTalie, [])
+  assert.equal(stary.stan.expRazem, 130, 'reszta postepu bez straty')
+
+  // Uszkodzone pole tez nie uniewaznia postepu.
+  zapisany.ustawienia.wylaczoneTalie = 'Moja talia'
+  pamiec.setItem(m.KLUCZ, JSON.stringify(zapisany))
+  assert.deepEqual(m.wczytaj(pamiec).stan.ustawienia.wylaczoneTalie, [])
 })
