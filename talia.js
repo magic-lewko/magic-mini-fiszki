@@ -307,11 +307,10 @@ export function kierunekGestu({ dx = 0, dy = 0, vx = 0, vy = 0 } = {}) {
   return dy > 0 ? 'dol' : 'gora'
 }
 
-// Oceny dzialaja wylacznie po odslonieciu (najpierw sprobuj sobie przypomniec), gest w dol zawsze.
-export function gestDozwolony(kierunek, odkryta) {
-  if (kierunek === 'dol') return true
-  if (!kierunek) return false
-  return !!odkryta
+// Kazdy gest dziala od razu, takze na karcie zakrytej: slowo, ktore siedzi, konczy sie jednym ruchem,
+// bez tapniecia na odsloniecie. Kto chce najpierw sprawdzic odpowiedz, dalej moze tapnac w karte.
+export function gestDozwolony(kierunek) {
+  return !!kierunek
 }
 
 // Stan dnia (sekundy nauki, dodatkowe nowe, zrobione powtorki) zeruje sie o lokalnej polnocy.
