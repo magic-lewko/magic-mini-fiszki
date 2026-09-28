@@ -1,83 +1,56 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- Bez user-scalable=no: WCAG 1.4.4 wymaga mozliwosci powiekszenia tekstu. Podwojne tapniecie i tak nie
-       powieksza, bo body ma touch-action: manipulation, a szczypanie jest blokowane tylko nad sama karta. -->
+  <!-- No user-scalable=no: WCAG 1.4.4 requires text zoom. A double tap does not zoom anyway,
+       because body has touch-action: manipulation, and pinching is blocked only over the card itself. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#121212">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Fiszki">
+  <meta name="apple-mobile-web-app-title" content="Flashcards">
   <meta name="format-detection" content="telephone=no">
-  <title>Fiszki</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" sizes="180x180" href="./ikona-180.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="./ikona-192.png">
-  <link rel="stylesheet" href="./styl.css">
-  <script type="module" src="./app.js"></script>
+  <title>Flashcards</title>
+  <!-- Files from public/ are given from the root: Vite adds the base (/magic-mini-fiszki/) before them. -->
+  <link rel="manifest" href="/magic-mini-fiszki/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/magic-mini-fiszki/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/magic-mini-fiszki/icon-192.png">
+  <script type="module" crossorigin src="/magic-mini-fiszki/assets/index-DGGoitjS.js"></script>
+  <link rel="stylesheet" crossorigin href="/magic-mini-fiszki/assets/index-2TY-448D.css">
 </head>
 <body>
-  <div id="aplikacja">
-    <!-- Gora ekranu nauki to wylacznie cienki pasek postepu calej talii: bez cyfr, bez rangi, bez serii
-         i bez przycisku menu (B). Wypelnienie to slowa poznane, jasniejszy segment to utrwalone.
-         Menu i znacznik offline pokazuja sie dopiero poza nauka. -->
-    <header class="gora">
-      <div id="postep-talii" class="postep-talii" role="progressbar" aria-label="Postęp talii">
-        <i id="pasek-poznane" class="pasek-poznane"></i>
-        <i id="pasek-utrwalone" class="pasek-utrwalone"></i>
-      </div>
-      <button id="offline" class="znacznik" type="button">⚠ nie offline</button>
-      <button id="menu-przycisk" class="menu-przycisk" type="button" aria-label="Menu" hidden>⋯</button>
-    </header>
-    <main id="scena" class="scena">
-      <section class="ekran"><p class="przygaszony">Ładowanie…</p></section>
+  <!-- A skeleton while loading and for the fallback message below. After the start the Svelte view replaces it
+       (components/App.svelte), which draws the bar, the stage, overlays and messages. -->
+  <div id="app">
+    <header class="top"></header>
+    <main id="stage" class="stage">
+      <section class="screen"><p class="muted">Loading…</p></section>
     </main>
-    <!-- Dol ekranu nauki jest pusty. Zostaja tu tylko przyciski dla czytnika ekranu (klasa "tylko-czytnik"),
-         bo bez nich apka sterowana samym gestem bylaby dla VoiceOvera nieobslugiwalna. -->
-    <footer id="akcje" class="akcje" hidden></footer>
-    <!-- Kierunek gestu stoi nad karta, a nie w niej: karta odjezdza za palcem, a status ma zostac
-         na srodku ekranu i byc czytelny do samego puszczenia palca. -->
-    <div id="gest-znacznik" class="gest-znacznik" aria-hidden="true">
-      <span class="gest-ikona"></span>
-      <span class="gest-podpis"></span>
-    </div>
-    <div id="notka" class="notka" role="status" hidden></div>
-    <div id="blysk" class="blysk" aria-hidden="true" hidden></div>
   </div>
 
-  <div id="komunikaty" class="komunikaty" aria-live="assertive"></div>
-  <div id="menu" class="nakladka" hidden></div>
-  <div id="jak" class="nakladka" hidden></div>
-  <div id="dodawanie" class="nakladka" hidden></div>
-  <div id="samouczek" class="samouczek" hidden></div>
-  <div id="toast" class="toast" role="status" hidden></div>
-  <input id="plik-slowek" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
-  <input id="plik-kopii" class="ukryty-plik" type="file" accept=".json,.txt,application/json,text/plain">
-
   <script>
-    // Gdy modul apki sie nie uruchomi (blad skladni, bardzo stary system), pokaz komunikat zamiast pustego ekranu.
-    window.__pierwszyBlad = ''
+    // When the app module does not start (a syntax error, a very old system), show a message instead of an empty screen.
+    window.__firstError = ''
     window.addEventListener('error', function (e) {
-      if (!window.__pierwszyBlad) window.__pierwszyBlad = e.message || String(e.error || '')
+      if (!window.__firstError) window.__firstError = e.message || String(e.error || '')
     })
     setTimeout(function () {
-      if (document.documentElement.dataset.gotowe) return
-      var scena = document.getElementById('scena')
-      if (!scena) return
-      scena.textContent = ''
-      var ekran = document.createElement('section')
-      ekran.className = 'ekran'
-      ekran.innerHTML = '<h2>Aplikacja się nie uruchomiła</h2><p>Zamknij ją i otwórz ponownie. Postęp jest zapisany w telefonie.</p>'
-      if (window.__pierwszyBlad) {
+      if (document.documentElement.dataset.ready) return
+      var stage = document.getElementById('stage')
+      if (!stage) return
+      stage.textContent = ''
+      var screen = document.createElement('section')
+      screen.className = 'screen'
+      screen.innerHTML = '<h2>The app did not start</h2><p>Close it and open it again. Progress is saved on the phone.</p>'
+      if (window.__firstError) {
         var p = document.createElement('p')
-        p.className = 'przygaszony'
-        p.textContent = window.__pierwszyBlad
-        ekran.appendChild(p)
+        p.className = 'muted'
+        p.textContent = window.__firstError
+        screen.appendChild(p)
       }
-      scena.appendChild(ekran)
+      stage.appendChild(screen)
     }, 10000)
   </script>
 </body>

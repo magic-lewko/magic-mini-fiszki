@@ -1,97 +1,92 @@
-// Wygenerowane przez zbuduj.mjs. Nie edytuj recznie.
-const WERSJA = '180b45c594e5'
-const PLIKI = [
+// Made by build.mjs. Do not edit by hand.
+const VERSION = 'af7ec03264ae'
+const FILES = [
   './',
   './index.html',
-  './app.js',
-  './baza.js',
-  './fsrs.mjs',
-  './haptyka.js',
-  './ikona-180.png',
-  './ikona-192.png',
-  './ikona-512.png',
-  './kolizje.js',
-  './krzyzowka.js',
-  './literki.js',
-  './magazyn.js',
-  './manifest.webmanifest',
-  './mowa.js',
-  './slowka.js',
-  './styl.css',
-  './talia.js'
+  './assets/index-2TY-448D.css',
+  './assets/index-DGGoitjS.js',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
+  './manifest.webmanifest'
 ]
 
-;(function pracownik() {
-  const CACHE = 'mmf-' + WERSJA
+;(function worker() {
+  const CACHE = 'mmf-' + VERSION
 
-  // Atomowo: najpierw pobierane sa wszystkie pliki i dopiero gdy kazdy ma status ok, trafiaja do cache. Brak
-  // ktoregokolwiek przerywa instalacje, a stara wersja dziala dalej. Parametr v omija cache CDN (GitHub Pages stoi
-  // za Fastly, ktory mogl oddac stary plik pod nowa wersja), cache: 'reload' omija cache HTTP. Klucz w cache jest
-  // bez parametru, wiec dopasowanie w fetch i w statusie jest dokladne.
-  // Bez skipWaiting: nowa wersja czeka, az uzytkownik sam kliknie baner.
-  async function zainstaluj() {
-    const odpowiedzi = await Promise.all(
-      PLIKI.map(async (plik) => {
-        const adres = plik + (plik.includes('?') ? '&' : '?') + 'v=' + WERSJA
-        const odpowiedz = await fetch(new Request(adres, { cache: 'reload' }))
-        if (!odpowiedz.ok) throw new Error(`${plik}: HTTP ${odpowiedz.status}`)
-        return odpowiedz
+  // Atomic: first all files are downloaded and only when each has an ok status, they go to the cache. A missing
+  // one stops the install, and the old version keeps working. The v parameter skips the CDN cache (GitHub Pages is
+  // behind Fastly, which could give an old file under a new version), cache: 'reload' skips the HTTP cache. The key
+  // in the cache has no parameter, so matching in fetch and in status is exact.
+  // No skipWaiting: the new version waits until the user taps the banner.
+  async function install() {
+    const responses = await Promise.all(
+      FILES.map(async (file) => {
+        const address = file + (file.includes('?') ? '&' : '?') + 'v=' + VERSION
+        const response = await fetch(new Request(address, { cache: 'reload' }))
+        if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`)
+        return response
       }),
     )
     const cache = await caches.open(CACHE)
     try {
-      await Promise.all(PLIKI.map((plik, i) => cache.put(new Request(plik), odpowiedzi[i])))
-    } catch (blad) {
-      // Niepelny cache tej wersji nie moze zostac: nazwa jest unikalna dla wersji, wiec usuwamy tylko jego.
+      await Promise.all(FILES.map((file, i) => cache.put(new Request(file), responses[i])))
+    } catch (error) {
+      // An incomplete cache of this version must not stay: the name is unique for the version, so we delete only it.
       await caches.delete(CACHE)
-      throw blad
+      throw error
     }
   }
 
-  self.addEventListener('install', (zdarzenie) => {
-    zdarzenie.waitUntil(zainstaluj())
+  self.addEventListener('install', (event) => {
+    event.waitUntil(install())
   })
 
-  self.addEventListener('activate', (zdarzenie) => {
-    zdarzenie.waitUntil(
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
       caches
         .keys()
-        .then((nazwy) => Promise.all(nazwy.filter((n) => n.startsWith('mmf-') && n !== CACHE).map((n) => caches.delete(n))))
+        .then((names) => Promise.all(names.filter((n) => n.startsWith('mmf-') && n !== CACHE).map((n) => caches.delete(n))))
         .then(() => self.clients.claim()),
     )
   })
 
-  const zCache = (zadanie) => caches.open(CACHE).then((cache) => cache.match(zadanie, { ignoreSearch: true }))
+  const fromCache = (request) => caches.open(CACHE).then((cache) => cache.match(request, { ignoreSearch: true }))
 
-  // Safari odrzuca nawigacje obsluzona odpowiedzia z flaga przekierowania (hosting moze zamienic index.html na /).
-  async function bezPrzekierowania(odpowiedz) {
-    if (!odpowiedz.redirected) return odpowiedz
-    const tresc = await odpowiedz.blob()
-    return new Response(tresc, { status: odpowiedz.status, statusText: odpowiedz.statusText, headers: odpowiedz.headers })
+  // Safari rejects a navigation answered with a response that has the redirect flag (hosting may turn index.html into /).
+  async function withoutRedirect(response) {
+    if (!response.redirected) return response
+    const body = await response.blob()
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers })
   }
 
-  // Zawsze najpierw cache, siec tylko gdy pliku w nim nie ma. Dzieki temu odswiezenie bez sieci dziala.
-  self.addEventListener('fetch', (zdarzenie) => {
-    const zadanie = zdarzenie.request
-    if (zadanie.method !== 'GET') return
-    if (new URL(zadanie.url).origin !== self.location.origin) return
-    if (zadanie.mode === 'navigate') {
-      zdarzenie.respondWith(zCache('./index.html').then((odp) => (odp ? bezPrzekierowania(odp) : fetch(zadanie))))
+  // Always the cache first, the network only when the file is not in it. So a reload without the network works.
+  self.addEventListener('fetch', (event) => {
+    const request = event.request
+    if (request.method !== 'GET') return
+    if (new URL(request.url).origin !== self.location.origin) return
+    if (request.mode === 'navigate') {
+      event.respondWith(fromCache('./index.html').then((response) => (response ? withoutRedirect(response) : fetch(request))))
       return
     }
-    zdarzenie.respondWith(zCache(zadanie).then((odp) => odp || fetch(zadanie)))
+    event.respondWith(fromCache(request).then((response) => response || fetch(request)))
   })
 
-  self.addEventListener('message', (zdarzenie) => {
-    if (zdarzenie.data === 'status') {
-      const port = zdarzenie.ports[0]
-      zdarzenie.waitUntil(
+  // Messages: 'status' and 'update'. The app from before the English version (still open on the phone while the new
+  // version installs) sends 'aktualizuj' and reads the status fields wersja, pliki, zapisane, so they stay too.
+  self.addEventListener('message', (event) => {
+    if (event.data === 'status') {
+      const port = event.ports[0]
+      event.waitUntil(
         caches
           .open(CACHE)
-          .then((cache) => Promise.all(PLIKI.map((plik) => cache.match(plik, { ignoreSearch: true }))))
-          .then((wyniki) => port?.postMessage({ wersja: WERSJA, pliki: PLIKI.length, zapisane: wyniki.filter(Boolean).length })),
+          .then((cache) => Promise.all(FILES.map((file) => cache.match(file, { ignoreSearch: true }))))
+          .then((found) => {
+            const saved = found.filter(Boolean).length
+            port?.postMessage({ version: VERSION, files: FILES.length, saved, wersja: VERSION, pliki: FILES.length, zapisane: saved })
+          }),
       )
-    } else if (zdarzenie.data === 'aktualizuj') {
+    } else if (event.data === 'update' || event.data === 'aktualizuj') {
       self.skipWaiting()
     }
   })

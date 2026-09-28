@@ -1,8 +1,8 @@
 {
-  "name": "Fiszki - angielski",
-  "short_name": "Fiszki",
-  "description": "Nauka słówek offline z powtórkami FSRS.",
-  "lang": "pl",
+  "name": "Flashcards - English",
+  "short_name": "Flashcards",
+  "description": "Learn words offline with FSRS reviews.",
+  "lang": "en",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -11,7 +11,7 @@
   "background_color": "#0b0b10",
   "theme_color": "#0b0b10",
   "icons": [
-    { "src": "./ikona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
