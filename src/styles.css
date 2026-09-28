@@ -1,0 +1,2021 @@
+/* Palette and tokens v3. Contrasts counted by WCAG 2.1 on the #121212 background:
+   text 16.8:1, muted 7.3:1 (6.1:1 on surface-2), know 6.9:1, almost 8.3:1, dont-know 6.8:1,
+   info 8.1:1. The status set comes from a color-blind safe palette (Wong 2011, Nature Methods),
+   with brightness raised for a dark background. Text on grade buttons is black, not white: white on
+   vermilion would give only 3.9:1. */
+:root {
+  color-scheme: dark;
+  --bg: #121212;
+  --surface: #1a1a1f;
+  --surface-2: #23232b;
+  --line: #2e2e38;
+  --text: #f2f2f5;
+  --muted: #a1a1ad;
+  --know: #00b383;
+  --almost: #e69f00;
+  --dont-know: #ff6f3c;
+  --info: #56b4e9;
+  --on-accent: #0b0b0d;
+  --margin: 14px;
+
+  /* Times and curves. Sources: Material Design (transitions 200-300 ms), Nielsen (100 ms is the limit
+     of "instant"), Kao 2020 (extreme "juice" lowers the experience and inner motivation). */
+  --time-tap: 100ms;
+  --time-reveal: 180ms;
+  --time-fly-out: 220ms;
+  --time-enter: 220ms;
+  --time-micro: 350ms;
+  --time-end: 520ms;
+  --ease-in: cubic-bezier(0, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --ease-celebrate: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* The whole page is stuck to the screen: no scrolling, no rubber band and no selection. `touch-action: manipulation`
+   turns off zoom by double tap, so the viewport does not have to block zoom for good. */
+body {
+  position: fixed;
+  inset: 0;
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+label.button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+
+h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 14px;
+}
+
+/* Only for the screen reader. This is how the grade buttons are hidden on the study screen: they are real, have
+   labels and work, but take not a single pixel, because the bottom of the screen must be empty (B). */
+.sr-only {
+  /* Outside the screen, not under the card: so they do not catch touch, and the screen reader still activates them.
+     pointer-events: none can be unreliable, because VoiceOver activates a button with a synthetic click. */
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#app {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + var(--margin))
+    calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + var(--margin));
+}
+
+/* The top of the study screen is only a thin progress bar of the whole deck (B). The menu and the offline badge
+   show only outside study, so during a card there is nothing to click here. */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 12px;
+}
+
+/* The whole deck bar: the fill is known words, the lighter part is solid words
+   (stability of at least 30 days). No digits and no percent (F). It grows smoothly after a grade (I). */
+.deck-progress {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.deck-progress i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 600ms var(--ease-celebrate);
+}
+
+.bar-known {
+  background: var(--know);
+}
+
+.bar-solid {
+  background: #7ff0cd;
+}
+
+
+.badge {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--almost);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--almost);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.badge.ok {
+  border-color: var(--line);
+  color: var(--know);
+}
+
+.menu-button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  transition: background var(--time-tap) ease-out;
+}
+
+.menu-button:active {
+  background: var(--surface-2);
+}
+
+/* Stage and card. The card content has the highest contrast and the biggest size in the whole app. */
+
+.stage {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 44px 22px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--surface);
+  text-align: center;
+  overflow: hidden;
+  touch-action: none;
+  will-change: transform;
+}
+
+/* The study screen: the card goes low, but stays a panel, not a plane cut by the screen edge.
+   The bottom gap equals the side ones (var(--margin)), so the rounding is fully visible, and the system
+   inset goes inside the card: the caption does not go under the iPhone gesture bar. */
+#app.studying {
+  padding-bottom: var(--margin);
+  row-gap: 0;
+}
+
+#app.studying .top {
+  margin-bottom: 10px;
+}
+
+#app.studying .card {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.card.entering {
+  animation: enter var(--time-enter) var(--ease-in);
+}
+
+@keyframes enter {
+  from {
+    transform: translateY(36px) scale(0.98);
+    opacity: 0;
+  }
+}
+
+.card.dragging {
+  transition: none !important;
+}
+
+/* Answer time as a signal (C): after revealing, the card border changes smoothly from neutral
+   to amber (3 s) and vermilion (over 8 s). No digits and no ticking. */
+.card {
+  transition: border-color 600ms linear, box-shadow var(--time-tap) ease-out;
+}
+
+.card.pace-medium {
+  border-color: var(--almost);
+}
+
+.card.pace-slow {
+  border-color: var(--dont-know);
+}
+
+/* A micro reaction when the swipe threshold is crossed (I): the card gets the direction outline and a highlight,
+   before the user lets go. The scale itself is in the transform, because that one follows the finger. */
+.card.threshold {
+  box-shadow: 0 0 22px rgba(0, 0, 0, 0.45);
+}
+
+.card.swipe-right {
+  border-color: var(--know);
+}
+
+.card.swipe-left {
+  border-color: var(--dont-know);
+}
+
+.card.swipe-up {
+  border-color: var(--almost);
+}
+
+.card.swipe-down {
+  border-color: var(--info);
+}
+
+/* The card fly-out carries the result: it flies in the swipe direction, with a rotation on a horizontal move (I). */
+.card.fly-out-right {
+  animation: fly-out-right var(--time-fly-out) var(--ease-out) forwards;
+}
+
+.card.fly-out-left {
+  animation: fly-out-left var(--time-fly-out) var(--ease-out) forwards;
+}
+
+.card.fly-out-up {
+  animation: fly-out-up var(--time-fly-out) var(--ease-out) forwards;
+}
+
+.card.fly-out-down {
+  animation: fly-out-down var(--time-fly-out) var(--ease-out) forwards;
+}
+
+.card.fly-out-quiet {
+  animation: card-fade var(--time-fly-out) var(--ease-out) forwards;
+}
+
+@keyframes fly-out-right {
+  to {
+    transform: translateX(125%) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-out-left {
+  to {
+    transform: translateX(-125%) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-out-up {
+  to {
+    transform: translateY(-120%) rotate(4deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-out-down {
+  to {
+    transform: translateY(120%) scale(0.96);
+    opacity: 0;
+  }
+}
+
+@keyframes card-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The second and third channel of the result: the outline color and a sign on the card. With reduced motion only
+   they stay (WCAG 1.4.1: color must not be the only carrier of information). */
+.result {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  font-size: 104px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  animation: flash var(--time-fly-out) var(--ease-in) forwards;
+}
+
+@keyframes flash {
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.card.result-yes {
+  border-color: var(--know);
+}
+
+.card.result-yes .result {
+  color: var(--know);
+}
+
+.card.result-almost {
+  border-color: var(--almost);
+}
+
+.card.result-almost .result {
+  color: var(--almost);
+}
+
+.card.result-no {
+  border-color: var(--dont-know);
+}
+
+.card.result-no .result {
+  color: var(--dont-know);
+}
+
+.label {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.label.speaking {
+  color: var(--info);
+}
+
+.word {
+  font-size: clamp(36px, 11vw, 60px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.ipa {
+  font-family: 'Charis SIL', 'Doulos SIL', 'Lucida Grande', 'Segoe UI', system-ui, sans-serif;
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.chip {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chip.level {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.chip.new {
+  border-color: var(--almost);
+  color: var(--almost);
+  font-weight: 700;
+}
+
+.speaker {
+  position: relative;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 22px;
+  transition: transform var(--time-tap) ease-out;
+}
+
+.speaker:active {
+  transform: scale(0.92);
+}
+
+.pronunciation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.translation {
+  font-size: clamp(26px, 8vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.translation.big {
+  font-size: clamp(30px, 9.5vw, 48px);
+  color: var(--text);
+}
+
+/* Line length 30-45 chars: longer lines read worse, especially centered ones. */
+.sentence {
+  max-width: 34ch;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.sentence-pl {
+  max-width: 36ch;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.hint {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 20px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* 14 letters are 27 chars with gaps: with a fixed 22px they do not fit in 375 px and the ends were cut. */
+  font-size: clamp(15px, 5vw, 22px);
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.hint span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hint:empty {
+  display: none;
+}
+
+/* The "Hint" button and other elements on the card that must not reveal it: above the haptic switch. */
+.no-reveal {
+  position: relative;
+  z-index: 2;
+}
+
+.card .no-reveal {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The cross on the card is the same button as in games and sheets (class "close"): a different cross
+   in every place of the app looked like an accident. On the card we only position it and dim it. */
+.card .close.on-card {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0.45;
+  transition: opacity var(--time-tap) ease-out;
+}
+
+.card .close.on-card:active {
+  opacity: 1;
+}
+
+.training-mark {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  color: var(--almost);
+}
+
+
+.reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity var(--time-reveal) var(--ease-in), transform var(--time-reveal) var(--ease-in);
+  pointer-events: none;
+}
+
+.card.revealed .reveal {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.tip {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  font-size: 13px;
+  color: var(--muted);
+  transition: opacity var(--time-reveal) var(--ease-in);
+}
+
+.card.revealed .tip {
+  opacity: 0;
+}
+/* The swipe direction (A): the color, icon and label show after the threshold is crossed, before
+   the user lets go. Three channels at once, because color alone is too little (WCAG 1.4.1).
+   The marker lies above the card, so it stays in the middle of the screen also when the card moves away with the finger. */
+.swipe-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 12px 22px;
+  border: 3px solid currentColor;
+  border-radius: 18px;
+  background: rgba(18, 18, 18, 0.82);
+  transform: translate(-50%, -50%) scale(0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+
+.swipe-marker.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.swipe-icon {
+  font-size: 44px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.swipe-label {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swipe-marker.yes {
+  color: var(--know);
+}
+
+.swipe-marker.almost {
+  color: var(--almost);
+}
+
+.swipe-marker.no {
+  color: var(--dont-know);
+}
+
+.swipe-marker.discard {
+  color: var(--info);
+}
+
+/* Level and part of speech chips stand on the back of the card, in smaller print (B). */
+.chips.mini .chip {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* An invisible iOS switch over the whole element that is tapped (haptics). */
+.haptic {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The switch stays active also after revealing: the second tap (undo) must vibrate the same way
+   as the first. The speaker and "Hint" lie above it (z-index: 2), so they still catch their taps. */
+.with-haptic {
+  position: relative;
+}
+
+/* The bottom of the study screen is empty (B): only buttons for the screen reader stay there, and they
+   take no space. The thumb has the whole card, not a row of buttons. */
+
+.actions {
+  width: 100%;
+  min-height: 0;
+}
+
+/* A short note by the card: one sentence for 900 ms, without buttons and without blocking the swipe (C). */
+.note {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+  z-index: 6;
+  padding: 8px 14px;
+  border: 1px solid var(--almost);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--almost);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: fade var(--time-micro) var(--ease-in);
+}
+
+/* A flash on the screen edge at every fifth correct card in a row (I). It blocks nothing. */
+.flash {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 0 4px var(--know);
+}
+
+.flash.visible {
+  animation: edge-flash 300ms var(--ease-celebrate);
+}
+
+/* A flash in the grade color at every card change. A swipe on iPhone cannot vibrate, so this is the only
+   confirmation that the card moved on. Weak, so it does not tire you over dozens of cards. */
+.flash.flash-no {
+  box-shadow: inset 0 0 0 4px var(--dont-know);
+}
+
+.flash.flash-discard {
+  box-shadow: inset 0 0 0 4px var(--muted);
+}
+
+.flash.weak.visible {
+  animation: weak-flash 260ms var(--ease-celebrate);
+}
+
+@keyframes weak-flash {
+  30% {
+    opacity: 0.32;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes edge-flash {
+  30% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Screens outside study: home, session end, hard word panel, no words */
+
+.screen {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* "safe center" instead of "center": when the summary grows over the screen (banner), the top is not
+     cut, and you can scroll to the buttons. The card view still has no scrolling. */
+  justify-content: safe center;
+  gap: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.logo {
+  font-size: 52px;
+  line-height: 1;
+}
+
+/* The session end screen: at most three numbers (what was added, today, tomorrow). No success percent
+   is the main number here (it would turn attention to judging yourself, Kluger and DeNisi 1996). */
+.stats {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat {
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stat-number {
+  display: block;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.stat.solid .stat-number {
+  color: var(--know);
+}
+
+
+/* The home screen (E): the whole deck bar with one number, three big buttons and the menu in the corner. */
+
+.screen.home {
+  gap: 18px;
+}
+
+.deck-summary {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.deck-track {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.deck-track i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: left;
+  transition: transform 600ms var(--ease-celebrate);
+}
+
+.deck-track .known {
+  background: var(--know);
+}
+
+.deck-track .solid {
+  background: #7ff0cd;
+}
+
+.deck-count {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.home-buttons {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+
+/* "Reviews" with the "+10" button next to it: it counts as one row, so the grid below stays untouched. */
+.home-row {
+  display: flex;
+  gap: 10px;
+}
+
+.home-row .button {
+  flex: 1;
+}
+
+.home-row .add-more {
+  flex: none;
+  padding: 0 20px;
+}
+
+/* The session end screen (D): at most three numbers and the same buttons as on the home screen. */
+.session-end {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.stats.three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.stats.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.stats.three .stat {
+  padding: 10px 6px;
+  font-size: 12px;
+}
+
+.stats.three .stat-number {
+  font-size: 28px;
+}
+
+
+.button.large {
+  min-height: 62px;
+  font-size: 19px;
+}
+
+/* Habit anchor (D1): the sentence lives only in the menu now, so only the options stay. */
+
+
+.anchor-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.anchor-options button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.anchor-options button[aria-pressed='true'] {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.anchor-options button.quiet {
+  color: var(--muted);
+}
+
+/* The gesture tutorial (A): a one-time overlay with four arrows, closed with a tap. */
+
+.tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 10, 12, 0.94);
+}
+
+.tutorial-body {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  animation: content-enter var(--time-end) var(--ease-celebrate);
+}
+
+.tutorial-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.tutorial-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.tutorial-swipe {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.tutorial-arrow {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.tutorial-swipe:nth-child(1) .tutorial-arrow {
+  color: var(--know);
+}
+
+.tutorial-swipe:nth-child(2) .tutorial-arrow {
+  color: var(--dont-know);
+}
+
+.tutorial-swipe:nth-child(3) .tutorial-arrow {
+  color: var(--almost);
+}
+
+.tutorial-swipe:nth-child(4) .tutorial-arrow {
+  color: var(--info);
+}
+
+.tutorial-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tutorial-text {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+@keyframes content-enter {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  40% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* The session end celebration: it lasts 1.0-1.5 s and can be skipped with a tap.
+   The order of entering follows the order of information, so the animation itself also says something. */
+
+.screen.celebrating .stat {
+  animation: block-enter var(--time-end) var(--ease-celebrate) both;
+}
+
+.screen.celebrating .stat:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.screen.celebrating .stat:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.screen.celebrating .deck-summary {
+  animation: block-enter var(--time-end) var(--ease-celebrate) both;
+  animation-delay: 210ms;
+}
+
+@keyframes block-enter {
+  from {
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+.buttons {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+
+.button {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  transition: transform var(--time-tap) ease-out, filter var(--time-tap) ease-out;
+}
+
+.button:active {
+  transform: scale(0.98);
+  filter: brightness(1.15);
+}
+
+.button.primary {
+  border-color: var(--know);
+  background: var(--know);
+  color: var(--on-accent);
+}
+
+.button.small {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.45;
+}
+
+.banners {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.banners:empty {
+  display: none;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--info);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 14px;
+  text-align: left;
+}
+
+.banner.backup {
+  border-color: var(--almost);
+}
+
+/* Overlays: the menu and "How to learn" (bottom panel), adding words (full screen) */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  animation: fade var(--time-enter) var(--ease-in);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: slide-up var(--time-enter) var(--ease-in);
+}
+
+.sheet.full {
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 8px;
+}
+
+.close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.sheet-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 4px 18px 24px;
+}
+
+/* Menu sections in order of importance: stats, words, how to learn, settings, backup, offline, sources.
+   The heading pulls a line after it, so a long sheet has a visible hierarchy instead of one list. */
+.section {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.section:first-child {
+  border-top: 0;
+}
+
+.section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section h3::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.section p + p {
+  margin-top: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 15px;
+}
+
+.row .number {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.stat-row {
+  padding: 6px 0;
+}
+
+.stat-row .row {
+  padding: 0 0 4px;
+}
+
+.mini-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mini-track i {
+  display: block;
+  height: 100%;
+  background: var(--know);
+  transform-origin: left;
+}
+
+/* Heatmap of the last 30 days: columns are weekdays, five intensity levels.
+   No aspect-ratio and no bare 1fr: Safari on iPhone stretched the grid to a few thousand pixels because of it. */
+
+.heatmap-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  min-width: 0;
+}
+
+.heatmap.weekdays {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+.heatmap .day {
+  display: block;
+  width: 100%;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.heatmap .day.before {
+  background: transparent;
+}
+
+.heatmap .s1 {
+  background: #0d4436;
+}
+
+.heatmap .s2 {
+  background: #0f6a51;
+}
+
+.heatmap .s3 {
+  background: #0e9070;
+}
+
+.heatmap .s4 {
+  background: var(--know);
+}
+
+/* The "How to learn" screen (D3): seven rules, each from research. This text is meant to be read, so the line is
+   short and aligned to the left, not centered like the decision screens. */
+
+.rule-intro {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.rule {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.rule.first {
+  border-top: 0;
+}
+
+.rule-title {
+  display: flex;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.rule-number {
+  flex: none;
+  width: 24px;
+  color: var(--know);
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-text {
+  margin-top: 6px;
+  padding-left: 34px;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* Paragraphs without a number (section "What to expect") have no indent to keep. */
+.rule-text.justified {
+  padding-left: 0;
+  text-align: left;
+}
+
+.rule-text b {
+  color: var(--text);
+}
+
+/* Stats in short sentences, the whole table of numbers only under "Details" (D). */
+
+.sentences {
+  display: grid;
+  gap: 6px;
+}
+
+.sentences p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.details {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.details summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* Word list */
+
+.search-field {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  color: inherit;
+  font: 16px/1.4 inherit;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.word-list {
+  display: grid;
+  gap: 8px;
+}
+
+.word-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.word-body {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.word-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.word-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segments button {
+  min-width: 48px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.segments button[aria-pressed='true'] {
+  border-color: var(--know);
+  background: var(--know);
+  color: var(--on-accent);
+}
+
+/* Toggle: the slider itself is 52x32, but the touch area is stretched to 44 px vertically (WCAG 2.5.5). */
+.toggle {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.toggle::before {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 160ms var(--ease-in);
+}
+
+.toggle[aria-checked='true'] {
+  background: var(--know);
+}
+
+.toggle[aria-checked='true']::after {
+  background: var(--on-accent);
+  transform: translateX(20px);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.field {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  color: inherit;
+  font: 16px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+.field-label {
+  display: block;
+  margin-top: 14px;
+  font-weight: 700;
+}
+
+.caption {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.preview {
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+.preview:empty {
+  display: none;
+}
+
+.preview .summary {
+  font-weight: 700;
+}
+
+.preview .errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--dont-know);
+}
+
+.error-text {
+  color: var(--dont-know);
+}
+
+.hidden-file {
+  position: fixed;
+  top: -100px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* Error messages and toast */
+
+.messages {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 54px);
+  left: 12px;
+  right: 12px;
+  z-index: 25;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--dont-know);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.message span {
+  flex: 1;
+}
+
+.message .close {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+/* Toast at the top: at the bottom it would cover the grade buttons under the thumb. It does not take taps, so it does
+   not swallow the reveal of the card or a grade it happens to hang over. */
+.toast {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 58px);
+  z-index: 30;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  transform: translateX(-50%);
+  animation: fade var(--time-enter) var(--ease-in);
+}
+
+.toast.error {
+  border-color: var(--dont-know);
+}
+
+.toast.important {
+  border-color: var(--almost);
+}
+
+/* Games (G): crossword and letters. Both screens are a normal .screen, so they share its width, scrolling
+   and margins; they add a top bar with the cross, the crossword grid and the letter tiles. */
+
+.screen.game {
+  gap: 12px;
+  /* From the top, not to the middle: after the system keyboard opens, the view shrinks from the bottom. */
+  justify-content: safe start;
+  /* No side margin: the crossword grid needs every pixel of width. */
+  padding: 8px 0;
+}
+
+.game-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.game-title {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* The text of the chosen entry stands above the keyboard, so it stays visible while typing. */
+.game-clue {
+  min-height: 24px;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.game-buttons {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.letters .game-buttons {
+  grid-template-columns: 1fr;
+}
+
+/* The hidden crossword text field: it stays in the layout (only transparent), because with display: none
+   or visibility: hidden iOS does not open the system keyboard on focus(). */
+.hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The crossword grid: with 11 columns a cell is 30 px at 390 px and 29 px at 375 px (the minimum is 28 px).
+   Columns are minmax(0, ...), so together with the gaps they shrink to the screen width instead of scrolling
+   the view sideways. */
+.crossword-grid {
+  --side: max(28px, min(8vw, 34px));
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, var(--side)));
+  gap: 2px;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.crossword-empty {
+  width: 100%;
+  height: var(--side);
+}
+
+.crossword-cell {
+  position: relative;
+  width: 100%;
+  height: var(--side);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: calc(var(--side) * 0.52);
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: background var(--time-tap) ease-out, border-color var(--time-tap) ease-out;
+}
+
+.crossword-number {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
+}
+
+/* The chosen entry is highlighted whole, and the cell under the cursor even more. */
+.crossword-cell.selected {
+  border-color: var(--info);
+  background: #232d3a;
+}
+
+.crossword-cell.active {
+  background: var(--info);
+  color: var(--on-accent);
+}
+
+.crossword-cell.correct {
+  border-color: var(--know);
+  color: var(--know);
+}
+
+.crossword-cell.wrong {
+  border-color: var(--dont-know);
+  color: var(--dont-know);
+}
+
+.crossword-cell.active.correct,
+.crossword-cell.active.wrong {
+  color: var(--on-accent);
+}
+
+/* Letters: the Polish meaning at the top, below it places for the answer letters, at the bottom scattered tiles. */
+.letters-meaning {
+  overflow-wrap: anywhere;
+}
+
+.letters-answer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+}
+
+.letters-slot {
+  min-width: 38px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-bottom: 3px solid var(--line);
+  border-radius: 10px 10px 4px 4px;
+  background: var(--surface);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.letters-slot.full {
+  border-bottom-color: var(--info);
+}
+
+.letters-answer.success .letters-slot {
+  border-bottom-color: var(--know);
+  color: var(--know);
+  animation: letters-success var(--time-micro) var(--ease-celebrate);
+}
+
+@keyframes letters-success {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Tiles: touch target min. 44 px, one or two rows. */
+.letters-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tile {
+  position: relative;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform var(--time-tap) ease-out, opacity var(--time-tap) ease-out;
+}
+
+.tile:active {
+  transform: scale(0.94);
+}
+
+.tile.used {
+  opacity: 0.25;
+}
+
+/* An error without penalty: only the tiles shake, the answer stays to be fixed. */
+.letters-tiles.shake {
+  animation: shake 260ms var(--ease-in);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(7px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Decks in the menu (H): the name with numbers, the switch "study this deck" and removing a whole deck. */
+.deck-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.deck-row:last-of-type {
+  border-bottom: 0;
+}
+
+.deck-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.deck-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.deck-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Low screens (iPhone SE): the home screen must fit without scrolling. */
+@media (max-height: 760px) {
+  .screen {
+    gap: 9px;
+  }
+  .stat-number {
+    font-size: 28px;
+  }
+  .stats.three .stat-number {
+    font-size: 22px;
+  }
+  .button {
+    min-height: 48px;
+  }
+  .button.large {
+    min-height: 54px;
+  }
+  .logo {
+    font-size: 40px;
+  }
+  .card {
+    padding: 40px 18px;
+  }
+  .tutorial-arrow {
+    font-size: 26px;
+  }
+  .letters-slot {
+    min-width: 34px;
+    height: 42px;
+    font-size: 21px;
+  }
+  .letters-answer {
+    min-height: 42px;
+  }
+}
+
+/* Reduced motion: the feedback stays, only instead of movement it is carried by color and opacity,
+   and times drop to 80 ms (C3). Touch targets, status icons and colors stay unchanged. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --time-reveal: 80ms;
+    --time-fly-out: 80ms;
+    --time-enter: 80ms;
+    --time-micro: 80ms;
+    --time-end: 80ms;
+  }
+  .card.entering {
+    animation-name: fade;
+  }
+  .card.fly-out-right,
+  .card.fly-out-left,
+  .card.fly-out-up,
+  .card.fly-out-down,
+  .card.fly-out-quiet {
+    animation-name: card-fade;
+  }
+  /* The answer time border changes in steps instead of smoothly, but the color stays. */
+  .card {
+    transition-duration: 80ms;
+  }
+  .swipe-marker {
+    transition-duration: 80ms;
+  }
+  .flash.visible {
+    animation-duration: 80ms;
+  }
+  .result {
+    animation-name: no-motion;
+  }
+  .reveal {
+    transform: none;
+  }
+  .tutorial-body {
+    animation-name: fade;
+    animation-duration: 80ms;
+  }
+  .screen.celebrating .stat,
+  .screen.celebrating .deck-summary {
+    animation-name: fade;
+    animation-duration: 80ms;
+    animation-delay: 0ms;
+  }
+  .sheet {
+    animation-name: fade;
+    animation-duration: 80ms;
+  }
+  .deck-progress i,
+  .deck-track i,
+  .mini-track i,
+  .toggle::after {
+    transition-duration: 80ms;
+  }
+  /* Games: success and error stay as color, the movement goes away (I). */
+  .letters-answer.success .letters-slot,
+  .letters-tiles.shake {
+    animation-name: no-motion;
+    animation-duration: 80ms;
+  }
+  .tile:active {
+    transform: none;
+  }
+}
+
+/* A replacement for an animation that only has to bring an element to its final state without movement. */
+@keyframes no-motion {
+  to {
+    opacity: 1;
+  }
+}

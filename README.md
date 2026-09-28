@@ -1,224 +1,264 @@
 # magic-mini-fiszki
 
-Fiszki na telefon (PWA offline). Nauka jest gestem: karta EN (co to znaczy?) i karta mówienia PL (powiedz po angielsku), ocena przez przesunięcie karty w jedną z czterech stron, powtórki FSRS-6. Po pierwszym otwarciu działa bez internetu. Zero zależności, czysty JS i CSS.
+English flashcards for the phone (offline PWA). Study is done by swipes: an EN card (what does it mean?) and a speaking card PL (say it in English), a grade by moving the card in one of four directions, FSRS-6 reviews. After the first opening it works without the internet. Built with Svelte 5 (runes) and Vite.
 
-Apka nie ma wbudowanej listy słów. Słówka dodaje się w aplikacji (wklejenie albo plik) i zostają w telefonie (IndexedDB). Postęp jest w localStorage, kopia zapasowa zawiera słówka i postęp.
+The app has no built-in word list. Words are added in the app (paste or file) and stay on the phone (IndexedDB). Progress is in localStorage, and the backup has both the words and the progress.
 
-Algorytm powtórek `lib/fsrs.mjs` (z testem `lib/fsrs.test.mjs`) to kopia z `magic-mini-english`, ten sam co w apce na PC. Poprawkę algorytmu nanieś w obu projektach.
+The review algorithm `lib/fsrs.mjs` (with its test `lib/fsrs.test.mjs`) is a copy from `magic-mini-english`, the same as in the PC app. It is shared, so it keeps its Polish names; a fix of the algorithm must go to both projects.
 
-## Jak się tego używa
+## How to use it
 
-1. **Aplikacja otwiera się od razu na karcie.** Żadnego ekranu startowego: jeśli jest co powtarzać, pierwsza karta czeka na dotknięcie.
-2. **Dotknięcie odsłania** odpowiedź. **Dwukrotne dotknięcie** (drugie w ciągu 280 ms) cofa ostatnią ocenę. Pierwsze dotknięcie działa od razu i na nic nie czeka.
-3. **Ocena to gest**: w **prawo** "Umiem", w **lewo** "Nie umiem", w **górę** "Prawie", w **dół** koniec nauki i powrót na ekran wyboru. Karta podąża za palcem w obu osiach; po przekroczeniu progu (90 px w poziomie, 80 px w pionie albo szybki flick) kierunek podświetla się kolorem i ikoną, jeszcze zanim puścisz palec. Poniżej progu karta wraca na środek.
-4. **Karta zajmuje cały ekran nauki**: dolny odstęp jest taki sam jak boczne, więc panel schodzi nisko, ale zaokrąglenie zostaje widoczne. Wcięcie systemowe (pasek gestu iPhone'a) jest doliczone do wypełnienia wewnątrz karty.
-5. **Ocena działa od razu, także na zakrytej karcie**: słowo, które siedzi, kończysz jednym ruchem, bez dotykania go wcześniej. Dotknięcie zostaje dla słów, których chcesz się upewnić - i tylko wtedy liczy się czas odpowiedzi. Wyjątek: "Znam" (`z`) działa wyłącznie na pierwszej ekspozycji słowa.
-6. **Ekran nauki nie ma żadnego widocznego przycisku.** Na górze jest wyłącznie cienki pasek postępu całej talii, na dole nic. Przyciski ocen zostały dla czytnika ekranu (klasa `tylko-czytnik`), a do testów i klawiatury zewnętrznej są skróty: spacja odsłania, strzałki w cztery strony odpowiadają czterem gestom, `z` to "Znam".
-7. **Ekran wyboru** (po serii, po geście w dół i gdy nie ma czego powtarzać): pasek całej talii z jedną liczbą ("412 / 2981"), trzy duże przyciski **Powtórki**, **Krzyżówka**, **Literki** oraz trzy kropki menu w rogu.
-8. **Koniec serii**: najwyżej trzy liczby (co przybyło, ile kart dziś, ile jutro) i te same trzy przyciski, co na ekranie wyboru.
+1. **The app opens at once on a card.** No start screen: if there is something to review, the first card waits for a touch.
+2. **A tap reveals** the answer. **A double tap** (the second within 280 ms) undoes the last grade. The first tap works at once and waits for nothing.
+3. **A grade is a swipe**: **right** "Know", **left** "Don't know", **up** "Almost", **down** throws the word out of study (the same as "Skip"). The card follows the finger on both axes; after the threshold is crossed (90 px horizontally, 80 px vertically or a fast flick) the direction lights up with a color and an icon, before you let go. Below the threshold the card goes back to the center. The cross on the card (or Escape) ends study and goes to the home screen.
+4. **The card fills the study screen**: the bottom gap equals the side gaps, so the panel goes low, but its rounding stays visible. The system inset (the iPhone gesture bar) is added to the padding inside the card.
+5. **A grade works at once, also on a hidden card**: a word you know ends with one move, without touching it first. A tap is for words you want to check - and only then the answer time counts. The exception: "Already know" (`z`) works only at the first exposure of a word.
+6. **The study screen has no visible button.** At the top there is only a thin progress bar of the whole deck, at the bottom nothing. The grade buttons stay for the screen reader (class `sr-only`), and for tests and an external keyboard there are shortcuts: space reveals, arrows in four directions match the four swipes, `z` is "Already know".
+7. **The home screen** (after a session, after the cross and when there is nothing to review): the whole deck bar with one number ("412 / 2981"), three big buttons **Reviews**, **Crossword**, **Letters** and the three dots menu in the corner. When there is nothing to review, **+10** next to "Reviews" adds ten new words for today.
+8. **Session end**: at most three numbers (what was added, cards today, cards tomorrow) and the same buttons as on the home screen.
 
-### Pasek całej talii
+### The whole deck bar
 
-To jedyny wskaźnik postępu w aplikacji: rangi, poziomów, punktów tygodnia i EXP nie ma ani na ekranie, ani w kodzie. Wypełnienie paska to **słowa poznane** (karta EN nie jest już nowa), jaśniejszy segment w środku to **słowa utrwalone** (stabilność co najmniej 30 dni). Pasek nie pokazuje cyfr; liczba "poznane / wszystkie" stoi wyłącznie na ekranie wyboru.
+This is the only progress indicator in the app: there is no rank, level, weekly points or XP on the screen. The bar fill is **known words** (the EN card is not new any more), the lighter part inside is **solid words** (stability of at least 30 days). The bar shows no digits; the number "known / all" is only on the home screen.
 
-`expRazem` zostaje w zapisie pod starym polem `exp` wyłącznie dla zgodności ze starszym telefonem. Punkty nadal naliczają się w tle (są w historii dnia), ale nigdzie nie są pokazywane.
+`expRazem` stays in the save under the old field `exp` only for compatibility with an older phone. Points are still counted in the background (they are in the day history), but they are not shown anywhere.
 
-**Combo** to kolejne oceny inne niż "Nie umiem" w obrębie jednej serii. Co piąte daje krótki błysk na krawędzi ekranu (300 ms) i osobną wibrację, zamiast liczby punktów.
+**Combo** is a run of grades other than "Don't know" within one session. Every fifth one gives a short flash on the screen edge (300 ms) and its own vibration, instead of a number of points.
 
-### Czas odpowiedzi
+### Answer time
 
-Po odsłonięciu karty jej ramka zmienia kolor wraz z czasem: 0-3 s neutralna, 3-8 s bursztynowa, powyżej 8 s cynobrowa. Zmiana jest płynna, bez cyfr i bez tykania. Karta oceniona gestem bez odsłaniania nie ma czasu odpowiedzi (liczy się jako zero sekund), więc żadna degradacja jej nie dotyczy.
+After the card is revealed, its border changes color with time: 0-3 s neutral, 3-8 s amber, over 8 s vermilion. The change is smooth, with no digits and no ticking. A card graded by a swipe without revealing has no answer time (it counts as zero seconds), so no lowering applies to it.
 
-**Powyżej 8 sekund gest "Umiem" zapisuje się jako "Prawie"** (ocena 2), a pod kartą pojawia się na 900 ms mikro-notka "wolno, liczę jako Prawie". Odpowiedź po tak długim szukaniu nie jest wiedzą gotową do użycia. Nie dotyczy to pierwszej ekspozycji słowa (nowa karta) ani treningu, bo tam czas nic nie mówi o wiedzy. Progi (`SEKUNDY_TEMPA_SREDNIEGO`, `SEKUNDY_TEMPA_WOLNEGO`) są stałymi w `talia.js`. Mediana czasów odpowiedzi z dnia trafia do historii jako `tempo` i widać ją w statystykach.
+**Over 8 seconds a "Know" swipe is saved as "Almost"** (grade 2), quietly - the only signal is the border color. An answer after such a long search is not knowledge ready to use. This does not apply to the first exposure of a word (a new card) or to training, because there time says nothing about knowledge. The thresholds (`MEDIUM_PACE_SECONDS`, `SLOW_PACE_SECONDS`) are constants in `src/study.js`. The median of the day's answer times goes to the history as `tempo` and is visible in the stats.
 
-### Samouczek gestów
+### Gesture tutorial
 
-Przy pierwszym uruchomieniu po aktualizacji pokazuje się jednorazowa nakładka z czterema strzałkami i podpisami, zamykana dotknięciem. Ponownie wywołuje się ją z **Menu > Gesty**. Po zamknięciu samouczka przez trzy karty widać pod kartą podpis "Dotknij, aby odsłonić".
+At the first start after an update a one-time overlay shows four arrows with labels; a tap closes it. It can be opened again from **Menu > Gestures**. After the tutorial the caption "Tap to reveal" shows under the card for three cards.
 
-### Limity dnia i tryb nadrabiania
+### Daily limits and catch-up mode
 
-- **Nowe słowa dziennie**: 5 / 8 / 10 / 15 / 20 / 30, domyślnie **10**. Jedno słowo to dwie karty, więc 20 nowych oznacza docelowo około 200 powtórek dziennie.
-- **Sufit powtórek dziennie**: 40 / 60 / 100 / bez limitu, domyślnie **60**. Dotyczy kart zaległych, nie nowych. Karty ponad sufit przechodzą na kolejne dni; FSRS radzi sobie z zaległościami sam, więc nic nie jest przeliczane.
-- **Kolejność zaległych**: najpierw te najbliższe zapomnieniu, czyli rosnąco po szansie przypomnienia `przypomnienie(t, stabilność)` z FSRS, a nie po dacie terminu. Kroki nauki i karty po pomyłce idą przed powtórkami, bo ich terminy liczą się w minutach.
-- **Odblokowania kart mówienia**: najwyżej 12 dziennie, osobno od limitu nowych słów.
-- **Tryb nadrabiania** włącza się sam, gdy zaległość przekroczy 2x sufit: nowe słowa stają, limit powtórek rośnie do 1,5x sufitu, a ekran powrotu nie pokazuje liczby zaległych. Wyłącza się, gdy zaległość spadnie poniżej sufitu, i przez kolejne trzy dni przepuszcza połowę nowych słów.
-- **Interferencja**: nowe słowo czeka, jeśli słowo kolidujące (ten sam główny polski sens albo pisownia w odległości jednej operacji edycji) weszło do nauki w ciągu ostatnich 7 dni albo jest w stanie nauka/ponowna. Indeks kolizji liczy `zrodlo/kolizje.js` raz po wczytaniu talii (około 60 ms na 2981 słowach) i trzyma go w IndexedDB pod kluczem zależnym od liczby słów i sumy kontrolnej id. Aplikacja czeka na ten indeks przed pierwszą serią, bo seria powstaje od razu po starcie.
+- **New words per day**: 5 / 8 / 10 / 15 / 20 / 30, **10** by default. One word is two cards, so 20 new words means about 200 reviews a day in the long run.
+- **Daily review cap**: 40 / 60 / 100 / no limit, **60** by default. It applies to due cards, not new ones. Cards over the cap move to the next days; FSRS handles overdue cards by itself, so nothing is counted again.
+- **Order of due cards**: first the ones closest to being forgotten, so by the recall chance `przypomnienie(t, stability)` from FSRS, not by due date. Learning steps and cards after a mistake go before reviews, because their due dates count in minutes.
+- **Speaking card unlocks**: at most 12 a day, separate from the new words limit.
+- **Catch-up mode** starts by itself when the backlog is over 2x the cap: new words stop, the review limit grows to 1.5x the cap, and the screen does not show the backlog number. It ends when the backlog drops below the cap, and for the next three days lets in half of the new words.
+- **Interference**: a new word waits if a similar word (the same main Polish meaning or a spelling one edit away) came into study within the last 7 days or is in the learning/relearning state. The collision index is counted by `src/collisions.js` once after the deck loads (about 60 ms for 2981 words) and kept in IndexedDB under a key that depends on the word count and a checksum. The app waits for this index before the first session, because the session is built right after the start.
 
-### Seria bez kary
+### A streak without punishment
 
-- Dzień zalicza **jedna oceniona karta**. Cel dnia jest osobny i aspiracyjny.
-- Obok serii jest licznik, który nigdy się nie zeruje: **dni nauki w ostatnich 30**.
-- **Zamrożenia**: jedno co 7 dni nauki, bank najwyżej 2. Dzień bez nauki zużywa jedno automatycznie, a apka mówi tylko "Wczoraj było wolne, seria zostaje".
-- **Odzyskanie serii**: dwie sesje w ciągu 48 godzin od przerwy oddają dni sprzed niej. Raz na 30 dni.
-- Nigdzie nie ma komunikatu o utracie czegokolwiek.
+- **One graded card** counts the day. The daily goal is separate and optional.
+- Next to the streak there is a counter that never resets: **study days in the last 30**.
+- **Freezes**: one every 7 study days, a bank of at most 2. A day without study uses one automatically, and the app only says "Yesterday was a day off, the streak stays."
+- **Recovering the streak**: two sessions within 48 hours after a break give back the days from before it. Once in 30 days.
+- There is no message about losing anything.
 
-### Słowa oporne (leeche)
+### Hard words (leeches)
 
-Po każdych 6 pomyłkach na karcie apka pokazuje panel "To słowo Cię męczy" z trzema wyjściami: **Odłóż na 3 tygodnie** (termin na dziś + 21 dni), **Pomijam** (słowo wypada z nauki) i **Uczę się dalej**. Historia karty nigdy nie jest kasowana, bo FSRS uczy się na niej. Panel wraca dopiero po kolejnych 6 pomyłkach.
+After every 6 mistakes on a card the app shows the panel "This word is hard for you" with three choices: **Put away for 3 weeks** (due date today + 21 days), **Skip** (the word leaves study) and **Keep learning**. The card history is never deleted, because FSRS learns from it. The panel comes back only after 6 more mistakes.
 
-### "Znam" i "Pomijam"
+### "Already know" and "Skip"
 
-Talia Oxford 3000 zawiera mnóstwo słów, które już się zna. Są na to dwa osobne wyjścia. Ekran nauki nie ma przycisków, więc oba stoją w **Menu > Słówka** (a dla czytnika ekranu także wśród ukrytych przycisków karty).
+The Oxford 3000 deck has plenty of words you already know. There are two separate ways out for them. The study screen has no buttons, so both are in **Menu > Words** (and for the screen reader also among the hidden card buttons). "Skip" is also the swipe down.
 
-- **Znam** (tylko dla nowej karty) to **jednorazowe sprawdzenie za około 45 dni**. Zwykłe FSRS po ocenie "łatwe" dałoby około 8 dni, więc setka słów oznaczonych w trzy dni wróciłaby jedną falą. Karta idzie od razu do powtórek ze stabilnością co najmniej 45 dni; po tym jednym sprawdzeniu liczy się już normalnie.
-- **Pomijam** (dla **każdego** słowa, w obu kierunkach) wyrzuca słowo z nauki na dobre: nie ma go w żadnej serii, w limicie nowych ani w "Zaległych". Postęp nie jest kasowany - karty obu kierunków zostają w pamięci nietknięte, więc **Menu > Słówka > Przywróć** oddaje słowo dokładnie w to samo miejsce harmonogramu. Pierwsze użycie pokazuje podpowiedź, gdzie szukać przywracania. "Cofnij" działa też dla pominięcia.
+- **Already know** (only for a new card) is **a single check in about 45 days**. Plain FSRS after an "easy" grade would give about 8 days, so a hundred words marked in three days would come back in one wave. The card goes straight to reviews; after this one check it counts normally.
+- **Skip** (for **any** word, both directions) throws the word out of study for good: it is not in any session, in the new words limit or in "Due". Progress is not deleted - the cards of both directions stay untouched in memory, so **Menu > Words > Restore** puts the word back at exactly the same place in the schedule. The first use shows a tip where to restore it. Undo also works for a skip.
 
-W statystykach pominięte mają własny wiersz. Do "Poznanych słów" liczą się nadal te, które przeszły przez naukę, a prognoza ukończenia talii liczy tylko słowa, które jeszcze mogą być wprowadzone.
+In the stats skipped words have their own row. "Known words" still count the ones that went through study, and the deck finish forecast counts only words that can still be introduced.
 
-### Rozrzut terminów
+### Due date fuzz
 
-Każda ocena poza treningiem przesuwa termin z FSRS o kilka procent w jedną albo drugą stronę (najwyżej ±21 dni, tylko dla terminów dalszych niż 3 dni). Przesunięcie jest deterministyczne (hash z klucza karty i terminu, bez losowania), więc wynik oceny da się powtórzyć i przetestować. Dzięki temu karty ocenione tego samego dnia nie wracają wszystkie jednego dnia.
+Every grade outside training moves the FSRS due date by a few percent one way or the other (at most +/-21 days, only for due dates further than 3 days). The shift is deterministic (a hash of the card key and the due date, no randomness), so a grade result can be repeated and tested. Thanks to it cards graded on the same day do not all come back on one day.
 
-Przy pierwszym uruchomieniu po tej zmianie apka raz rozkłada terminy, które już są w zapisie (mocniej, bo o ±25%), i zapisuje `rozproszono: 1`, żeby nie robić tego drugi raz. Karty nowe, zaległe i te bliżej niż 3 dni zostają nietknięte.
+At the first start after this change the app once spreads due dates that are already saved (more strongly, by +/-25%), and saves `rozproszono: 1`, so it does not do it again. New cards, overdue cards and cards closer than 3 days stay untouched.
 
-### Tryb "Trudne słowa" (trening)
+### "Hard words" mode (training)
 
-Przycisk jest w menu, z liczbą dostępnych kart; gdy nie ma żadnej karty z pomyłką, jest nieaktywny z podpisem "Brak trudnych słów".
+The button is in the menu, with the number of available cards; when there is no card with a mistake, it is disabled with the label "No hard words".
 
-Do treningu trafiają karty (oba kierunki) z co najmniej jedną pomyłką, najpierw te z największą liczbą pomyłek. **Ocena w treningu nie zmienia stanu karty ani terminu powtórki** - to tylko powtarzanie. Liczą się za to punkty, combo, cel dnia, seria i historia dnia. Na karcie widać znacznik "Trening: terminy bez zmian", a ekran końca pisze wprost, że to był trening.
+Training takes cards (both directions) with at least one mistake, the ones with most mistakes first. **A grade in training does not change the card state or the due date** - it is only practice. Points, combo, the daily goal, the streak and the day history still count. The card shows the mark "Training: due dates stay the same", and the end screen says plainly that it was training.
 
-### Cofnięcie oceny
+### Undoing a grade
 
-Cofa się **dwukrotnym dotknięciem karty** (drugie w ciągu 280 ms). Pierwsze dotknięcie działa od razu (odsłania) i nie czeka na ewentualne drugie. Dopóki migawka jest ważna, w menu jest też pozycja "Cofnij ostatnią ocenę", a dla czytnika ekranu ukryty przycisk na karcie. Cofnięcie przywraca dokładnie poprzedni stan (kartę, listę pominiętych, punkty łączne, serię, licznik dnia, combo, historię) i pokazuje kartę w tym samym stanie odsłonięcia, w jakim była. Migawka unieważnia się po kolejnej ocenie, po wyjściu z serii i po starcie apki. Gdy nie ma czego cofać, pojawia się tylko mikro-notka.
+You undo with **a double tap on the card** (the second within 280 ms). The first tap works at once (reveals) and does not wait for a second one. While the snapshot is valid, the menu also has "Undo last grade", and the screen reader has a hidden button on the card. Undo brings back exactly the previous state (the card, the skipped list, total points, the streak, the day counter, combo, history) and shows the card in the same reveal state it had. The snapshot is dropped after the next grade, after leaving the session and after the app starts. When there is nothing to undo, only a short note shows.
 
-### Podpowiedź na karcie mówienia
+### Hint on the speaking card
 
-Ustawienie `Podpowiedź na karcie mówienia`: **brak** (domyślnie), **długość** (same podkreślenia i granice wyrazów), **litera** (pierwsza litera plus podkreślenia). Niezależnie od ustawienia na karcie jest przycisk "Podpowiedź", który dla tej jednej karty podnosi poziom o jeden (brak → długość → litera). Następna karta wraca do ustawienia.
+The setting "Hint on the speaking card": **none** (default), **length** (only underscores and word boundaries), **letter** (the first letter plus underscores). The saved values stay as the Polish version wrote them (`brak`, `dlugosc`, `litera`). Whatever the setting, the card has a "Hint" button, which raises the level by one for this one card (none -> length -> letter). The next card goes back to the setting.
 
-Przycisk jest **niewidoczny przez pierwsze 7 sekund** od pokazania karty, a karta, na której użyto podpowiedzi, **nie może w tej odsłonie dostać oceny "Umiem"**: przycisk jest wtedy nieaktywny z podpisem "z podpowiedzią maks. Prawie". Łatwiejsze wydobycie z pamięci daje mniejszy zysk, więc podpowiedź ma kosztować.
+The button is **invisible for the first 7 seconds** after the card shows, and on a card where the hint was used **a "Know" is saved as "Almost"**, quietly. An easier recall gives a smaller gain, so a hint has a cost.
 
-### Gry: Krzyżówka i Literki
+### Games: Crossword and Letters
 
-Obie gry wchodzą z ekranu wyboru i **nie zmieniają harmonogramu ani stanu kart** - dokładnie jak trening "Trudne słowa". Do dnia nauki liczy się z nich wyłącznie czas. Słowa biorą się z kart do powtórki na dziś (oba kierunki, bez pominiętych i bez wyłączonych talii); gdy jest ich mniej niż 6, dochodzą ostatnio uczone. Nowe słowa do gier nie trafiają, bo gracz ich jeszcze nie widział. Gdy słów jest za mało, przycisk odpowiada jednym zdaniem zamiast otwierać pustą grę.
+Both games start from the home screen and **do not change the schedule or the card state** - exactly like "Hard words" training. Only their time counts to the study day. Words come from cards due for review today (both directions, without skipped words and without turned off decks); when there are fewer than 6, recently studied ones are added. New words do not go into games, because the player has not seen them yet. When there are too few words, the button answers with one sentence instead of opening an empty game.
 
-**Krzyżówka**: siatka maksymalnie 11x11 (komórka ma co najmniej 28 px, na 375 px wychodzi 30 px), hasła to polskie tłumaczenia, odpowiedzi angielskie. Dotknięcie pola wybiera hasło i podświetla je w całości, a treść hasła stoi nad klawiaturą; kolejne dotknięcie tego samego pola zmienia kierunek, gdy krzyżują się tam dwa hasła. Litery wpisuje klawiatura systemowa (ukryte pole tekstowe), Backspace cofa. "Sprawdź" koloruje litery poprawne na zielono, błędne na cynobrowo, "Podpowiedz literę" odkrywa jedną literę maksymalnie 3 razy i pokazuje, ile zostało. Po uzupełnieniu wszystkich pól krzyżówka sprawdza się sama. Wynik to liczba haseł, liczba podpowiedzi i czas. Generator mieści średnio około 83% podanych słów, więc dostaje ich kilka więcej niż ma ułożyć - nieużyte słowo to normalny wynik, nie błąd.
+**Crossword**: a grid of at most 11x11 (a cell is at least 28 px, at 375 px it is 30 px), clues are Polish translations, answers are English. A tap on a cell chooses the entry and highlights it whole, and the clue text stands above the keyboard; another tap on the same cell switches the direction, when two entries cross there. Letters come from the system keyboard (a hidden text field), Backspace takes one back. "Check" colors correct letters green and wrong ones vermilion, "Hint a letter" reveals one letter at most 3 times and shows how many are left. When all cells are filled, the crossword checks itself. The result is the number of entries, the number of hints and the time. The generator fits about 83% of the given words on average, so it gets a few more than it has to place - an unused word is a normal result, not an error.
 
-**Literki**: seria 10 słów. U góry polskie znaczenie, pod nim miejsca na litery odpowiedzi, na dole rozsypane kafelki (co najmniej 44 px, w jednym albo dwóch rzędach; przy słowach do 6 znaków dochodzą 2-3 litery zbędne, dobrane tak, żeby nie ułożyło się z nich inne słowo z talii). Dotknięcie kafelka dostawia literę, dotknięcie odpowiedzi cofa ostatnią. Poprawne słowo daje krótką animację, wymowę na głos i przechodzi dalej; błąd to samo drgnięcie kafelków i możliwość poprawy, bez kary. Na końcu serii: liczba słów, liczba podpowiedzi, czas oraz "Jeszcze raz" i "Wróć".
+**Letters**: a series of 10 words. At the top the Polish meaning, below it places for the letters of the answer, at the bottom scattered tiles (at least 44 px; each word gets 4-6 extra letters, at most 14 tiles, chosen so that no other deck word can be built from them). A tap on a tile adds a letter, a tap on the answer takes off the last one. A correct word gives a short animation, is spoken aloud and moves on; a mistake is only a shake of the tiles and a chance to fix it, with no penalty. At the end of the series: the number of words, the number of hints, the time, and "Play again" and "Back".
 
-Z obu gier wychodzi się gestem w dół albo krzyżykiem w rogu.
+You leave both games with the cross in the corner (or Escape). There is no swipe out: in the crossword you type letters, and scrolling the grid would end the game in the middle of an entry.
 
-### Talie (menu)
+### Decks (menu)
 
-Sekcja **Talie** wypisuje talie w kolejności dodania, z liczbą słów, liczbą poznanych i przełącznikiem "ucz się z tej talii". Wyłączona talia znika z nauki i z gier (jeden filtr w silniku, ten sam, który odsiewa słowa pominięte), ale jej postęp zostaje w zapisie nietknięty, więc włączenie oddaje wszystko w to samo miejsce harmonogramu. Domyślnie wszystkie talie są włączone, więc przy jednej talii nic się nie zmienia.
+The **Decks** section lists decks in the order they were added, with the number of words, the number of known words and the switch "study this deck". A turned off deck leaves study and games (one filter in the engine, the same one that filters skipped words), but its progress stays untouched in the save, so turning it on gives everything back at the same place in the schedule. All decks are on by default, so with one deck nothing changes.
 
-Nową talię dodaje się tym samym ekranem "Dodaj słówka", który ma teraz pole **Nazwa talii** (domyślnie nazwa z pliku albo "Wklejone RRRR-MM-DD"). Przycisk "Usuń" kasuje słowa talii **razem z ich postępem**, po potwierdzeniu, które podaje liczbę słów i kart do stracenia.
+A new deck is added with the same "Add words" sheet, which has the field **Deck name** (by default the name from the file or "Pasted YYYY-MM-DD"). The "Remove" button deletes the words of the deck **together with their progress**, after a confirmation that says how many words and cards will be lost.
 
-Lista wyłączonych talii leży w ustawieniach jako opcjonalne pole `wylaczoneTalie`. `WERSJA_ZAPISU` zostaje 1, a zapis bez tego pola wczytuje się bez zmian (wszystkie talie włączone).
+The list of turned off decks lives in the settings as the optional field `wylaczoneTalie`. `SAVE_VERSION` stays 1, and a save without this field loads with no change (all decks on).
 
-### Statystyki i przegląd talii (menu)
+### Stats and the word list (menu)
 
-- statystyki zaczynają się od kilku krótkich zdań ("Znasz 412 z 2981 słów, utrwalonych 62.", "W tym tygodniu 340 kart.", "Najdłuższa seria: 13 dni.", "Zwykle odpowiadasz w 2,5 s."), a cała tabela liczb siedzi pod rozwijanym **Szczegóły**,
-- heatmapa ostatnich 30 dni: kolumny to dni tygodnia, 5 stopni intensywności, data i liczba kart w podpowiedzi, a pod siatką podsumowanie („dziś N kart · najlepszy dzień · dni z nauką"),
-- "Utrwalone słowa": karty EN o stabilności co najmniej 30 dni (to z nich rośnie jaśniejszy segment paska talii), "Opanowane": co najmniej 21 dni, oraz "Pominięte": ile słów jest poza pulą nauki,
-- prognoza ukończenia talii z tempa nowych słów z ostatnich 14 dni ("Przy tym tempie: około 15 lutego 2027 (413 dni)"); gdy nie ma danych, wypisuje "Brak danych o tempie",
-- sekcja **Słówka**: szukanie po angielskim i po polsku (bez rozróżniania wielkości liter i polskich znaków), maksymalnie 50 wierszy z licznikiem "pokazano 50 z 312". Każdy wiersz ma słowo, tłumaczenie, chip poziomu, stan karty EN po polsku (nowa / w nauce / powtórka za N dni / opanowane) oraz przyciski "Znam" (tylko dla nowej karty, sprawdzenie za około 45 dni bez wchodzenia w serię), "Pomijam" (wyrzuca słowo z nauki bez kasowania postępu), "Zresetuj" (kasuje postęp obu kierunków po potwierdzeniu) i "Zgłoś błąd". Słowo pominięte ma stan "pominięte" i zamiast nich przycisk "Przywróć", który oddaje je do nauki bez utraty postępu,
-- sekcja **Zgłoszone błędy** (widoczna, gdy coś jest): lista, "Kopiuj listę" (JSON do schowka, a gdy schowek jest niedostępny, zaznaczony tekst do skopiowania) i "Wyczyść".
+- the stats start with a few short sentences ("You know 412 of 2981 words, 62 solid.", "This week 340 cards.", "Longest streak: 13 days.", "You usually answer in 2.5 s."), and the whole table of numbers is under the expandable **Details**,
+- a heatmap of the last 30 days: columns are weekdays, 5 intensity levels, the date and the number of cards in the tooltip, and a summary under the grid ("today N cards · best day · study days"),
+- "Solid words": EN cards with a stability of at least 30 days (the lighter part of the deck bar grows from them), "Mastered": at least 21 days, and "Skipped": how many words are out of study,
+- a deck finish forecast from the pace of new words in the last 14 days ("At this pace: around 15 February 2027 (413 days)."); without data it says "No pace data.",
+- the **Words** section: search in English and Polish (case and Polish letters do not matter), at most 50 rows with the counter "showing 50 of 312". Each row has the word, the translation, the level chip, the EN card state (new / learning / review in N days / mastered) and the buttons "Already know" (only for a new card, a check in about 45 days without going into a session), "Skip" (throws the word out of study without deleting progress), "Reset" (deletes the progress of both directions after a confirmation) and "Report error". A skipped word has the state "skipped" and instead of them the button "Restore", which gives it back to study without losing progress,
+- the **Reported errors** section (visible when there is something): the list, "Copy list" (JSON to the clipboard, and when the clipboard is not available, a selected text to copy) and "Clear".
 
-## Budowanie i testy
+## Code
 
-Polecenia z katalogu projektu:
-
-```
-node narzedzia/ikony.mjs   # tylko przy zmianie ikon, PNG leżą w zrodlo/
-node zbuduj.mjs            # zrodlo/ + lib/fsrs.mjs -> dist/ (+ dist/sw.js, dist/.nojekyll)
-node --test                # testy logiki i algorytmu; z katalogu wyżej: node --test magic-mini-fiszki/
-node testy-przegladarka.mjs # cała apka w Chrome headless (gesty, gry, talie, offline, silnik)
-node testy-na-zywo.mjs      # wdrożona apka z GitHub Pages: instalacja, import talii, ocena, offline
-```
-
-Testy przeglądarkowe sterują prawdziwym Chrome przez CDP (dotyk, nie klikanie w DOM), więc łapią to, czego
-testy jednostkowe nie widzą: nakładkę zasłaniającą kartę, gest poniżej progu, przewijanie w bok.
-
-- `testy-przegladarka.mjs` wymaga zbudowanego `dist/` (`node zbuduj.mjs`) i talii `talie/oxford3000.json`
-  (scenariusze silnika potrzebują dużej talii; sama talia zostaje poza repo),
-- `testy-na-zywo.mjs` sprawdza to, co naprawdę leży na Pages, więc odpalaj go po `./wdroz.sh`,
-- zmienne: `CHROME` (inna ścieżka do przeglądarki), `MMF_TALIA` (inna talia), `MMF_ROBOCZY` (katalog na
-  profil Chrome i zrzuty; domyślnie `%TEMP%/mmf-testy`, musi być krótki, bo inaczej Chrome nie utworzy
-  CacheStorage), `MMF_URL` (inny adres dla testu na żywo).
-
-## Test lokalny
-
-```
-node serwer.mjs
-```
-
-- http://127.0.0.1:4200/ oraz http://127.0.0.1:4200/magic-mini-fiszki/ (podkatalog jak na GitHub Pages)
-- przykładowe słowa: `dane/przyklad.json` (Dodaj słówka > Wczytaj z pliku)
-- Chrome DevTools > Application: Service Workers, Cache Storage (`mmf-<wersja>`), IndexedDB (`mmf`), Local Storage (`mmf-v1`)
-- Network > Offline i odśwież stronę: musi się wczytać
-- klawiatura: spacja odsłania, strzałka w prawo Umiem, w lewo Nie umiem, w górę Prawie, w dół koniec nauki, `z` Znam
-
-## Wdrożenie (GitHub Pages)
-
-Adres: **https://magic-lewko.github.io/magic-mini-fiszki/**
-
-```
-node zbuduj.mjs && bash wdroz.sh
+```text
+src/                   # the app, Vite builds dist/ from it
+├─ index.html, main.js, styles.css
+├─ public/             # manifest.webmanifest and icon-*.png (copied as they are)
+├─ components/         # Svelte components (only the view)
+├─ app.svelte.js       # app control: study, home screen, menu, decks, backup, offline
+├─ games.svelte.js     # crossword and letters game state
+├─ ui.svelte.js        # view state (runes)
+├─ study.js            # study logic: session, daily limits, review cap, catch-up, streak, stats
+├─ storage.js          # progress in localStorage and the backup file
+├─ database.js         # deck and collision index in IndexedDB
+├─ collisions.js       # index of similar words (interference)
+├─ words.js            # word import: pasted text, JSON, merging
+├─ grading.js          # grading a card, taking cards off a session
+├─ text.js             # UI texts and text helpers
+├─ crossword.js, letters.js  # game logic
+└─ speech.js, haptics.js     # pronunciation (Web Speech) and vibration on iOS
+lib/fsrs.mjs           # FSRS-6 review algorithm (shared with magic-mini-english)
+*.test.mjs             # unit tests (node --test), tests.mjs imports all of them
+browser-tests.mjs      # the whole app in headless Chrome through CDP
+live-tests.mjs         # the deployed app on GitHub Pages
+build.mjs              # Vite build + dist/sw.js with VERSION (a content hash)
+server.mjs             # static server for dist/ on 127.0.0.1:4200
+deploy.sh              # build and push dist/ to the gh-pages branch
+vite.config.js         # root src/, base /magic-mini-fiszki/
+tools/icons.mjs        # makes the PNG icons
+data/example.json      # a few words for a manual test
+talie/                 # word decks (JSON outside the repo), talie/zrodla/ - how the Oxford deck was made
 ```
 
-`wdroz.sh` wgrywa zawartość `dist/` (razem z `.nojekyll`) na gałąź `gh-pages` publicznego repozytorium `magic-lewko/magic-mini-fiszki` i czeka, aż Pages poda nową wersję pod adresem bez parametrów (CDN trzyma stary plik do 10 minut). Dopiero po komunikacie "Gotowe" otwieraj apkę na telefonie. Gałąź `main` jest na kod źródłowy z tego folderu (`dist/` jest w `.gitignore`). Jeśli repozytorium albo Pages jeszcze nie istnieją, skrypt je zakłada. Logowanie bierze z Git Credential Manager.
+The domain logic (`study.js`, `storage.js`, `words.js`, `collisions.js`, `crossword.js`, `letters.js`, `grading.js`, `text.js`) is plain JS without DOM and without timers, tested in Node. Svelte is only the view layer.
 
-Ścieżki są względne, więc podkatalog działa. Każda zmiana plików daje nową `WERSJA` w `sw.js`: telefon pobierze ją w tle i pokaże baner "Nowa wersja gotowa" na ekranie końca serii i w menu. Pages trzyma pliki w cache do 10 minut, więc nowa wersja może dotrzeć z opóźnieniem.
+Saved data keeps the Polish field names of the old version (for example `karty`, `ustawienia.noweDziennie`, a word's `pl` and `zdanie`), because this is the format stored on the phone and in the deck and backup files. Names in code are English.
 
-## Talie
+## Build and tests
 
-- `talie/oxford3000.json`: 2981 słów z listy Oxford 3000 (A1-B2) z własnymi tłumaczeniami i zdaniami, po niezależnym przeglądzie. Nie trafia do zbudowanej apki (`gh-pages`). Surowe dane OUP z definicjami są w `.gitignore`. Przed pierwszym pushem źródeł trzeba zdecydować, czy sama talia ma być w publicznym repo, bo wybór słów i poziomy pochodzą z listy Oxfordu.
-- `talie/zrodla/`: z czego i jak powstała talia (`dane/przygotuj.mjs` dzieli listę na paczki, `dane/scal.mjs` scala tłumaczenia i poprawki z przeglądu). Poprawkę pojedynczego słowa dopisz do `POPRAWKI` w `scal.mjs` i uruchom `node dane/scal.mjs` z katalogu `talie/zrodla/`. Wynik trafia do `talie/zrodla/dane/oxford3000.json`: skopiuj go do `talie/` i wczytaj talię ponownie w apce. Postęp zostaje.
+First `npm install` (once). Commands from the project folder:
 
-## Instalacja na iPhonie
+```text
+npm start                 # build and server: http://127.0.0.1:4200/magic-mini-fiszki/
+npm run dev               # Vite dev server (no service worker): http://127.0.0.1:4300/magic-mini-fiszki/
+npm run build             # src/ + lib/fsrs.mjs -> dist/ (+ dist/sw.js, dist/.nojekyll)
+npm test                  # logic and algorithm tests; from the folder above: node --test magic-mini-fiszki/
+npm run test:browser      # build and the whole app in headless Chrome (swipes, games, decks, offline, engine)
+npm run test:live         # the deployed app on GitHub Pages: install, deck import, grade, offline
+npm run icons             # only when the icons change, the PNGs are in src/public/
+```
 
-1. Safari > wpisz adres > Udostępnij > Do ekranu początkowego. Przełącznik "Otwórz jako aplikację internetową" (iOS 26) zostaw WŁĄCZONY, inaczej ikona otworzy zwykłą kartę Safari.
-2. Otwieraj zawsze z ikony. Safari i ikona mają osobne dane, postęp z karty Safari nie przechodzi do apki.
-3. Pierwsze otwarcie z internetem. Poczekaj, aż w górnym pasku pojawi się "offline ✓".
-4. Dodaj słówka > Wczytaj z pliku > wybierz `oxford3000.json` z Plików lub iCloud Drive > sprawdź podgląd > Dodaj.
-5. Menu > Zapisz kopię > Zachowaj w Plikach (albo iCloud Drive).
+Browser tests drive real Chrome through CDP (touch, not clicking in the DOM), so they catch what unit tests do not see: an overlay covering the card, a swipe below the threshold, sideways scrolling.
 
-### Jak przerzucić plik z Windows na iPhone'a
+- `browser-tests.mjs` needs the built `dist/` (`npm run build`) and the deck `talie/oxford3000.json` (engine scenarios need a big deck; the deck stays outside the repo). The unit tests for collisions, crossword and letters also read this deck,
+- `live-tests.mjs` checks what really is on Pages, so run it after `bash deploy.sh`,
+- variables: `CHROME` (another browser path), `MMF_DECK` (another deck), `MMF_WORK_DIR` (folder for the Chrome profile and screenshots; `%TEMP%/mmf-tests` by default, it must be short, otherwise Chrome does not create CacheStorage), `MMF_PROFILE` (another Chrome profile folder), `MMF_URL` (another address for the live test).
 
-- iCloud.com w przeglądarce > iCloud Drive > prześlij plik. Na iPhonie: Pliki > iCloud Drive.
-- Albo mail do siebie z plikiem w załączniku. Na iPhonie przytrzymaj załącznik > Zapisz w Plikach.
+## Local test
 
-## Checklista przed wyjazdem (na prawdziwym iPhonie)
+```text
+npm start
+```
 
-- [ ] w górnym pasku "offline ✓", Menu > Offline: zapisane pliki N/N
-- [ ] tryb samolotowy, zamknij apkę w przełączniku aplikacji, otwórz z ikony: startuje, słówka są
-- [ ] w trybie samolotowym jedna seria, zamknij apkę i otwórz: punkty, seria i postęp zostały
-- [ ] wyjdź z apki do ekranu początkowego: na ikonie pojawia się odznaka z liczbą kart na dziś (iOS 16.4+, tylko z ikony)
-- [ ] wibracja przy tapnięciu w kartę (odsłonięcie); swipe na iOS nie wibruje, to normalne (Ustawienia > Dźwięki i haptyka > Haptyka systemowa musi być włączona)
-- [ ] gest w cztery strony da się wykonać kciukiem jedną ręką, a podświetlenie kierunku widać przed puszczeniem palca
-- [ ] dwukrotne dotknięcie cofa ocenę, a pojedyncze odsłania od razu (bez zauważalnej zwłoki)
-- [ ] ekran wyboru i ekran końca serii mieszczą się bez przewijania (sprawdzone w Chrome na 375x667, ale iPhone ma inne paski systemowe)
-- [ ] przycisk "Podpowiedź" na karcie mówienia nie odsłania karty przy tapnięciu
-- [ ] 🔊 mówi po angielsku w trybie samolotowym (jeśli milczy: Ustawienia > Dostępność > Treść mówiona > Głosy > Angielski, pobierz głos)
-- [ ] przewijanie karty gestem nie przewija strony i nie powiększa jej szczypaniem
-- [ ] VoiceOver widzi przyciski ocen mimo że nic nie widać na ekranie
-- [ ] Menu > Zapisz kopię, plik widać w Plikach
-- [ ] nie czyść danych Safari (Ustawienia > Safari > Wymaż historię i dane), to może usunąć postęp
+- <http://127.0.0.1:4200/magic-mini-fiszki/> (the root address redirects there; the folder is the same as on GitHub Pages, so offline mode works)
+- example words: `data/example.json` (Add words > Load from file)
+- Chrome DevTools > Application: Service Workers, Cache Storage (`mmf-<version>`), IndexedDB (`mmf`), Local Storage (`mmf-v1`)
+- Network > Offline and reload the page: it must load
+- keyboard: space reveals, right arrow Know, left Don't know, up Almost, down Skip, `z` Already know, Escape ends study
 
-## W podróży
+## Deploy (GitHub Pages)
 
-- Gdyby zniknęły słówka (pusta talia): Dodaj słówka > Wczytaj z pliku > `oxford3000.json`. Postęp jest zapisany osobno po `id` słowa, więc wraca razem ze słowami.
-- Menu > Wczytaj kopię łączy kopię z obecnym postępem: nowsze powtórki zostają, starszy plik niczego nie cofa. Lista pominiętych słów to suma obu stron (jeśli na którymkolwiek telefonie słowo wypadło z nauki, zostaje poza nią). Stan sprzed wczytania trafia też do `mmf-v1-przed-wczytaniem`.
-- Komunikat "Baza słówek nie odpowiada": zamknij apkę w przełączniku aplikacji i otwórz ponownie.
-- Komunikat "Pominięto N uszkodzonych kart": reszta postępu działa, surowy zapis leży w `mmf-v1-uszkodzony`.
+Address: **<https://magic-lewko.github.io/magic-mini-fiszki/>**
 
-### Zasady
+```text
+bash deploy.sh
+```
 
-- Nie wdrażaj nowych wersji w czasie wyjazdu. Nowa wersja pobiera się w tle i po zamknięciu apki włącza się sama, bez możliwości sprawdzenia jej przed użyciem.
-- Poprawiając pisownię słowa w talii, zostaw stare `id`. Nowe `id` to nowe słowo: powstanie duplikat bez postępu, a stare zostanie w talii.
+`deploy.sh` builds the app (it needs `node_modules`, so `npm install` first), uploads the content of `dist/` (with `.nojekyll`) to the `gh-pages` branch of the public repo `magic-lewko/magic-mini-fiszki` and waits until Pages serves the new version at the address without parameters (the CDN keeps an old file for up to 10 minutes). Open the app on the phone only after the message "Done". The `main` branch is for the source code from this folder (`dist/` is in `.gitignore`). If the repo or Pages do not exist yet, the script creates them. The login comes from Git Credential Manager.
 
-## Formaty słówek
+Vite builds with `base: '/magic-mini-fiszki/'`, and the service worker is always `/magic-mini-fiszki/sw.js`, the same address as before, so the installed app updates its own registration. Every change of files gives a new `VERSION` in `sw.js`: the phone downloads it in the background and shows the banner "New version ready" on the home screen and in the menu. Pages keeps files in cache for up to 10 minutes, so a new version can arrive with a delay.
 
-1. Obiekt JSON: `{ "nazwa": "Oxford 3000", "zrodlo": "...", "slowa": [ { "id", "w", "pl", "poziom", "ipa", "czesci", "zdanie", "zdaniePl" } ] }`
-2. Sama tablica JSON słów w tym samym kształcie.
-3. Tekst, linia po linii: `english ; polski` albo z tabulatorem, opcjonalnie dalej `; zdanie ; zdanie po polsku`. Puste linie i linie od `#` są pomijane.
+### The first update from the Polish version
 
-Wymagane są `w` i `pl`. `id` to domyślnie `w` i rozróżnia wielkość liter ("May" i "may" to dwa słowa). Nazwa talii domyślnie "Wklejone RRRR-MM-DD". Przy ponownym imporcie nowe słowa idą na koniec kolejności nauki, istniejące dostają nową treść (pola pominięte w imporcie zostają), postęp nigdy nie jest kasowany.
+The phone still runs the old version until the banner. The old app shows its own banner ("Nowa wersja gotowa"); a tap loads this version. The new service worker still accepts the old message `aktualizuj` and answers the status with the old fields, so this step works. Progress (`mmf-v1`), words (IndexedDB `mmf`) and backups stay as they are: the storage format did not change. Ready habit anchors saved in Polish (for example "po kawie") are read as their English versions. The name under the home screen icon ("Fiszki") changes only when the app is added to the home screen again.
 
-## Gdzie są dane i jak je odzyskać
+## Decks
 
-- `mmf-v1` (localStorage): postęp w zwartej postaci, zapisywany po każdej ocenie. Format ma nadal `wersja: 1`: nowe pola (`historia`, `zgloszenia`, `pominiete`, `rozproszono`, `nadrabianie`, `dzis.powtorki`, dodatkowe pola serii, ustawienia `celDzienny`, `podpowiedzMowienie`, `maksPowtorekDziennie` i `samouczekGestow`) są opcjonalne, więc zapis ze starszej wersji apki wczytuje się bez zmian, a brak pola daje wartość domyślną. Pole `exp` zostało w zapisie pod starą nazwą i znaczy "punkty łącznie": apka go nie pokazuje, ale nie kasuje. Pole `punktyTygodnia` ze starszego zapisu jest po prostu ignorowane, bo licznika tygodnia już nie ma. Karta ma 9 liczb, a dwie kolejne (licznik kolejnych ocen "Umiem" i licznik panelu słów opornych) dopisują się tylko wtedy, gdy nie są zerowe. `historia` to `{ "RRRR-MM-DD": { oceny, nowe, exp, sekundy, tempo, czasy } }` przycinane przy zapisie do ostatnich 180 dni; `tempo` to mediana czasów odpowiedzi z dnia, a surowe `czasy` (najwyżej 200) zostają tylko przy dzisiejszym dniu. `pominiete` to `{ "id słowa": "RRRR-MM-DD" }`, a `rozproszono: 1` znaczy, że jednorazowe rozłożenie terminów już się odbyło.
-- `mmf-v1-poprzedni`: kopia postępu z początku dnia; gdy `mmf-v1` jest uszkodzony w całości, apka sama z niej wraca, a uszkodzony tekst odkłada do `mmf-v1-uszkodzony`. Pojedyncza uszkodzona karta jest tylko pomijana.
-- `mmf-v1-przed-wczytaniem`: postęp sprzed wczytania kopii z pliku
-- IndexedDB `mmf` / `dane` / `talia`: słówka
-- plik `fiszki-kopia-RRRR-MM-DD.json`: słówka i postęp; Menu > Wczytaj kopię odtwarza wszystko na nowym telefonie, a na używanym łączy się z zapisanym postępem
+- `talie/oxford3000.json`: 2981 words from the Oxford 3000 list (A1-B2) with our own translations and sentences, after an independent review. It does not go into the built app (`gh-pages`). The raw OUP data with definitions is in `.gitignore`. Before the first push of the sources, decide whether the deck itself should be in a public repo, because the word choice and levels come from the Oxford list.
+- `talie/zrodla/`: what the deck was made from and how (`dane/prepare.mjs` splits the list into packs, `dane/merge.mjs` merges translations and review fixes). The data files there keep their Polish names (`kolejnosc.json`, `wejscie-NN.json`, `wyjscie-NN.json`, `poprawki-N.json`). Add a fix of a single word to `FIXES` in `merge.mjs` and run `node dane/merge.mjs` from `talie/zrodla/`. The result goes to `talie/zrodla/dane/oxford3000.json`: copy it to `talie/` and load the deck again in the app. Progress stays.
+
+## Installing on iPhone
+
+1. Safari > type the address > Share > Add to Home Screen. Leave the switch "Open as Web App" (iOS 26) ON, otherwise the icon opens a normal Safari tab.
+2. Always open it from the icon. Safari and the icon have separate data, progress from a Safari tab does not move to the app.
+3. The first opening with internet. Wait until "offline ✓" shows in the top bar (it disappears once everything is saved; the state is in Menu > Offline).
+4. Add words > Load from file > choose `oxford3000.json` from Files or iCloud Drive > check the preview > Add.
+5. Menu > Save backup > Save to Files (or iCloud Drive).
+
+### How to move a file from Windows to the iPhone
+
+- iCloud.com in the browser > iCloud Drive > upload the file. On the iPhone: Files > iCloud Drive.
+- Or email it to yourself as an attachment. On the iPhone hold the attachment > Save to Files.
+
+## Checklist before a trip (on a real iPhone)
+
+- [ ] Menu > Offline: "Ready to work without internet ✓", saved files N/N
+- [ ] airplane mode, close the app in the app switcher, open from the icon: it starts, the words are there
+- [ ] in airplane mode one session, close the app and open it: points, streak and progress stayed
+- [ ] leave the app to the home screen: the icon shows a badge with the number of cards for today (iOS 16.4+, only from the icon)
+- [ ] vibration when tapping the card (reveal); a swipe on iOS does not vibrate, that is normal (Settings > Sounds & Haptics > System Haptics must be on)
+- [ ] a swipe in four directions can be done with the thumb of one hand, and the direction highlight is visible before letting go
+- [ ] a double tap undoes a grade, and a single tap reveals at once (without a noticeable delay)
+- [ ] the home screen and the session end screen fit without scrolling (checked in Chrome at 375x667, but the iPhone has other system bars)
+- [ ] the "Hint" button on the speaking card does not reveal the card when tapped
+- [ ] 🔊 speaks English in airplane mode (if it is silent: Settings > Accessibility > Spoken Content > Voices > English, download a voice)
+- [ ] moving the card with a swipe does not scroll the page and does not zoom it with a pinch
+- [ ] VoiceOver sees the grade buttons even though nothing is visible on the screen
+- [ ] Menu > Save backup, the file is visible in Files
+- [ ] do not clear Safari data (Settings > Safari > Clear History and Website Data), it can delete progress
+
+## On the road
+
+- If the words disappear (an empty deck): Add words > Load from file > `oxford3000.json`. Progress is saved separately by the word `id`, so it comes back with the words.
+- Menu > Load backup joins the backup with the current progress: newer reviews stay, an older file undoes nothing. The list of skipped words is the sum of both sides (if a word left study on either phone, it stays out). The state from before loading also goes to `mmf-v1-przed-wczytaniem`.
+- The message "The word database does not respond": close the app in the app switcher and open it again.
+- The message "Skipped N broken cards": the rest of the progress works, the raw save is in `mmf-v1-uszkodzony`.
+
+### Rules
+
+- Do not deploy new versions during a trip. A new version downloads in the background and turns on by itself after the app is closed, with no chance to check it before use.
+- When fixing the spelling of a word in the deck, keep the old `id`. A new `id` is a new word: a duplicate without progress appears, and the old one stays in the deck.
+
+## Word formats
+
+1. A JSON object: `{ "nazwa": "Oxford 3000", "zrodlo": "...", "slowa": [ { "id", "w", "pl", "poziom", "ipa", "czesci", "zdanie", "zdaniePl" } ] }` (deck name, source, words; a word: id, English, Polish, level, IPA, parts of speech, sentence, Polish sentence).
+2. A plain JSON array of words in the same shape.
+3. Text, line by line: `english ; polish` or with a tab, optionally then `; sentence ; Polish sentence`. Empty lines and lines starting with `#` are skipped.
+
+`w` and `pl` are required. `id` is `w` by default and is case sensitive ("May" and "may" are two words). The deck name is "Pasted YYYY-MM-DD" by default. On a new import new words go to the end of the study order, existing ones get new content (fields missing in the import stay), and progress is never deleted.
+
+## Where the data is and how to get it back
+
+The storage keys and field names are the same as in the Polish version, so an update does not lose anything.
+
+- `mmf-v1` (localStorage): progress in a compact form, saved after every grade. The format still has `wersja: 1`: newer fields (`historia`, `zgloszenia`, `pominiete`, `rozproszono`, `nadrabianie`, `dzis.powtorki`, extra streak fields, settings `celDzienny`, `podpowiedzMowienie`, `maksPowtorekDziennie`, `samouczekGestow`, `wylaczoneTalie`) are optional, so a save from an older version of the app loads with no change, and a missing field gives a default value. The field `exp` stayed in the save under its old name and means "total points": the app does not show it, but does not delete it. The field `punktyTygodnia` from an older save is simply ignored. A card has 9 numbers, and two more (the "Know" in a row counter and the leech panel counter) are added only when they are not zero. `historia` is `{ "YYYY-MM-DD": { oceny, nowe, exp, sekundy, tempo, czasy } }` (grades, new cards, points, seconds, median answer time, raw times), trimmed at save to the last 180 days; `tempo` is the median of the day's answer times, and raw `czasy` (at most 200) stay only for today. `pominiete` is `{ "word id": "YYYY-MM-DD" }`, and `rozproszono: 1` means the one-time spread of due dates already happened.
+- `mmf-v1-poprzedni`: a copy of progress from the start of the day; when `mmf-v1` is broken as a whole, the app comes back from it by itself, and puts the broken text into `mmf-v1-uszkodzony`. A single broken card is only skipped.
+- `mmf-v1-przed-wczytaniem`: progress from before loading a backup from a file
+- IndexedDB `mmf` / `dane` / `talia`: the words (the record `{ wersja, slowa, talie }`), `kolizje`: the collision index
+- the file `flashcards-backup-YYYY-MM-DD.json` (older ones: `fiszki-kopia-YYYY-MM-DD.json`, the same format `mmf-kopia`): words and progress; Menu > Load backup restores everything on a new phone, and on a used one joins it with the saved progress

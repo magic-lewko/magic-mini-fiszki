@@ -1,16 +1,22 @@
 {
   "name": "magic-mini-fiszki",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Offline'owa aplikacja PWA do nauki slowek na telefon. Bez zaleznosci.",
-  "main": "testy.mjs",
+  "description": "English flashcards that work offline (PWA) on the phone. Svelte 5 + Vite.",
+  "main": "tests.mjs",
   "scripts": {
-    "ikony": "node narzedzia/ikony.mjs",
-    "build": "node zbuduj.mjs",
-    "start": "node zbuduj.mjs && node serwer.mjs",
+    "icons": "node tools/icons.mjs",
+    "dev": "vite",
+    "build": "node build.mjs",
+    "start": "node build.mjs && node server.mjs",
     "test": "node --test",
-    "test:przegladarka": "node zbuduj.mjs && node testy-przegladarka.mjs",
-    "test:na-zywo": "node testy-na-zywo.mjs"
+    "test:browser": "node build.mjs && node browser-tests.mjs",
+    "test:live": "node live-tests.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte": "^5.57.1",
+    "vite": "^8.3.1"
   }
 }

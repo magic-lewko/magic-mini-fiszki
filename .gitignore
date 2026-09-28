@@ -1,14 +1,14 @@
 .DS_Store
 node_modules/
 
-# Zbudowana apka. Publikuje ja wdroz.sh na galaz gh-pages.
+# The built app. deploy.sh publishes it to the gh-pages branch.
 dist/
 
-# Dane talii zostaja lokalnie: wybor slow i poziomy pochodza z listy Oxford 3000 (OUP), a same pliki
-# nie sa potrzebne do zbudowania apki. W repo jest tylko kod, ktory je sklada i wczytuje.
-# Plik z talia masz w talie/ oraz w kopii zapasowej z telefonu (Menu > Zapisz kopie).
+# Deck data stays local: the word choice and levels come from the Oxford 3000 list (OUP), and the files are not
+# needed to build the app. The repo has only the code that builds and loads them.
+# You have the deck file in talie/ and in a backup from the phone (Menu > Save backup).
 talie/**/*.json
 talie/**/*.csv
 
-# Stan sesji Claude (oh-my-claudecode), lokalny.
+# Claude session state (oh-my-claudecode), local.
 .omc/

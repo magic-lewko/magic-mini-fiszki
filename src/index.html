@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- No user-scalable=no: WCAG 1.4.4 requires text zoom. A double tap does not zoom anyway,
+       because body has touch-action: manipulation, and pinching is blocked only over the card itself. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121212">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Flashcards">
+  <meta name="format-detection" content="telephone=no">
+  <title>Flashcards</title>
+  <!-- Files from public/ are given from the root: Vite adds the base (/magic-mini-fiszki/) before them. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <script type="module" src="./main.js"></script>
+</head>
+<body>
+  <!-- A skeleton while loading and for the fallback message below. After the start the Svelte view replaces it
+       (components/App.svelte), which draws the bar, the stage, overlays and messages. -->
+  <div id="app">
+    <header class="top"></header>
+    <main id="stage" class="stage">
+      <section class="screen"><p class="muted">Loading…</p></section>
+    </main>
+  </div>
+
+  <script>
+    // When the app module does not start (a syntax error, a very old system), show a message instead of an empty screen.
+    window.__firstError = ''
+    window.addEventListener('error', function (e) {
+      if (!window.__firstError) window.__firstError = e.message || String(e.error || '')
+    })
+    setTimeout(function () {
+      if (document.documentElement.dataset.ready) return
+      var stage = document.getElementById('stage')
+      if (!stage) return
+      stage.textContent = ''
+      var screen = document.createElement('section')
+      screen.className = 'screen'
+      screen.innerHTML = '<h2>The app did not start</h2><p>Close it and open it again. Progress is saved on the phone.</p>'
+      if (window.__firstError) {
+        var p = document.createElement('p')
+        p.className = 'muted'
+        p.textContent = window.__firstError
+        screen.appendChild(p)
+      }
+      stage.appendChild(screen)
+    }, 10000)
+  </script>
+</body>
+</html>
