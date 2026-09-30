@@ -169,8 +169,9 @@ try {
   await tap('#card', true)
   check('a tap reveals the card', await waitFor(`document.getElementById('card').classList.contains('revealed')`, 3000), await js(`document.getElementById('card').className`))
   const back = await js(`document.getElementById('card').innerText`)
-  check('the back of the card: translation and sentences', back.includes('sprawdzian') && back.includes('angielskiego'), back.replace(/\n+/g, ' | '))
-  // A grade is a swipe to the right, there are no buttons.
+  check('the back of the card: only the translation, no sentences', back.includes('sprawdzian') && !back.includes('angielskiego'), back.replace(/\n+/g, ' | '))
+  check('four grade buttons under the card', (await js(`[...document.querySelectorAll('.grade-buttons button')].map((b) => b.id).join(',')`)) === 'grade-discard,grade-no,grade-almost,grade-yes')
+  // A grade by a swipe to the right (the buttons do the same).
   // The grade must come within 8 s from revealing, otherwise the app rightly counts it as "Almost".
   await drag('#card', 170, 0)
   writeFileSync(join(WORK, 'live-back.png'), Buffer.from((await p('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
