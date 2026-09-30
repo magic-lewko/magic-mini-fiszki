@@ -590,55 +590,6 @@ export function hardCards({ words, cards, settings, length, skipped, disabledDec
   return list.slice(0, max).map((item) => item.key)
 }
 
-// Games (G): words come from cards due for review today, and when there are too few, from recently studied ones.
-// Grades in games do not change the schedule, so we need only words, not card keys.
-export const MIN_GAME_WORDS = 6
-// The crossword generator fits about 83% of the given words on average, so it gets a few more than needed.
-export const CROSSWORD_WORDS = 12
-export const CROSSWORD_SPARE = 3
-
-// Words already studied, the most recent first: a reserve for games on a day without reviews.
-export function recentlyStudied({ words, cards, skipped, disabledDecks, count = MAX_RESULTS }) {
-  const ids = availableIds(words, skipped, disabledDecks)
-  const list = []
-  for (const w of words) {
-    if (!ids.has(w.id)) continue
-    const en = cards[cardKey(w.id, 'en')]
-    if (isNew(en)) continue
-    list.push({ id: w.id, last: Date.parse(en.ostatnio) || 0 })
-  }
-  list.sort((a, b) => b.last - a.last)
-  return list.slice(0, count).map((item) => item.id)
-}
-
-// New words do not go into games: the player has never seen them, so there is nothing to guess. So we take due
-// cards of both directions, and only with fewer than `minimum` words we add recently studied ones.
-export function gameWords({
-  words,
-  cards,
-  settings,
-  now = new Date(),
-  skipped,
-  disabledDecks,
-  recall,
-  count = CROSSWORD_WORDS,
-  minimum = MIN_GAME_WORDS,
-}) {
-  const s = withDefaultSettings(settings)
-  const { learning, reviews } = dueCards({ words, cards, settings: s, now, skipped, disabledDecks, recall })
-  const seen = new Set()
-  const picked = []
-  const add = (id) => {
-    if (seen.has(id) || picked.length >= count) return
-    seen.add(id)
-    picked.push(id)
-  }
-  for (const item of [...learning, ...reviews]) add(splitKey(item.key).id)
-  if (picked.length >= minimum) return picked
-  for (const id of recentlyStudied({ words, cards, skipped, disabledDecks, count })) add(id)
-  return picked
-}
-
 // Deck list for the menu (H): order of adding, word count, known count and whether the deck is in study.
 // A turned off deck stays on the list together with its progress, so the switch can be undone.
 export function deckList({ words, cards, disabledDecks }) {
@@ -808,16 +759,6 @@ export const cardTime = (seconds) => Math.round(Math.min(Math.max(Number(seconds
 export function addTime(today, seconds, now = new Date()) {
   const day = todayState(today, now)
   return { ...day, sekundy: Math.round((day.sekundy + cardTime(seconds)) * 10) / 10 }
-}
-
-// A game lasts longer than one card, so the time is added once at the end and with its own cap: a phone
-// put aside in the middle of a crossword must not be saved as an hour of study.
-export const MAX_GAME_SECONDS = 900
-export const gameTime = (seconds) => Math.min(Math.max(Number(seconds) || 0, 0), MAX_GAME_SECONDS)
-
-export function addGameTime(today, seconds, now = new Date()) {
-  const day = todayState(today, now)
-  return { ...day, sekundy: Math.round((day.sekundy + gameTime(seconds)) * 10) / 10 }
 }
 
 // Streak without punishment (A3)

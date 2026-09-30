@@ -1,5 +1,5 @@
 <script>
-  // The gesture tutorial (A): once after an update, again from the menu ("Gestures"). A tap anywhere on the overlay
+  // The gesture tutorial (A): only from the menu ("Gestures"). A tap anywhere on the overlay
   // closes it (handled in App.svelte), so the first swipe reaches the card only after it closes.
   import { TUTORIAL_SWIPES } from '../text.js'
 </script>

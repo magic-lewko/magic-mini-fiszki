@@ -12,9 +12,6 @@
   import Home from './Home.svelte'
   import NoWords from './NoWords.svelte'
   import Leech from './Leech.svelte'
-  import Crossword from './Crossword.svelte'
-  import Letters from './Letters.svelte'
-  import GameResult from './GameResult.svelte'
   import Menu from './Menu.svelte'
   import Guide from './Guide.svelte'
   import AddWords from './AddWords.svelte'
@@ -89,12 +86,6 @@
         <NoWords />
       {:else if ui.screen === 'leech'}
         <Leech data={ui.data} />
-      {:else if ui.screen === 'crossword'}
-        <Crossword />
-      {:else if ui.screen === 'letters'}
-        <Letters />
-      {:else if ui.screen === 'crossword-result' || ui.screen === 'letters-result'}
-        <GameResult data={ui.data} />
       {:else if ui.screen === 'start-error'}
         <section class="screen"><h2>Could not start</h2><p class="muted">{ui.data.text}</p></section>
       {:else}

@@ -16,12 +16,6 @@ export const FLY_OUT_NO_MOTION_MS = 80
 // A short note after a grade lowered by time, and a flash on the edge at every fifth correct card.
 export const NOTE_MS = 900
 export const FLASH_MS = 300
-// Letters: success is a small celebration from palette v3 (300-400 ms), an error only shakes the tiles.
-export const LETTERS_SUCCESS_MS = 400
-export const SHAKE_MS = 260
-// A sentinel in the hidden crossword field: Backspace on an empty field does not always give a key event,
-// but a shorter value is always visible.
-export const INPUT_SENTINEL = ' '
 
 // Three status channels: color (class), sign and fly-out direction of the card. Color alone is not enough (WCAG 1.4.1,
 // about 8% of men have a color vision deficiency).
@@ -126,9 +120,3 @@ export const partsOfSpeech = (word) => (word.czesci || []).join(', ')
 // Import words with the deck name chosen by the user. A word that already exists stays in its deck,
 // because merge() works that way - the change applies only to new items.
 export const wordsForDeck = (result, name) => (name ? result.words.map((w) => (w.talia === name ? w : { ...w, talia: name })) : result.words)
-
-// A crossword cell letter: one letter (any alphabet), capital.
-export const crosswordLetter = (char) => {
-  const letter = String(char || '').toUpperCase()
-  return /^\p{L}$/u.test(letter) ? letter : ''
-}

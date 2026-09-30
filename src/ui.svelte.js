@@ -1,4 +1,4 @@
-// View state (Svelte 5 runes). Components only draw it, only app.svelte.js and games.svelte.js change it.
+// View state (Svelte 5 runes). Components only draw it, only app.svelte.js changes it.
 // Domain data (progress, deck) lives outside this state as plain objects: storage keeps packed cards in a WeakMap
 // by the card object, and a $state proxy would change object identity and slow down going through 6000 cards.
 // A change of domain data is visible through the `version` counter, which every save raises.
@@ -76,10 +76,6 @@ class ViewState {
   addDisabled = $state(true)
   addLabel = $state('Add')
   addError = $state('')
-
-  // The game on the stage: a snapshot after every move.
-  game = $state.raw(null)
-  shake = $state(0)
 
   newCard() {
     this.card = freshCard()

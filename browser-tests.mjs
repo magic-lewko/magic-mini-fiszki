@@ -1,11 +1,11 @@
-// A smoke test of the app in real Chrome (headless) through CDP. The app is driven by swipes.
-// It checks file import, the start straight on a card, the gesture tutorial, swipes in four directions
-// (Input.dispatchTouchEvent), a double tap as undo, no buttons and no menu on the study screen,
-// the progress bar without digits, the border that changes color with the answer time, the quiet lowering of a grade
-// after 8 s, the home screen with three buttons, both games from start to result, decks (on, off,
-// add and remove), prefers-reduced-motion, no sideways scrolling, offline,
+// A smoke test of the app in real Chrome (headless) through CDP. The app is driven by touch.
+// It checks file import, the start straight on a card, swipes in four directions (Input.dispatchTouchEvent),
+// the four grade buttons under the card (Trash, Don't know, Not sure, Know), a double tap as undo, a quiet study
+// screen (only the word, the translation and the speaker, no menu, no toasts, the progress bar hidden), the quiet
+// lowering of a grade after 8 s, the home screen with only "Reviews" (and "+10"), the gesture tutorial only from
+// the menu, decks (on, off, add and remove), prefers-reduced-motion, a small screen, no sideways scrolling, offline,
 // service worker updates and the backup, and at the end the engine: review cap and order by urgency, catch-up
-// mode, streak with freezes, hint after 7 s, interference, leech and the badge on the icon.
+// mode, streak with freezes, interference, leech and the badge on the icon.
 // It works on a copy of dist/ in a work folder outside the repo.
 import { spawn, spawnSync } from 'node:child_process'
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -232,7 +232,7 @@ const scrollsSideways = () =>
       document.body,
       document.getElementById('stage'),
       document.getElementById('card'),
-      ...document.querySelectorAll('#stage .screen, .sheet-body, .stats, .home-buttons, .tutorial-grid, .rule, .anchor-options'),
+      ...document.querySelectorAll('#stage .screen, .sheet-body, .home-buttons, .grade-buttons, .tutorial-grid, .rule, .anchor-options'),
     ]
     return candidates
       .filter(Boolean)
@@ -248,9 +248,28 @@ const visibleButtons = () =>
     .filter((b) => !b.hidden && !b.classList.contains('sr-only'))
     .map((b) => b.id || b.textContent)`)
 
+const homeButtons = () => js(`[...document.querySelectorAll('.home-buttons button')].map((b) => b.textContent).join(',')`)
+
 const hiddenButtons = () => js(`[...document.querySelectorAll('#actions button.sr-only')].map((b) => b.textContent)`)
 
-const cardBorder = () => js(`getComputedStyle(document.getElementById('card')).borderTopColor`)
+// The four grade buttons under the card: id, label and whether each one is fully on the screen.
+const gradeButtons = () =>
+  js(`[...document.querySelectorAll('.grade-buttons button')].map((b) => {
+    const r = b.getBoundingClientRect()
+    return { id: b.id, text: b.innerText.replace(/\\s+/g, ' ').trim(), height: Math.round(r.height), onScreen: r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }
+  })`)
+const GRADE_BUTTONS = [
+  ['grade-discard', 'Trash'],
+  ['grade-no', "Don't know"],
+  ['grade-almost', 'Not sure'],
+  ['grade-yes', 'Know'],
+]
+const gradeButtonsOk = (list) =>
+  list.length === GRADE_BUTTONS.length && GRADE_BUTTONS.every(([id, label], i) => list[i].id === id && list[i].text.endsWith(label) && list[i].onScreen && list[i].height >= 44)
+// Information the card does not show any more: only the word, the translation and the speaker stay.
+const HIDDEN_INFO = ['.ipa', '.chips', '.chip', '.sentence', '.sentence-pl', '.tip', '.training-mark', '#hint-field', '#hint-button']
+const extraInfo = () => js(`${JSON.stringify(HIDDEN_INFO)}.filter((s) => document.querySelector('#card ' + s) || document.querySelector(s))`)
+
 const cardState = () =>
   js(`(() => { const k = document.getElementById('card'); return k ? k.className + ' :: ' + (k.querySelector('.word')?.textContent || '') : 'no card: ' + document.getElementById('stage').innerText.replace(/\\n+/g, ' | ') })()`)
 
@@ -389,57 +408,21 @@ try {
   check('after adding words the home screen', await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`, 8000), (await stageText()).replace(/\n+/g, ' | '))
   check('deck in IndexedDB', (await library()).slowa.length === N)
   const home = await stageText()
-  check(
-    'home: deck bar with one number and three big buttons',
-    /^\d+ \/ \d+$/.test(await js(`document.querySelector('.deck-count').textContent`)) &&
-      (await js(`[...document.querySelectorAll('.home-buttons button')].map((b) => b.textContent).join(',')`)) === 'Reviews,Crossword,Letters',
-    `${await js(`document.querySelector('.deck-count').textContent`)} :: ${await js(`[...document.querySelectorAll('.home-buttons button')].map((b) => b.textContent).join(',')`)}`,
-  )
+  check('home: only the "Reviews" button', (await homeButtons()) === 'Reviews', await homeButtons())
+  check('home: no games, no deck summary and no session summary', await js(`!document.querySelector('#play-crossword, #play-letters, .deck-summary, .deck-track, .deck-count, .session-end, .stats')`))
   check('home: the menu in the corner is visible', await js(`!document.getElementById('menu-button').hidden`))
-  check('home: no rank, points or daily goal', !/rank|points|daily goal|solid/i.test(home), home.replace(/\n+/g, ' | '))
+  check('home: no rank, points, daily goal or numbers', !/rank|points|daily goal|solid|\d+ \/ \d+/i.test(home), home.replace(/\n+/g, ' | '))
   check('home: fits without scrolling and does not scroll sideways', (await fits('#stage .screen')) && (await scrollsSideways()) === '', await scrollsSideways())
   await screenshot('home')
-  check('home: both deck bars (top and big) have the same two parts', (await js(`document.querySelectorAll('.deck-track i').length`)) === 2 && (await js(`document.querySelectorAll('.deck-progress i').length`)) === 2)
-
-  // Games take words due today, and when there are none, recently studied ones. A freshly added deck has
-  // no studied word yet, so both games must say in one sentence what is missing.
-  await clickByText('#stage', 'Crossword')
-  check('home: crossword without studied words says in one sentence what is missing', await waitFor(`document.getElementById('toast').textContent.startsWith('Not enough words for a crossword')`), await toastText())
-  await clickByText('#stage', 'Letters')
-  check('home: letters without studied words say in one sentence what is missing', await waitFor(`document.getElementById('toast').textContent.startsWith('Not enough words for Letters')`), await toastText())
 
   await clickByText('#stage', 'Reviews')
   check('a card after going into reviews', await waitFor(`!!document.getElementById('card')`, 8000))
 
   // ---------------------------------------------------------------------------------------------
-  // A: the gesture tutorial once after an update
+  // A: the gesture tutorial does not show by itself (only from Menu > Gestures)
   // ---------------------------------------------------------------------------------------------
-  check('the gesture tutorial shows at the first card', await waitFor(`!document.getElementById('tutorial').hidden`, 5000))
-  const tutorial = await js(`document.getElementById('tutorial').innerText`)
-  check(
-    'tutorial: four arrows with labels and a sentence about tapping',
-    (await js(`document.querySelectorAll('#tutorial .tutorial-swipe').length`)) === 4 &&
-      (await js(`[...document.querySelectorAll('#tutorial .tutorial-arrow')].map((e) => e.textContent).join('')`)) === '→←↑↓' &&
-      tutorial.includes('Know') &&
-      tutorial.includes("Don't know") &&
-      tutorial.includes('Almost') &&
-      tutorial.includes('Discard') &&
-      tutorial.includes('double tap to undo') &&
-      tutorial.includes('with the cross'),
-    tutorial.replace(/\n+/g, ' | '),
-  )
-  check('tutorial: does not scroll sideways', (await scrollsSideways()) === '', await scrollsSideways())
-  // The toast from the previous step goes away by itself after 3.5 s; the screenshot must show only the tutorial.
-  await waitFor(`document.getElementById('toast').hidden`, 4000)
-  await screenshot('tutorial')
-  await tap('#tutorial')
-  check(
-    'the tutorial goes away after a tap and is saved in settings',
-    (await waitFor(`document.getElementById('tutorial').hidden`, 3000)) && (await saved()).ustawienia.samouczekGestow === true,
-    JSON.stringify((await saved()).ustawienia),
-  )
-  await wait(500)
-  check('the tap that closes the tutorial does not reveal the card below', await js(`!document.getElementById('card').classList.contains('revealed')`), await cardState())
+  await wait(800)
+  check('the gesture tutorial does not show by itself at the first card', await js(`document.getElementById('tutorial').hidden`))
 
   // ---------------------------------------------------------------------------------------------
   // B: the study screen without distractions
@@ -448,6 +431,9 @@ try {
   check('first card = first word of the list', (await cardWord()) === 'apple', await cardWord())
   const buttons = await visibleButtons()
   check('study screen: no button at the top or bottom is visible', buttons.length === 0, JSON.stringify(buttons))
+  const grades = await gradeButtons()
+  check('study screen: four grade buttons under the card, fully visible', gradeButtonsOk(grades), JSON.stringify(grades))
+  check('study screen: the grade buttons have a haptic switch', await js(`[...document.querySelectorAll('.grade-buttons button')].every((b) => b.querySelector('.haptic'))`))
   check('study screen: the menu button is hidden', await js(`document.getElementById('menu-button').hidden`))
   const hidden = await hiddenButtons()
   check('study screen: hidden buttons for the screen reader stay', hidden.includes('Reveal card') && hidden.includes('Skip this word') && hidden.includes('End study'), JSON.stringify(hidden))
@@ -456,32 +442,23 @@ try {
     return {
       text: g.innerText.trim(),
       bars: g.querySelectorAll('.deck-progress i').length,
+      barHidden: getComputedStyle(g.querySelector('.deck-progress')).visibility === 'hidden',
       actionsHeight: Math.round(document.getElementById('actions').getBoundingClientRect().height),
     }
   })()`)
-  check('study screen: the top is only the progress bar, no digits and no text', top.text === '' && top.bars === 2, JSON.stringify(top))
+  check('study screen: the top has no digits and no text, the progress bar is hidden', top.text === '' && top.bars === 2 && top.barHidden, JSON.stringify(top))
   check('study screen: the bottom of the screen takes no space', top.actionsHeight <= 1, `${top.actionsHeight} px`)
-  // The card ends together with the screen: before, the bottom grid margin and the gap above the empty footer cut it.
+  // The card stands above the grade buttons, which end together with the screen.
   const cardBox = await js(`(() => {
     const r = document.getElementById('card').getBoundingClientRect()
-    const s = getComputedStyle(document.getElementById('card'))
-    return {
-      fromBottom: Math.round(innerHeight - r.bottom),
-      fromSide: Math.round(r.left),
-      fromTop: Math.round(r.top),
-      rounding: s.borderBottomLeftRadius,
-      inside: s.paddingBottom,
-    }
+    const b = document.querySelector('.grade-buttons').getBoundingClientRect()
+    return { cardBottom: Math.round(r.bottom), buttonsTop: Math.round(b.top), fromBottom: Math.round(innerHeight - b.bottom), height: Math.round(r.height) }
   })()`)
-  check(
-    'the card goes low, with the same gap as on the sides and with rounding',
-    cardBox.fromBottom === cardBox.fromSide && cardBox.fromBottom <= 16 && cardBox.fromTop > 0 && parseFloat(cardBox.rounding) > 0,
-    JSON.stringify(cardBox),
-  )
+  check('the card stands above the grade buttons, the buttons at the bottom', cardBox.cardBottom <= cardBox.buttonsTop && cardBox.fromBottom <= 24 && cardBox.height > 200, JSON.stringify(cardBox))
   const cardBefore = await js(`document.getElementById('card').innerText`)
   check('card: no label "WHAT DOES IT MEAN?"', !/what does it mean/i.test(cardBefore), cardBefore.replace(/\n+/g, ' | '))
-  check('card: the caption "Tap to reveal" on the first cards after the tutorial', cardBefore.includes('Tap to reveal'), cardBefore.replace(/\n+/g, ' | '))
-  check('card: level and part of speech chips are on the back', await js(`!!document.querySelector('#card .reveal .chips.mini')`))
+  check('card: no caption "Tap to reveal"', !cardBefore.includes('Tap to reveal'), cardBefore.replace(/\n+/g, ' | '))
+  check('card: no IPA, sentences, chips, tips or hints', (await extraInfo()).length === 0, JSON.stringify(await extraInfo()))
   check('card: the speaker stays', await js(`!!document.querySelector('#card .speaker')`))
   check('card: no sideways or vertical scrolling', (await scrollsSideways()) === '' && (await fits('#card')))
   // The toast from the previous step goes away by itself after 3.5 s; screenshots must show only the study screen.
@@ -503,7 +480,8 @@ try {
 
   await tap('#card', true)
   check('a single tap reveals the card at once, without waiting for a second one', await waitFor(`document.getElementById('card').classList.contains('revealed')`, 200))
-  check('after revealing there is still no visible button', (await visibleButtons()).length === 0)
+  check('after revealing there is still no visible button at the top or bottom', (await visibleButtons()).length === 0)
+  check('the revealed card shows no extra information', (await extraInfo()).length === 0, JSON.stringify(await extraInfo()))
   const hiddenRevealed = await hiddenButtons()
   check('after revealing hidden grade buttons are available to the screen reader', hiddenRevealed.includes("Don't know") && hiddenRevealed.includes('Almost') && hiddenRevealed.includes('Know'), JSON.stringify(hiddenRevealed))
   await screenshot('card-revealed')
@@ -628,7 +606,7 @@ try {
     Object.keys((await saved()).pominiete || {}).length === skippedBefore + 1 && (await cardWord()) !== wordToTrash,
     `${wordToTrash} -> ${await cardWord()}, skipped: ${Object.keys((await saved()).pominiete || {}).length}`,
   )
-  check('the trash explains at the first use where to restore the word', (await toastText()).includes('You can restore them in Menu'), await toastText())
+  check('the trash says nothing during study', await js(`document.getElementById('toast').hidden`), await toastText())
   await tap('#card .close')
   check('the cross on the card ends study and shows the home screen', await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`, 4000), (await stageText()).replace(/\n+/g, ' | '))
   await clickByText('#stage', 'Reviews')
@@ -666,7 +644,51 @@ try {
   check('keyboard: Escape ends study', await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`, 4000))
 
   // ---------------------------------------------------------------------------------------------
-  // D: the session end screen with three numbers
+  // The four grade buttons under the card do the same as the swipes
+  // ---------------------------------------------------------------------------------------------
+  await clickByText('#stage', 'Reviews')
+  await waitFor(`!!document.getElementById('card')`)
+  await waitForFreshCard()
+  let xpBeforeButton = await xp()
+  let wordBeforeButton = await cardWord()
+  await tap('#grade-yes')
+  check('button "Know" grades like a swipe right (+50)', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeButton + 50}`), `${xpBeforeButton} -> ${await xp()}`)
+  await waitFor(`document.querySelector('#card .word')?.textContent !== ${JSON.stringify(wordBeforeButton)}`)
+  await waitForFreshCard()
+  xpBeforeButton = await xp()
+  wordBeforeButton = await cardWord()
+  await tap('#grade-almost')
+  check('button "Not sure" grades like a swipe up (+30)', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeButton + 30}`), `${xpBeforeButton} -> ${await xp()}`)
+  await waitFor(`document.querySelector('#card .word')?.textContent !== ${JSON.stringify(wordBeforeButton)}`)
+  await waitForFreshCard()
+  xpBeforeButton = await xp()
+  wordBeforeButton = await cardWord()
+  await tap('#grade-no')
+  check(`button "Don't know" grades like a swipe left (+10)`, await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeButton + 10}`), `${xpBeforeButton} -> ${await xp()}`)
+  await waitFor(`document.querySelector('#card .word')?.textContent !== ${JSON.stringify(wordBeforeButton)}`)
+  await waitForFreshCard()
+  wordBeforeButton = await cardWord()
+  const skippedBeforeButton = Object.keys((await saved()).pominiete || {}).length
+  xpBeforeButton = await xp()
+  await tap('#grade-discard')
+  check(
+    'button "Trash" throws the word out of study without a grade',
+    (await waitFor(`Object.keys(JSON.parse(localStorage.getItem('mmf-v1')).pominiete || {}).length === ${skippedBeforeButton + 1}`)) &&
+      !!(await saved()).pominiete[wordBeforeButton] &&
+      (await xp()) === xpBeforeButton,
+    JSON.stringify((await saved()).pominiete),
+  )
+  await waitFor(`!document.getElementById('card') || document.querySelector('#card .word')?.textContent !== ${JSON.stringify(wordBeforeButton)}`)
+  await screenshot('grade-buttons')
+  if (await js(`!!document.getElementById('card')`)) {
+    await key('Escape')
+    await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`, 4000)
+  }
+  // Give the trashed word back, so the next steps have the same words as before.
+  await js(`(() => { const s = JSON.parse(localStorage.getItem('mmf-v1')); delete s.pominiete[${JSON.stringify(wordBeforeButton)}]; localStorage.setItem('mmf-v1', JSON.stringify(s)) })(); 1`)
+
+  // ---------------------------------------------------------------------------------------------
+  // D: the session end goes to the home screen, without numbers
   // ---------------------------------------------------------------------------------------------
   await clickByText('#stage', 'Reviews')
   await waitFor(`!!document.getElementById('card')`)
@@ -676,15 +698,13 @@ try {
     await key('ArrowRight')
     await wait(340)
   }
-  check('the session end screen', await waitFor(`!!document.querySelector('#stage .session-end')`), (await stageText()).replace(/\n+/g, ' | '))
+  check('the session end shows the home screen', await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`), (await stageText()).replace(/\n+/g, ' | '))
   await wait(1600)
   const end = await stageText()
-  const endNumbers = await js(`[...document.querySelectorAll('#stage .stat-number')].map((e) => e.textContent)`)
-  check('end: at most three numbers', endNumbers.length > 0 && endNumbers.length <= 3, JSON.stringify(endNumbers))
-  check('end: no points, percent, rank or daily goal', !/points|%|rank|daily goal/i.test(end), end.replace(/\n+/g, ' | '))
+  check('end: no numbers, points, percent, rank or daily goal', !/\d|points|%|rank|daily goal/i.test(end.replace('+10', '')) && (await js(`!document.querySelector('#stage .session-end, #stage .stat-number')`)), end.replace(/\n+/g, ' | '))
   // After a session reviews are usually used up, so "+10" stands next to the disabled button.
-  const endButtons = await js(`[...document.querySelectorAll('.home-buttons button')].map((b) => b.textContent).join(',')`)
-  check('end: the same buttons as on the home screen (with "+10" when reviews are used up)', endButtons === 'Reviews,Crossword,Letters' || endButtons === 'Reviews,+10,Crossword,Letters', endButtons)
+  const endButtons = await homeButtons()
+  check('end: the same buttons as on the home screen (with "+10" when reviews are used up)', endButtons === 'Reviews' || endButtons === 'Reviews,+10', endButtons)
   check('end: the celebration ends by itself', await js(`!document.querySelector('#stage .screen.celebrating')`))
   check('end: fits without scrolling and does not scroll sideways', (await fits('#stage .screen')) && (await scrollsSideways()) === '', await scrollsSideways())
   await screenshot('session-end')
@@ -865,30 +885,26 @@ try {
   check('the app opens at once on a card, without a screen in between', await waitFor(`!!document.getElementById('card')`, 6000), (await stageText()).replace(/\n+/g, ' | '))
   check('start on a card: the tutorial does not show any more', await js(`document.getElementById('tutorial').hidden`))
 
-  // --- E: the "nothing to review" screen offers games ---
+  // --- E: the "nothing to review" screen ---
   await setSave({ karty: {}, pominiete: skipAllBut(0) })
   check('no cards: the home screen at once, not an empty message', await waitFor(`!!document.getElementById('play-reviews')`, 6000))
   const empty = await stageText()
   check(
-    'no cards: "Reviews" disabled, games invite in one sentence',
-    (await js(`document.getElementById('play-reviews').disabled`)) && !(await js(`document.getElementById('play-crossword').disabled`)) && empty.includes('All done for today. Play a game or come back tomorrow.'),
+    'no cards: "Reviews" disabled, "+10" next to it and one sentence',
+    (await js(`document.getElementById('play-reviews').disabled`)) && (await homeButtons()) === 'Reviews,+10' && empty.includes('All done for today. Come back tomorrow.'),
     empty.replace(/\n+/g, ' | '),
   )
 
-  // --- C: answer time as a signal ---
+  // --- C: answer time, counted without anything on the screen ---
   await setSave({ karty: { [IDS[0]]: [savedCard({ due: inMinutes(-60) })], [IDS[1]]: [savedCard({ due: inMinutes(-50) })] }, pominiete: skipAllBut(2) })
   await waitFor(`!!document.getElementById('card')`)
   await waitForFreshCard()
-  const borderBefore = await cardBorder()
+  const borderBefore = await js(`getComputedStyle(document.getElementById('card')).borderTopColor`)
   await tap('#card', true)
   await waitFor(`document.getElementById('card').classList.contains('revealed')`)
-  check('time: the border right after revealing is neutral', (await cardBorder()) === borderBefore, `${borderBefore} -> ${await cardBorder()}`)
-  await wait(4200)
-  const border4 = await cardBorder()
-  check('time: after 4 s the border is amber', border4 === 'rgb(230, 159, 0)', border4)
-  await wait(5200)
-  const border9 = await cardBorder()
-  check('time: after 9 s the border is vermilion', border9 === 'rgb(255, 111, 60)', border9)
+  await wait(9200)
+  const border9 = await js(`getComputedStyle(document.getElementById('card')).borderTopColor`)
+  check('time: the border does not change color with the answer time', border9 === borderBefore, `${borderBefore} -> ${border9}`)
   const xpBeforeSlow = await xp()
   await swipe('right')
   check('time: after 8 s a "Know" swipe is saved as a weaker hit (+30, not +50)', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeSlow + 30}`, 4000), `${xpBeforeSlow} -> ${await xp()} pts`)
@@ -952,25 +968,22 @@ try {
   await revealAndGrade('right')
   check('freeze: the streak goes on despite a day off', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).streak.dni === 10`), JSON.stringify((await saved()).streak))
   check('freeze: one of two used', (await saved()).streak.zamrozenia === 1, JSON.stringify((await saved()).streak))
-  check('freeze: a message without a word about a loss', (await toastText()) === 'Yesterday was a day off, the streak stays.', await toastText())
+  check('freeze: no message during study', await js(`document.getElementById('toast').hidden`), await toastText())
 
-  // --- A5: hint after 7 s and the lowered "Know" on the speaking card ---
+  // --- A5: the speaking card shows only the Polish word, no hint ---
   await setSave({
     karty: { [IDS[0]]: [savedCard({ due: inMinutes(5 * 1440), stability: 30 })] },
     pominiete: onlyFirst,
-    ustawienia: { mowienie: true, dlugoscSerii: 5 },
+    ustawienia: { mowienie: true, dlugoscSerii: 5, podpowiedzMowienie: 'litera' },
   })
-  check('hint: the app goes to a speaking card', await waitFor(`!!document.querySelector('#card.direction-pl')`), (await stageText()).replace(/\n+/g, ' | '))
-  check('hint: the button is invisible, not only disabled', await js(`document.getElementById('hint-button').hidden === true`))
-  check('hint: it shows after 7 s', await waitFor(`!document.getElementById('hint-button').hidden`, 12000))
-  await tap('#hint-button')
-  check('hint: shows underscores', await waitFor(`document.getElementById('hint-field').textContent.includes('_')`), await js(`document.getElementById('hint-field').textContent`))
-  check('hint: the button does not reveal the card', await js(`!document.getElementById('card').classList.contains('revealed')`))
+  check('speaking card: the app goes to a speaking card', await waitFor(`!!document.querySelector('#card.direction-pl')`), (await stageText()).replace(/\n+/g, ' | '))
+  await wait(7500)
+  check('speaking card: no hint, also after 7 s and with the hint setting on', (await extraInfo()).length === 0, JSON.stringify(await extraInfo()))
   await tap('#card', true)
   await waitFor(`document.getElementById('card').classList.contains('revealed')`)
   const xpBeforeTry = await xp()
-  await swipe('right')
-  check('hint: "Know" works, but is saved as a weaker hit (+30, not +50)', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeTry + 30}`, 4000), `${xpBeforeTry} -> ${await xp()}`)
+  await tap('#grade-yes')
+  check('speaking card: "Know" from the button (+50)', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).exp === ${xpBeforeTry + 50}`, 4000), `${xpBeforeTry} -> ${await xp()}`)
 
   // --- A6: interference block when picking new words ---
   let pair = null
@@ -1143,9 +1156,7 @@ try {
   )
   await waitFor(`!!document.getElementById('card')`, 4000)
   const wordContrast = await contrast('#card .word')
-  const ipaContrast = await contrast('#card .ipa')
   check('palette: the word on the card has a contrast of at least 4.5:1', wordContrast >= 4.5, `${wordContrast}:1`)
-  check('palette: muted text on the card has a contrast of at least 4.5:1', ipaContrast === null || ipaContrast >= 4.5, `${ipaContrast}:1`)
 
   // --- I: prefers-reduced-motion ---
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
@@ -1196,12 +1207,16 @@ try {
   await wait(500)
   await waitFor(`!!document.getElementById('card')`)
   check('iPhone SE: the card without vertical and sideways scrolling', (await fits('#card')) && (await scrollsSideways()) === '', await scrollsSideways())
-  check('iPhone SE: the study screen still without visible buttons', (await visibleButtons()).length === 0)
+  check('iPhone SE: no visible buttons at the top or bottom', (await visibleButtons()).length === 0)
+  const seGrades = await gradeButtons()
+  check('iPhone SE: four grade buttons fit under the card, at least 44 px high', gradeButtonsOk(seGrades), JSON.stringify(seGrades))
+  check('iPhone SE: the card with the buttons is still big enough for a word', await js(`document.getElementById('card').getBoundingClientRect().height >= 300`), String(await js(`Math.round(document.getElementById('card').getBoundingClientRect().height)`)))
+  await screenshot('card-se')
   await tap('#card .close')
   await waitFor(`!!document.getElementById('play-reviews')`, 4000)
   check('iPhone SE: the home screen fits without scrolling', await fits('#stage .screen'), await js(`(() => { const e = document.querySelector('#stage .screen'); return e.scrollHeight + ' / ' + e.clientHeight })()`))
   check(
-    'iPhone SE: three home buttons are touch targets of at least 44 px',
+    'iPhone SE: home buttons are touch targets of at least 44 px',
     await js(`[...document.querySelectorAll('.home-buttons button')].every((b) => b.getBoundingClientRect().height >= 44)`),
     await js(`[...document.querySelectorAll('.home-buttons button')].map((b) => Math.round(b.getBoundingClientRect().height)).join(', ')`),
   )
@@ -1209,279 +1224,20 @@ try {
   await wait(300)
 
   // ---------------------------------------------------------------------------------------------
-  // G1: crossword from start to result
-  // ---------------------------------------------------------------------------------------------
-  const typeText = async (text) => {
-    for (const char of text) {
-      await cdp('Input.insertText', { text: char })
-      await wait(30)
-    }
-  }
-  const rawKey = async (k, code) => {
-    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: k, windowsVirtualKeyCode: code })
-    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: k, windowsVirtualKeyCode: code })
-  }
-  const crosswordClue = () => js(`document.getElementById('crossword-clue').textContent`)
-  const crosswordLetters = () => js(`[...document.querySelectorAll('.crossword-cell .crossword-letter')].map((e) => e.textContent).join('')`)
-  const crosswordStarts = async () =>
-    JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('.crossword-cell')].filter((b) => b.querySelector('.crossword-number')).map((b) => ({ r: +b.dataset.row, c: +b.dataset.col })))`))
-  const cellAt = (c) => `.crossword-cell[data-row="${c.r}"][data-col="${c.c}"]`
-  const filledCells = () => js(`[...document.querySelectorAll('.crossword-cell .crossword-letter')].filter((e) => e.textContent).length`)
-  // The cursor must stand on the first cell of the chosen entry, otherwise typing the whole word goes
-  // with a shift. The first ".selected" cell in the DOM is the start of the entry in both directions.
-  const atEntryStart = () => js(`(() => { const w = [...document.querySelectorAll('.crossword-cell.selected')]; return !!w.length && w[0].classList.contains('active') })()`)
-  const setCursorAtStart = async () => {
-    if (await atEntryStart()) return true
-    await tap('.crossword-cell.selected')
-    return atEntryStart()
-  }
-  const wordFromClue = (clue, byPl) => byPl.get(String(clue).split(' · ').slice(1).join(' · '))
-
-  // Words for games: only letters, 3-9 chars, without repeated translations and without anagrams (the crossword
-  // generator rejects words with the same letters, and the smoke test finds the word by its clue).
-  const gameWords = []
-  const usedPl = new Set()
-  const usedLetters = new Set()
-  for (const w of t3.slowa) {
-    if (gameWords.length >= 16) break
-    if (!/^[a-zA-Z]{3,9}$/.test(w.w) || usedPl.has(w.pl)) continue
-    const letters = [...w.w.toLowerCase()].sort().join('')
-    if (usedLetters.has(letters)) continue
-    usedPl.add(w.pl)
-    usedLetters.add(letters)
-    gameWords.push(w)
-  }
-  const byPl = new Map(gameWords.map((w) => [w.pl, w.w]))
-  const gameIds = new Set(gameWords.map((w) => w.id))
-  await setSave({
-    karty: Object.fromEntries(gameWords.map((w, i) => [w.id, [savedCard({ due: inMinutes(-60 - i) })]])),
-    pominiete: Object.fromEntries(IDS.filter((id) => !gameIds.has(id)).map((id) => [id, todayDate])),
-  })
-  await waitFor(`!!document.getElementById('card')`, 8000)
-  // Games do not change the schedule: this save of cards must be the same after both games.
-  const cardsBeforeGames = await js(`JSON.stringify(JSON.parse(localStorage.getItem('mmf-v1')).karty)`)
-  await waitForFreshCard()
-  await tap('#card .close')
-  check('games: the cross on the card goes back to the home screen', await waitFor(`!!document.getElementById('play-crossword')`, 5000))
-
-  await tap('#play-crossword')
-  check('crossword: the "Crossword" button opens the game screen', await waitFor(`!!document.getElementById('crossword-grid')`, 8000), (await stageText()).replace(/\n+/g, ' | '))
-  const cellSide = await js(`Math.round(document.querySelector('.crossword-cell').getBoundingClientRect().width * 10) / 10`)
-  check('crossword: a cell is at least 28 px', cellSide >= 28, `${cellSide} px, columns: ${await js(`getComputedStyle(document.getElementById('crossword-grid')).gridTemplateColumns.split(' ').length`)}`)
-  check('crossword: the grid does not scroll sideways', (await scrollsSideways()) === '' && (await js(`document.getElementById('crossword-grid').getBoundingClientRect().right <= innerWidth + 0.5`)), await scrollsSideways())
-  check('crossword: the menu in the corner is visible, the study screen is not', await js(`!document.getElementById('menu-button').hidden && !document.getElementById('card')`))
-  check('crossword: the hidden text field has focus (system keyboard)', (await js(`document.activeElement?.id`)) === 'crossword-input', await js(`document.activeElement?.id`))
-  check(
-    'crossword: buttons "Check" and "Hint a letter" with a counter',
-    (await js(`[...document.querySelectorAll('.game-buttons button')].map((b) => b.textContent).join(' | ')`)) === 'Check | Hint a letter (3)',
-    await js(`[...document.querySelectorAll('.game-buttons button')].map((b) => b.textContent).join(' | ')`),
-  )
-
-  const starts = await crosswordStarts()
-  check('crossword: entries are numbered as in a paper one', starts.length >= 3, `${starts.length} cells with a number`)
-  check('crossword: the grid starts empty', (await filledCells()) === 0, String(await filledCells()))
-  await tap(cellAt(starts[0]))
-  const firstClue = await crosswordClue()
-  check('crossword: a tap on a cell shows the entry text above the keyboard', /^\d+ (across|down) · .+/.test(firstClue), firstClue)
-  check('crossword: the whole entry is highlighted', (await js(`document.querySelectorAll('.crossword-cell.selected').length`)) >= 3, String(await js(`document.querySelectorAll('.crossword-cell.selected').length`)))
-  const firstWord = wordFromClue(firstClue, byPl)
-  check('crossword: the clue is the Polish translation of a word from the deck', !!firstWord, firstClue)
-
-  // A wrong letter: vermilion after "Check", then Backspace takes it off.
-  const wrongLetter = firstWord[0].toUpperCase() === 'Q' ? 'z' : 'q'
-  await typeText(wrongLetter)
-  check('crossword: a letter from the keyboard goes into the active cell', (await crosswordLetters()) === wrongLetter.toUpperCase(), await crosswordLetters())
-  await tap('#crossword-check')
-  await wait(150)
-  check(
-    'crossword: "Check" colors the wrong letter',
-    (await js(`document.querySelectorAll('.crossword-cell.wrong').length`)) === 1 && (await js(`document.querySelectorAll('.crossword-cell.correct').length`)) === 0,
-    `wrong: ${await js(`document.querySelectorAll('.crossword-cell.wrong').length`)}`,
-  )
-  await rawKey('Backspace', 8)
-  await wait(150)
-  check('crossword: Backspace takes the letter off', (await filledCells()) === 0, String(await filledCells()))
-
-  check('crossword: the cursor can be set on the first letter of the entry', await setCursorAtStart())
-  await typeText(firstWord)
-  await tap('#crossword-check')
-  await wait(150)
-  const correctInCrossword = await js(`document.querySelectorAll('.crossword-cell.correct').length`)
-  check('crossword: a correct entry lights up green', correctInCrossword === firstWord.length, `${correctInCrossword} of ${firstWord.length}`)
-  const lettersBeforeHint = (await crosswordLetters()).length
-  await tap('#crossword-hint')
-  await wait(200)
-  check(
-    'crossword: "Hint a letter" reveals a letter and lowers the counter',
-    (await js(`document.getElementById('crossword-hint').textContent`)) === 'Hint a letter (2)' && (await crosswordLetters()).length === lettersBeforeHint + 1,
-    `${await js(`document.getElementById('crossword-hint').textContent`)} :: ${(await crosswordLetters()).length}`,
-  )
-  await screenshot('crossword')
-
-  // Filling the whole crossword: each numbered cell gives one or two entries, so three taps
-  // (the first sets the cursor, the second goes back to the same cell, the third switches the direction).
-  const filled = new Set()
-  let withoutWord = 0
-  for (const c of starts) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (!(await js(`!!document.getElementById('crossword-grid')`))) break
-      await tap(cellAt(c))
-      const clue = await crosswordClue()
-      if (!clue || filled.has(clue)) continue
-      filled.add(clue)
-      const word = wordFromClue(clue, byPl)
-      if (!word) {
-        withoutWord += 1
-        continue
-      }
-      await setCursorAtStart()
-      await typeText(word)
-    }
-  }
-  check('crossword: every entry can be recognized by its Polish translation', withoutWord === 0, `no match: ${withoutWord}`)
-  check('crossword: after filling all cells the result shows by itself', await waitFor(`!!document.getElementById('play-again')`, 6000), (await stageText()).replace(/\n+/g, ' | '))
-  const crosswordResult = await stageText()
-  check(
-    'crossword: the result is the number of entries, hints and the time',
-    /Crossword done/.test(crosswordResult) && /entr(y|ies)/.test(crosswordResult) && /hint/.test(crosswordResult) && /\d+:\d\d/.test(crosswordResult),
-    crosswordResult.replace(/\n+/g, ' | '),
-  )
-  check('crossword: the result counts the used hint', /\n1\nhint/.test(crosswordResult) || crosswordResult.includes('1\nhint'), crosswordResult.replace(/\n+/g, ' | '))
-  await screenshot('crossword-result')
-  const cardsAfterCrossword = await js(`JSON.stringify(JSON.parse(localStorage.getItem('mmf-v1')).karty)`)
-  check('crossword: schedule and card state unchanged', cardsAfterCrossword === cardsBeforeGames)
-
-  // ---------------------------------------------------------------------------------------------
-  // G2: letters from start to result
-  // ---------------------------------------------------------------------------------------------
-  await tap('#game-back')
-  check('games: "Back" from the result goes to the home screen', await waitFor(`!!document.getElementById('play-letters')`, 5000))
-  await tap('#play-letters')
-  check('letters: the "Letters" button opens the game screen', await waitFor(`!!document.getElementById('letters-tiles')`, 8000), (await stageText()).replace(/\n+/g, ' | '))
-  check('letters: the series has 10 words', (await js(`document.getElementById('letters-progress').textContent`)) === '1 / 10', await js(`document.getElementById('letters-progress').textContent`))
-  check(
-    'letters: tiles are touch targets of at least 44 px in at most three rows',
-    (await js(`[...document.querySelectorAll('.tile')].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 })`)) &&
-      (await js(`new Set([...document.querySelectorAll('.tile')].map((b) => Math.round(b.getBoundingClientRect().top))).size`)) <= 3,
-    await js(`[...document.querySelectorAll('.tile')].map((b) => Math.round(b.getBoundingClientRect().height)).join(', ')`),
-  )
-  const lettersMeaning = () => js(`document.getElementById('letters-meaning').textContent`)
-  const lettersTiles = async () => JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('.tile')].map((b) => b.textContent))`))
-  const lettersAnswer = () => js(`[...document.querySelectorAll('.letters-slot')].map((e) => e.textContent).join('')`)
-  const indexesForWord = (letters, word) => {
-    const used = new Set()
-    const result = []
-    for (const char of word.toUpperCase()) {
-      const i = letters.findIndex((z, j) => z === char && !used.has(j))
-      if (i < 0) return null
-      used.add(i)
-      result.push(i)
-    }
-    return result
-  }
-  const firstLettersWord = byPl.get(await lettersMeaning())
-  check('letters: the Polish meaning of a deck word stands at the top', !!firstLettersWord, await lettersMeaning())
-  check(
-    'letters: under the meaning there are as many places as letters',
-    (await js(`document.querySelectorAll('.letters-slot').length`)) === firstLettersWord.length,
-    `${await js(`document.querySelectorAll('.letters-slot').length`)} of ${firstLettersWord.length}`,
-  )
-  // Extra letters are the whole weight of the game: without them the tiles are exactly the word to copy.
-  const tilesAtStart = (await lettersTiles()).length
-  check('letters: there are more tiles than letters in the word', tilesAtStart >= firstLettersWord.length + 1 && tilesAtStart <= 14, `${tilesAtStart} tiles for ${firstLettersWord.length} letters`)
-  await screenshot('letters')
-
-  // A mistake: a full but wrong answer only shakes and leaves a chance to fix. No penalty and no moving on.
-  const firstLetters = await lettersTiles()
-  const goodIndexes = indexesForWord(firstLetters, firstLettersWord)
-  const badIndexes = [...goodIndexes.slice(1), goodIndexes[0]]
-  for (const i of badIndexes) {
-    await tap(`.tile[data-index="${i}"]`)
-    await wait(60)
-  }
-  const shook = await js(`!!document.querySelector('.letters-tiles.shake')`)
-  await wait(500)
-  check(
-    'letters: a wrong answer shakes and stays to be fixed, no penalty',
-    (await js(`document.getElementById('letters-progress').textContent`)) === '1 / 10' && (await lettersAnswer()).length === firstLettersWord.length,
-    `shake: ${shook}, answer: ${await lettersAnswer()}`,
-  )
-  for (let i = 0; i < firstLettersWord.length; i++) {
-    await tap('#letters-answer')
-    await wait(60)
-  }
-  check('letters: a tap on the answer takes off the last letter', (await lettersAnswer()) === '', JSON.stringify(await lettersAnswer()))
-  await tap('#letters-hint')
-  await wait(200)
-  check(
-    'letters: a hint adds a letter and raises the counter',
-    (await js(`document.getElementById('letters-hint').textContent`)) === 'Hint (1)' && (await lettersAnswer()).length === 1,
-    `${await js(`document.getElementById('letters-hint').textContent`)} :: ${await lettersAnswer()}`,
-  )
-
-  // The whole round: each word built correctly moves on by itself.
-  let built = 0
-  for (let round = 0; round < 12; round++) {
-    if (!(await js(`!!document.getElementById('letters-tiles')`))) break
-    const word = byPl.get(await lettersMeaning())
-    if (!word) break
-    const already = (await lettersAnswer()).length
-    const indexes = indexesForWord(await lettersTiles(), word)
-    if (!indexes) break
-    for (const i of indexes.slice(already)) {
-      await tap(`.tile[data-index="${i}"]`)
-      await wait(50)
-    }
-    built += 1
-    await wait(600)
-  }
-  check('letters: a series of ten words goes to the end', built === 10, `built: ${built}`)
-  check('letters: the series end shows the result and two ways out', await waitFor(`!!document.getElementById('play-again') && !!document.getElementById('game-back')`, 6000), (await stageText()).replace(/\n+/g, ' | '))
-  const lettersResult = await stageText()
-  check(
-    'letters: the result is the number of words, hints and the time',
-    /Series done/.test(lettersResult) && /10\nwords/.test(lettersResult) && /1\nhint/.test(lettersResult) && /\d+:\d\d/.test(lettersResult),
-    lettersResult.replace(/\n+/g, ' | '),
-  )
-  await screenshot('letters-result')
-
-  const cardsAfterGames = await js(`JSON.stringify(JSON.parse(localStorage.getItem('mmf-v1')).karty)`)
-  check('games: after crossword and letters localStorage has exactly the same cards', cardsAfterGames === cardsBeforeGames)
-  check('games: game time counts to the study day, as in training', (await js(`JSON.parse(localStorage.getItem('mmf-v1')).dzis.sekundy`)) > 0, String(await js(`JSON.parse(localStorage.getItem('mmf-v1')).dzis.sekundy`)))
-
-  // The crossword on iPhone SE: the grid must be readable and without sideways scrolling.
-  await tap('#game-back')
-  await waitFor(`!!document.getElementById('play-crossword')`, 5000)
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 375, height: 667, deviceScaleFactor: 2, mobile: true })
-  await wait(300)
-  await tap('#play-crossword')
-  await waitFor(`!!document.getElementById('crossword-grid')`, 8000)
-  const seCell = await js(`Math.round(document.querySelector('.crossword-cell').getBoundingClientRect().width * 10) / 10`)
-  check('iPhone SE: a crossword cell is at least 28 px', seCell >= 28, `${seCell} px`)
-  check('iPhone SE: the crossword grid fits without sideways scrolling', (await scrollsSideways()) === '' && (await js(`document.getElementById('crossword-grid').getBoundingClientRect().right <= innerWidth + 0.5`)), await scrollsSideways())
-  await screenshot('crossword-se')
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
-  await wait(300)
-  await drag('#crossword-grid', 0, 170)
-  await wait(600)
-  check('crossword: scrolling down does not end the game (you type letters there)', await js(`!!document.getElementById('crossword-grid')`), (await stageText()).replace(/\n+/g, ' | '))
-  await tap('#crossword-close')
-  check('crossword: the cross in the corner leaves the game', await waitFor(`!!document.getElementById('play-reviews')`, 5000), (await stageText()).replace(/\n+/g, ' | '))
-  await tap('#play-letters')
-  await waitFor(`!!document.getElementById('letters-tiles')`, 8000)
-  await drag('#letters-tiles', 0, 170)
-  await wait(600)
-  check('letters: scrolling down does not end the game', await js(`!!document.getElementById('letters-tiles')`))
-  await tap('#letters-close')
-  check('letters: the cross in the corner leaves the game', await waitFor(`!!document.getElementById('play-reviews')`, 5000))
-  await tap('#play-crossword')
-  await waitFor(`!!document.getElementById('crossword-grid')`, 8000)
-  await js(`document.getElementById('crossword-close').click(); 1`)
-  check('crossword: the cross closes the game', await waitFor(`!!document.getElementById('play-reviews')`, 5000))
-
-  // ---------------------------------------------------------------------------------------------
   // H: decks (on, off, add and remove)
   // ---------------------------------------------------------------------------------------------
+  // Due cards only in the first words of the library (the example deck), the rest of the big deck skipped:
+  // after turning the example deck off there is nothing to review.
+  const deckWords = t3.slowa.slice(0, 16)
+  const deckIds = new Set(deckWords.map((w) => w.id))
+  await setSave({
+    karty: Object.fromEntries(deckWords.map((w, i) => [w.id, [savedCard({ due: inMinutes(-60 - i) })]])),
+    pominiete: Object.fromEntries(IDS.filter((id) => !deckIds.has(id)).map((id) => [id, todayDate])),
+  })
+  await waitFor(`!!document.getElementById('card')`, 8000)
+  await waitForFreshCard()
+  await tap('#card .close')
+  await waitFor(`!!document.getElementById('play-reviews')`, 5000)
   const deckToggle = (name) => `#decks-section .toggle[data-deck="${JSON.stringify(name).slice(1, -1)}"]`
   const decksText = () => js(`document.getElementById('decks-section').innerText`)
   await openMenu()
@@ -1507,8 +1263,6 @@ try {
   await js(`document.getElementById('menu').querySelector('.close').click(); 1`)
   await wait(300)
   check('decks: words of a turned off deck leave study', await waitFor(`!!document.getElementById('play-reviews') && document.getElementById('play-reviews').disabled`, 5000), (await stageText()).replace(/\n+/g, ' | '))
-  await tap('#play-crossword')
-  check('decks: words of a turned off deck also leave games', await waitFor(`document.getElementById('toast').textContent.startsWith('Not enough words for a crossword')`, 4000), await toastText())
 
   await openMenu()
   await js(`document.querySelector(${JSON.stringify(deckToggle('Przykład'))}).click(); 1`)
@@ -1585,11 +1339,13 @@ try {
     JSON.stringify({ exp: afterV3.exp, streak: afterV3.streak.dni, history: afterV3.historia[yesterdayDate] }),
   )
   check('save v3: SAVE_VERSION still 1', afterV3.wersja === 1, String(afterV3.wersja))
-  check('save v3: the gesture tutorial shows once after the update', await waitFor(`!document.getElementById('tutorial').hidden`, 6000))
-  await closeTutorial()
-  // Closing the tutorial saves the settings, so the anchor from the Polish version is saved in English now.
-  check('save v3: the Polish habit anchor reads as the English one', (await saved()).ustawienia.kotwica === 'after coffee', (await saved()).ustawienia.kotwica)
   check('save v3: the app opens on a card', await waitFor(`!!document.getElementById('card')`, 6000), (await stageText()).replace(/\n+/g, ' | '))
+  await wait(800)
+  check('save v3: the gesture tutorial does not show by itself', await js(`document.getElementById('tutorial').hidden`))
+  // A grade saves the state, so the anchor from the Polish version is saved in English now.
+  await waitForFreshCard()
+  await tap('#grade-yes')
+  check('save v3: the Polish habit anchor reads as the English one', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).ustawienia.kotwica === 'after coffee'`, 4000), (await saved()).ustawienia.kotwica)
 
   check('no JS errors in the console', consoleErrors.length === 0, consoleErrors.join(' | '))
 } catch (error) {

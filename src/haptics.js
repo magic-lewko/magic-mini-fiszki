@@ -4,13 +4,16 @@
 // over the whole element the user taps.
 // Actions are handled by the click event on the parent: a tap on the switch gives one click that bubbles up.
 
+// Stronger and longer than a light tick, so every action is clearly felt.
 const PATTERNS = {
-  reveal: 20,
-  know: [40, 30, 40],
-  almost: [30, 25, 30],
-  dontKnow: 60,
-  combo: [25, 20, 25, 20, 60],
-  end: [50, 40, 50, 40, 160],
+  tap: 25,
+  reveal: 35,
+  know: [50, 40, 50],
+  almost: [40, 35, 40],
+  dontKnow: [90, 50, 90],
+  discard: [30, 30, 30, 30, 70],
+  combo: [35, 25, 35, 25, 80],
+  end: [60, 40, 60, 40, 200],
   levelUp: [60, 40, 90, 40, 60, 40, 220],
 }
 
@@ -28,7 +31,7 @@ export function addSwitch(parent) {
 // Android and the rest. No support or a browser block is simply silence.
 export function vibrate(kind) {
   try {
-    if (typeof navigator.vibrate === 'function') navigator.vibrate(PATTERNS[kind] ?? 20)
+    if (typeof navigator.vibrate === 'function') navigator.vibrate(PATTERNS[kind] ?? PATTERNS.tap)
   } catch {
     // no vibration is not an error
   }

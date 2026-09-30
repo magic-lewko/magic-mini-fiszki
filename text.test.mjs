@@ -23,11 +23,7 @@ test('heatmap caption', () => {
   assert.equal(t.heatmapCaption({ today: 12, best: 12, studyDays: 5 }), 'today 12 cards · study days: 5')
 })
 
-test('crossword letters and words for a chosen deck', () => {
-  assert.equal(t.crosswordLetter('a'), 'A')
-  assert.equal(t.crosswordLetter('ż'), 'Ż')
-  assert.equal(t.crosswordLetter('1'), '')
-  assert.equal(t.crosswordLetter(''), '')
+test('words for a chosen deck', () => {
   const result = { words: [{ id: 'a', talia: 'Mine' }, { id: 'b', talia: 'Old' }] }
   assert.deepEqual(t.wordsForDeck(result, 'Mine'), [{ id: 'a', talia: 'Mine' }, { id: 'b', talia: 'Mine' }])
   assert.equal(t.wordsForDeck(result, ''), result.words)

@@ -1,7 +1,7 @@
 # magic-mini-fiszki - instructions for Claude
 
 English flashcards for the iPhone: an offline PWA, FSRS-6 reviews, study by swipe (four directions). How the app works
-for the user (swipes, daily limits, games, decks, stats, installing on the iPhone) is in `README.md`. When you change
+for the user (grade buttons, swipes, daily limits, decks, stats, installing on the iPhone) is in `README.md`. When you change
 the app behavior, update the right section of the README.
 
 Tasks for this project are on the board next to it, in the project `english-nauka`:
@@ -24,7 +24,6 @@ src/                   # the app, Vite builds dist/ from it (root in vite.config
 ├─ public/             # manifest.webmanifest, icon-*.png (copied as they are)
 ├─ components/         # Svelte components: only the view
 ├─ app.svelte.js       # control: study, swipes, home screen, menu, decks, adding words, backup, offline
-├─ games.svelte.js     # crossword and letters game state
 ├─ ui.svelte.js        # view state ($state), toast, note, flash, messages
 ├─ study.js            # study logic: session, daily limits, review cap, catch-up, time thresholds, stats
 ├─ storage.js          # progress in localStorage and the backup, SAVE_VERSION
@@ -33,7 +32,6 @@ src/                   # the app, Vite builds dist/ from it (root in vite.config
 ├─ words.js            # word import: pasted text, JSON, merging decks
 ├─ grading.js          # grading a card with fuzz, taking cards off a session
 ├─ text.js             # UI texts and helpers (plural, dates, times)
-├─ crossword.js, letters.js  # games
 └─ speech.js, haptics.js     # pronunciation (Web Speech) and vibration on iOS
 lib/fsrs.mjs           # FSRS-6 review algorithm (+ fsrs.test.mjs), shared, Polish names kept
 *.test.mjs             # unit tests in the root, tests.mjs imports all of them
@@ -65,9 +63,9 @@ npm run icons              # only when the icons change
 - **All code in simple English**: names of variables, functions, components, files, CSS classes, comments, tests
   and docs. UI texts are English too. Card content (English words and their Polish translations) is learning data
   and stays as it is.
-- **Logic without DOM.** `study.js`, `words.js`, `collisions.js`, `crossword.js`, `letters.js`, `grading.js`, `storage.js`
+- **Logic without DOM.** `study.js`, `words.js`, `collisions.js`, `grading.js`, `storage.js`
   and `text.js` are pure modules tested in Node: no DOM, no timers, no `Math.random`. Instead of random, a
-  deterministic hash or a seeded generator (Mulberry32 in `crossword.js`), so a result can be repeated in a test.
+  deterministic hash or a seeded generator, so a result can be repeated in a test.
   Svelte components and `*.svelte.js` are the view layer.
 - **Do not break the save on the phone.** The phone has real study progress. The storage keys (`mmf-v1`,
   `mmf-v1-poprzedni`...), the IndexedDB names (`mmf`, `dane`, `talia`, `kolizje`), the backup format (`mmf-kopia`) and
@@ -79,7 +77,7 @@ npm run icons              # only when the icons change
   'status' and 'update', and still accepts the old 'aktualizuj' and returns the old status fields (`wersja`, `pliki`,
   `zapisane`), because an app from before the update may talk to the new worker. No `skipWaiting` on install:
   the user chooses when to update.
-- **Games and training do not change the schedule** or the card state. Only a grade in study changes it.
+- **Training does not change the schedule** or the card state. Only a grade in study changes it.
 - **FSRS is shared.** `lib/fsrs.mjs` is a copy from `magic-mini-english` (a PC app, not in this folder). Do not
   change its logic or rename its exports; a fix must go to both projects - say so.
 - **Decks outside the repo.** `talie/**/*.json` is in `.gitignore` (the Oxford 3000 list, OUP license) and does not go
@@ -112,8 +110,6 @@ npm run icons              # only when the icons change
   otherwise Chrome does not create CacheStorage.
 - Svelte delegates events like `oninput` through bubbling. Form fields use `{@attach listen('input', ...)}`
   (`components/listen.js`), so an input event without bubbles (tests, autofill) still reaches them.
-- The crossword focuses the hidden field in the same tap (`flushSync` in `drawNow`), otherwise iOS does not show
-  the keyboard.
 - Node 24 from the folder above: `node --test magic-mini-fiszki/` works through `tests.mjs` (the `main` field in
   `package.json`). The name `tests.mjs` does not match `*.test.mjs` on purpose, so tests do not count twice.
 - iOS speaks (Web Speech) only in reaction to a user gesture, so call `speak()` only from a tap handler.

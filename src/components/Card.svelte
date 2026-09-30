@@ -9,21 +9,20 @@
 <script>
   // The study card and swipes in four directions (A). The card follows the finger on both axes and turns a little
   // on a horizontal move. After crossing the threshold (90 px horizontally, 80 px vertically or a fast flick) the
-  // direction lights up with the color and icon of the status, before the user lets go: this is the only information
-  // about what they are doing. Right "Know", left "Don't know", up "Almost", down trash. Each works also on a hidden card.
-  // Below MOVE_THRESHOLD lifting the finger counts as a tap.
+  // direction lights up with the color and icon of the status, before the user lets go. Right "Know", left "Don't know",
+  // up "Almost", down trash. Each works also on a hidden card. Below MOVE_THRESHOLD lifting the finger counts as a tap.
+  // The same four actions are buttons under the card: a swipe is easy to miss, and only a tap vibrates on the iPhone.
+  // The card shows only the word and its translation, nothing else.
   import * as study from '../study.js'
-  import { SWIPES, partsOfSpeech } from '../text.js'
+  import { SWIPES } from '../text.js'
   import { ui } from '../ui.svelte.js'
-  import { exitToHome, gradeCard, isBusy, pronounce, reveal, skipCurrent, undoGrade, useHint } from '../app.svelte.js'
+  import { exitToHome, gradeCard, isBusy, pronounce, reveal, skipCurrent, undoGrade } from '../app.svelte.js'
 
   let { data } = $props()
 
   // The screen is drawn again for every card (a key in App.svelte), so the card data is fixed.
   const word = $derived(data.word)
-  const parts = $derived(partsOfSpeech(word))
   const c = $derived(ui.card)
-  const hintWords = $derived(c.hint ? c.hint.split('   ') : [])
 
   let card
   let touch = null
@@ -135,10 +134,6 @@
   }
 </script>
 
-{#snippet chips()}
-  <div class="chips mini">{#if word.poziom}<span class="chip level">{word.poziom}</span>{/if}{#if parts}<span class="chip">{parts}</span>{/if}{#if data.isNew}<span class="chip new">new</span>{/if}</div>
-{/snippet}
-
 <!-- The card is the swipe surface. The screen reader has the same actions in hidden buttons under the card (App.svelte). -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
@@ -153,8 +148,6 @@
   class:swipe-left={c.swipe === 'left'}
   class:swipe-up={c.swipe === 'up'}
   class:swipe-down={c.swipe === 'down'}
-  class:pace-medium={c.paceMedium}
-  class:pace-slow={c.paceSlow}
   class:fly-out-right={c.flyOut === 'right'}
   class:fly-out-left={c.flyOut === 'left'}
   class:fly-out-up={c.flyOut === 'up'}
@@ -179,32 +172,29 @@
 >
   {#if data.direction === 'en'}
     <div class="word">{word.w}</div>
-    {#if word.ipa}<div class="ipa">/{word.ipa}/</div>{/if}
     <button class="speaker" type="button" aria-label="Pronunciation" onclick={() => pronounce(word.w)}>🔊</button>
     <div class="reveal">
       <div class="translation">{word.pl}</div>
-      {#if word.zdanie}<div class="sentence">{word.zdanie}</div>{/if}
-      {#if word.zdaniePl}<div class="sentence-pl">{word.zdaniePl}</div>{/if}
-      {@render chips()}
     </div>
   {:else}
     <div class="translation big">{word.pl}</div>
-    <div class="hint" id="hint-field" aria-label="Hint">{#each hintWords as hintWord}<span>{hintWord}</span>{/each}</div>
-    <!-- Desirable difficulty: the button is invisible for the first 7 seconds, and using it lowers "Know". -->
-    <button class="button small no-reveal" id="hint-button" type="button" hidden={!c.hintButton} onclick={useHint}>Hint</button>
-    {#if word.zdaniePl}<div class="sentence-pl">{word.zdaniePl}</div>{/if}
     <div class="reveal">
       <div class="word">{word.w}</div>
-      <div class="pronunciation">{#if word.ipa}<span class="ipa">/{word.ipa}/</span>{/if}<button class="speaker" type="button" aria-label="Pronunciation" onclick={() => pronounce(word.w)}>🔊</button></div>
-      {#if word.zdanie}<div class="sentence">{word.zdanie}</div>{/if}
-      {@render chips()}
+      <div class="pronunciation"><button class="speaker" type="button" aria-label="Pronunciation" onclick={() => pronounce(word.w)}>🔊</button></div>
     </div>
   {/if}
-  {#if data.training}<div class="training-mark">Training: due dates stay the same</div>{/if}
-  {#if data.tip}<div class="tip">Tap to reveal</div>{/if}
   <!-- The cross ends study. It is on the card, not in the top bar: the bar must stay a clean progress bar,
        and a 44 px touch target would not fit there without pushing the card down. -->
   <button class="close on-card no-reveal" type="button" aria-label="End study" onclick={exitToHome}>✕</button>
   <input class="haptic" type="checkbox" switch tabindex="-1" aria-hidden="true" />
   {#if c.result}<div class="result" aria-hidden="true">{c.result.icon}</div>{/if}
+</div>
+
+<!-- The four grades as buttons (the same as the swipes). Each button has its own haptic switch (haptics.js),
+     so on the iPhone every grade vibrates. The screen reader has its own buttons in the footer. -->
+<div class="grade-buttons" aria-hidden="true">
+  <button class="grade-button discard" id="grade-discard" type="button" tabindex="-1" onclick={skipCurrent}><span class="grade-icon">🗑</span><span>Trash</span></button>
+  <button class="grade-button no" id="grade-no" type="button" tabindex="-1" onclick={() => gradeCard(1)}><span class="grade-icon">✗</span><span>Don't know</span></button>
+  <button class="grade-button almost" id="grade-almost" type="button" tabindex="-1" onclick={() => gradeCard(2)}><span class="grade-icon">~</span><span>Not sure</span></button>
+  <button class="grade-button yes" id="grade-yes" type="button" tabindex="-1" onclick={() => gradeCard(3)}><span class="grade-icon">✓</span><span>Know</span></button>
 </div>

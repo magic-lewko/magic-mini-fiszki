@@ -1,8 +1,7 @@
 // App control: study by swipe, the home screen, menu, decks, adding words, backup, offline.
 // Domain data (progress, deck) and all actions live here, and Svelte components only draw the state from ui.svelte.js
-// and call actions from here. Session logic is in study.js, saving in storage.js and database.js, games in games.svelte.js.
+// and call actions from here. Session logic is in study.js, saving in storage.js and database.js.
 
-import { flushSync } from 'svelte'
 import { nowaKarta as newFsrsCard, przypomnienie as recall } from '../lib/fsrs.mjs'
 import * as study from './study.js'
 import * as storage from './storage.js'
@@ -18,7 +17,6 @@ import {
   END_CELEBRATION_MS,
   FLY_OUT_MS,
   FLY_OUT_NO_MOTION_MS,
-  FREEZE_TEXT,
   GRADES,
   MAX_ERRORS_IN_PREVIEW,
   SECONDS_TO_UNDO,
@@ -31,8 +29,7 @@ import {
   skippedCardsText,
   wordsForDeck,
 } from './text.js'
-import { flash, note, reducedMotion, setMessage, toast, ui } from './ui.svelte.js'
-import * as games from './games.svelte.js'
+import { flash, reducedMotion, setMessage, toast, ui } from './ui.svelte.js'
 
 let state = storage.defaultState()
 let words = []
@@ -263,7 +260,7 @@ export const pickOptions = (now = new Date()) => ({
   today: state.dzis,
   now,
   skipped: state.pominiete,
-  // A turned off deck leaves study and games with one filter in the engine (H).
+  // A turned off deck leaves study with one filter in the engine (H).
   disabledDecks: state.ustawienia.wylaczoneTalie,
   catchUp: state.nadrabianie,
   collisions,
@@ -364,8 +361,6 @@ function showCard() {
       if (ui.screen === 'card') ui.card.hintButton = true
     }, study.HINT_DELAY_SECONDS * 1000)
   }
-  // The gesture tutorial once after an update: without it a screen without buttons does not explain itself.
-  if (!state.ustawienia.samouczekGestow) showTutorial()
 }
 
 function drawHint(word) {
@@ -507,7 +502,6 @@ export function gradeCard(grade) {
   if (done) vibrate('end')
   else if (session.bonus) vibrate('combo')
   else vibrate({ 1: 'dontKnow', 2: 'almost' }[finalGrade] || 'know')
-  if (day.frozen) toast(FREEZE_TEXT)
   // Every fifth correct card in a row: a strong flash instead of a number of points (I). Otherwise every card change
   // gets a weak flash. The tone is always "yes": this is how the version without a framework worked (a reference to
   // a missing variable `status` always gave the default value).
@@ -564,12 +558,11 @@ export function skipCurrent() {
   const key = study.currentCard(session)
   const { id } = study.splitKey(key)
   const snapshot = takeSnapshot(key, state.karty[key])
-  const first = !Object.keys(state.pominiete).length
   state.pominiete = { ...state.pominiete, [id]: study.localDate() }
   session = sessionWithoutWord(session, id)
   saveState()
   undo = snapshot
-  vibrate('almost')
+  vibrate('discard')
   const done = study.sessionDone(session)
   refreshBar()
   // Skipping is not a grade, so the card leaves without a color and without a direction: only a fade.
@@ -578,7 +571,6 @@ export function skipCurrent() {
     else showCard()
     offerUndo()
   })
-  if (first) toast(SKIP_TIP, 'important')
 }
 
 // A snapshot to undo: everything a grade or a skip changes. State objects are immutable, so keeping references
@@ -622,10 +614,7 @@ export function undoGrade() {
   // The same guard as for revealing and grading: during the card fly-out the next step is already planned,
   // so an undo in this window would cut the session and save the state from before the grade as the end.
   if (busy) return
-  if (!undo) {
-    if (ui.screen === 'card') note('Nothing to undo')
-    return
-  }
+  if (!undo) return
   const s = undo
   // A skip makes a new map, a grade keeps the same reference: this is how we know what we undo.
   const wasSkip = s.pominiete !== state.pominiete
@@ -783,12 +772,10 @@ export function addNewToday() {
 }
 
 // The home screen (E): the whole deck bar with one number, three big buttons and the menu in the corner. It shows
-// after a session, after leaving study and when there is nothing to review. Then instead of an empty message
-// it offers games.
+// after a session, after leaving study and when there is nothing to review.
 export function showHome(summary = null) {
   forgetUndo()
   session = null
-  games.dropGame()
   if (!words.length) {
     showNoWords()
     return
@@ -804,17 +791,6 @@ export function showHome(summary = null) {
 function showNoWords() {
   session = null
   showScreen('no-words')
-}
-
-// Game time is added once, when leaving: the schedule stays untouched, and the study day knows something happened.
-export function addGameTimeToday(start) {
-  const now = new Date()
-  const seconds = study.gameTime((performance.now() - start) / 1000)
-  if (!seconds) return 0
-  state.dzis = study.addGameTime(state.dzis, seconds, now)
-  state.historia = study.addToHistory(state.historia, { seconds }, now)
-  saveState()
-  return seconds
 }
 
 // Habit anchor (D1): a sentence saved in settings, changed only in the menu.
@@ -850,7 +826,7 @@ export function changeSetting(field, value) {
 }
 
 // Decks (H): the switch "study this deck" and removing a whole deck with its progress. A turned off deck
-// leaves study and games, but its cards stay untouched in the save, so coming back costs nothing.
+// leaves study, but its cards stay untouched in the save, so coming back costs nothing.
 
 const disabledDecks = () => state.ustawienia.wylaczoneTalie || []
 
@@ -1304,12 +1280,6 @@ export async function addWords() {
 
 // Keyboard shortcuts copy the four swipes: arrows in four directions, space reveals, `z` is "Already know".
 export function onKey(e) {
-  // Games have their own screens and their own touch handling, so study shortcuts do not apply to them. Escape stays
-  // as the way out, also from the hidden crossword field.
-  if (games.hasGame() && e.key === 'Escape') {
-    games.leaveGame()
-    return
-  }
   if (e.target.closest?.('textarea, input')) return
   if (e.key === 'Escape') {
     const somethingOpen = ui.tutorial || ui.menu || ui.guide || ui.addWords
@@ -1395,7 +1365,3 @@ export function start() {
     showScreen('start-error', { text: errorText(error) })
   })
 }
-
-// The crossword needs focus on the hidden field still inside the tap handler (otherwise iOS does not show the keyboard),
-// so the view must be drawn at once, not in the next microtask.
-export const drawNow = () => flushSync()

@@ -242,8 +242,79 @@ p {
   margin-bottom: 10px;
 }
 
+/* During study the screen shows only the word: no deck bar. */
+#app.studying .deck-progress {
+  visibility: hidden;
+}
+
+/* The card on top, the grade buttons under it. */
+#app.studying .stage {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
 #app.studying .card {
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+/* Four grade buttons, the same actions as the swipes. Big targets for a thumb, the trash a bit narrower. */
+.grade-buttons {
+  flex: none;
+  width: 100%;
+  max-width: 560px;
+  display: grid;
+  grid-template-columns: 0.75fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.grade-button {
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  transition: transform var(--time-tap) ease-out, background var(--time-tap) ease-out;
+}
+
+.grade-button:active {
+  transform: scale(0.96);
+  background: var(--surface-2);
+}
+
+.grade-icon {
+  font-size: 20px;
+}
+
+.grade-button.yes {
+  border-color: var(--know);
+  color: var(--know);
+}
+
+.grade-button.no {
+  border-color: var(--dont-know);
+  color: var(--dont-know);
+}
+
+.grade-button.almost {
+  border-color: var(--almost);
+  color: var(--almost);
+}
+
+.grade-button.discard {
+  color: var(--muted);
 }
 
 .card.entering {
@@ -261,18 +332,9 @@ p {
   transition: none !important;
 }
 
-/* Answer time as a signal (C): after revealing, the card border changes smoothly from neutral
-   to amber (3 s) and vermilion (over 8 s). No digits and no ticking. */
+
 .card {
   transition: border-color 600ms linear, box-shadow var(--time-tap) ease-out;
-}
-
-.card.pace-medium {
-  border-color: var(--almost);
-}
-
-.card.pace-slow {
-  border-color: var(--dont-know);
 }
 
 /* A micro reaction when the swipe threshold is crossed (I): the card gets the direction outline and a highlight,
@@ -543,7 +605,7 @@ p {
   font-weight: 600;
 }
 
-/* The cross on the card is the same button as in games and sheets (class "close"): a different cross
+/* The cross on the card is the same button as in sheets (class "close"): a different cross
    in every place of the app looked like an accident. On the card we only position it and dim it. */
 .card .close.on-card {
   position: absolute;
@@ -1649,236 +1711,6 @@ p {
   border-color: var(--almost);
 }
 
-/* Games (G): crossword and letters. Both screens are a normal .screen, so they share its width, scrolling
-   and margins; they add a top bar with the cross, the crossword grid and the letter tiles. */
-
-.screen.game {
-  gap: 12px;
-  /* From the top, not to the middle: after the system keyboard opens, the view shrinks from the bottom. */
-  justify-content: safe start;
-  /* No side margin: the crossword grid needs every pixel of width. */
-  padding: 8px 0;
-}
-
-.game-top {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.game-title {
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-}
-
-/* The text of the chosen entry stands above the keyboard, so it stays visible while typing. */
-.game-clue {
-  min-height: 24px;
-  font-size: 17px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.game-buttons {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.letters .game-buttons {
-  grid-template-columns: 1fr;
-}
-
-/* The hidden crossword text field: it stays in the layout (only transparent), because with display: none
-   or visibility: hidden iOS does not open the system keyboard on focus(). */
-.hidden-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* The crossword grid: with 11 columns a cell is 30 px at 390 px and 29 px at 375 px (the minimum is 28 px).
-   Columns are minmax(0, ...), so together with the gaps they shrink to the screen width instead of scrolling
-   the view sideways. */
-.crossword-grid {
-  --side: max(28px, min(8vw, 34px));
-  display: grid;
-  grid-template-columns: repeat(var(--columns), minmax(0, var(--side)));
-  gap: 2px;
-  justify-content: center;
-  max-width: 100%;
-}
-
-.crossword-empty {
-  width: 100%;
-  height: var(--side);
-}
-
-.crossword-cell {
-  position: relative;
-  width: 100%;
-  height: var(--side);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface-2);
-  font-size: calc(var(--side) * 0.52);
-  font-weight: 700;
-  line-height: 1;
-  text-transform: uppercase;
-  transition: background var(--time-tap) ease-out, border-color var(--time-tap) ease-out;
-}
-
-.crossword-number {
-  position: absolute;
-  top: 1px;
-  left: 2px;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--muted);
-}
-
-/* The chosen entry is highlighted whole, and the cell under the cursor even more. */
-.crossword-cell.selected {
-  border-color: var(--info);
-  background: #232d3a;
-}
-
-.crossword-cell.active {
-  background: var(--info);
-  color: var(--on-accent);
-}
-
-.crossword-cell.correct {
-  border-color: var(--know);
-  color: var(--know);
-}
-
-.crossword-cell.wrong {
-  border-color: var(--dont-know);
-  color: var(--dont-know);
-}
-
-.crossword-cell.active.correct,
-.crossword-cell.active.wrong {
-  color: var(--on-accent);
-}
-
-/* Letters: the Polish meaning at the top, below it places for the answer letters, at the bottom scattered tiles. */
-.letters-meaning {
-  overflow-wrap: anywhere;
-}
-
-.letters-answer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  min-height: 48px;
-}
-
-.letters-slot {
-  min-width: 38px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border-bottom: 3px solid var(--line);
-  border-radius: 10px 10px 4px 4px;
-  background: var(--surface);
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.letters-slot.full {
-  border-bottom-color: var(--info);
-}
-
-.letters-answer.success .letters-slot {
-  border-bottom-color: var(--know);
-  color: var(--know);
-  animation: letters-success var(--time-micro) var(--ease-celebrate);
-}
-
-@keyframes letters-success {
-  0% {
-    transform: scale(1);
-  }
-  45% {
-    transform: scale(1.12);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Tiles: touch target min. 44 px, one or two rows. */
-.letters-tiles {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.tile {
-  position: relative;
-  min-width: 46px;
-  min-height: 46px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1;
-  transition: transform var(--time-tap) ease-out, opacity var(--time-tap) ease-out;
-}
-
-.tile:active {
-  transform: scale(0.94);
-}
-
-.tile.used {
-  opacity: 0.25;
-}
-
-/* An error without penalty: only the tiles shake, the answer stays to be fixed. */
-.letters-tiles.shake {
-  animation: shake 260ms var(--ease-in);
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-7px);
-  }
-  40% {
-    transform: translateX(7px);
-  }
-  60% {
-    transform: translateX(-4px);
-  }
-  80% {
-    transform: translateX(4px);
-  }
-}
-
 /* Decks in the menu (H): the name with numbers, the switch "study this deck" and removing a whole deck. */
 .deck-row {
   display: grid;
@@ -1935,14 +1767,6 @@ p {
   }
   .tutorial-arrow {
     font-size: 26px;
-  }
-  .letters-slot {
-    min-width: 34px;
-    height: 42px;
-    font-size: 21px;
-  }
-  .letters-answer {
-    min-height: 42px;
   }
 }
 
@@ -2001,15 +1825,6 @@ p {
   .mini-track i,
   .toggle::after {
     transition-duration: 80ms;
-  }
-  /* Games: success and error stay as color, the movement goes away (I). */
-  .letters-answer.success .letters-slot,
-  .letters-tiles.shake {
-    animation-name: no-motion;
-    animation-duration: 80ms;
-  }
-  .tile:active {
-    transform: none;
   }
 }
 
