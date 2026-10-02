@@ -1,0 +1,250 @@
+bedroom	A1	noun
+bathroom	A1	noun
+door	A1	noun
+window	A1	noun
+wall	A1	noun
+floor	A1	noun
+table	A1	noun
+chair	A1	noun
+bed	A1	noun
+sofa	A1	noun
+garden	A1	noun
+flat	A1	noun
+apartment	A1	noun
+street	A1	noun
+road	A1	noun
+city	A1	noun
+town	A1	noun
+village	A1	noun
+country	A1	noun
+place	A1	noun
+bank	A1	noun
+hospital	A1	noun
+hotel	A1	noun
+station	A1	noun
+airport	A1	noun
+park	A1	noun
+beach	A1	noun
+museum	A1	noun
+cinema	A1	noun
+library	A1	noun
+office	A1	noun
+car	A1	noun
+bus	A1	noun
+train	A1	noun
+plane	A1	noun
+bike	A1	noun
+bicycle	A1	noun
+taxi	A1	noun
+boat	A1	noun
+ticket	A1	noun
+holiday	A1	noun
+trip	A1	noun
+map	A1	noun
+morning	A1	noun
+afternoon	A1	noun
+evening	A1	noun
+night	A1	noun
+week	A1	noun
+month	A1	noun
+weekend	A1	noun
+hour	A1	noun
+minute	A1	noun
+second	A1	noun, number
+today	A1	adverb, noun
+tomorrow	A1	adverb, noun
+yesterday	A1	adverb, noun
+now	A1	adverb
+then	A1	adverb
+later	A1	adverb
+soon	A1	adverb
+always	A1	adverb
+never	A1	adverb
+often	A1	adverb
+sometimes	A1	adverb
+usually	A1	adverb
+again	A1	adverb
+already	A1	adverb
+also	A1	adverb
+too	A1	adverb
+very	A1	adverb
+really	A1	adverb
+here	A1	adverb
+there	A1	adverb, pronoun
+well	A1	adverb, adjective, exclamation
+only	A1	adverb, adjective
+just	A1	adverb
+still	A1	adverb
+even	A1	adverb
+so	A1	adverb, conjunction
+because	A1	conjunction
+if	A1	conjunction
+than	A1	conjunction, preposition
+before	A1	preposition, conjunction, adverb
+after	A1	preposition, conjunction, adverb
+up	A1	adverb, preposition
+down	A1	adverb, preposition
+out	A1	adverb
+over	A1	preposition, adverb
+under	A1	preposition
+into	A1	preposition
+near	A1	preposition, adjective
+behind	A1	preposition
+between	A1	preposition
+around	A1	preposition, adverb
+through	A1	preposition
+until	A1	preposition, conjunction
+during	A1	preposition
+without	A1	preposition
+together	A1	adverb
+all	A1	determiner, pronoun
+some	A1	determiner, pronoun
+any	A1	determiner, pronoun
+many	A1	determiner, pronoun
+much	A1	determiner, pronoun, adverb
+more	A1	determiner, adverb
+most	A1	determiner, adverb
+every	A1	determiner
+each	A1	determiner, pronoun
+other	A1	adjective, pronoun
+another	A1	determiner, pronoun
+both	A1	determiner, pronoun
+few	A1	determiner
+lot	A1	pronoun
+something	A1	pronoun
+anything	A1	pronoun
+nothing	A1	pronoun
+everything	A1	pronoun
+someone	A1	pronoun
+anyone	A1	pronoun
+everyone	A1	pronoun
+somebody	A1	pronoun
+nobody	A1	pronoun
+one	A1	number, pronoun
+two	A1	number
+three	A1	number
+four	A1	number
+five	A1	number
+six	A1	number
+seven	A1	number
+eight	A1	number
+nine	A1	number
+ten	A1	number
+eleven	A1	number
+twelve	A1	number
+thirteen	A1	number
+fourteen	A1	number
+fifteen	A1	number
+sixteen	A1	number
+seventeen	A1	number
+eighteen	A1	number
+nineteen	A1	number
+twenty	A1	number
+thirty	A1	number
+forty	A1	number
+fifty	A1	number
+sixty	A1	number
+seventy	A1	number
+eighty	A1	number
+ninety	A1	number
+hundred	A1	number
+thousand	A1	number
+million	A1	number
+first	A1	number, adverb
+third	A1	number
+last	A1	determiner, adverb
+next	A1	adjective
+half	A1	noun
+good	A1	adjective
+bad	A1	adjective
+big	A1	adjective
+small	A1	adjective
+little	A1	adjective, determiner
+new	A1	adjective
+old	A1	adjective
+young	A1	adjective
+long	A1	adjective
+short	A1	adjective
+high	A1	adjective
+low	A1	adjective
+great	A1	adjective
+nice	A1	adjective
+happy	A1	adjective
+sad	A1	adjective
+hot	A1	adjective
+cold	A1	adjective, noun
+warm	A1	adjective
+cool	A1	adjective
+right	A1	adjective, adverb
+wrong	A1	adjective
+easy	A1	adjective
+difficult	A1	adjective
+hard	A1	adjective, adverb
+fast	A1	adjective, adverb
+slow	A1	adjective
+early	A1	adjective, adverb
+late	A1	adjective, adverb
+beautiful	A1	adjective
+pretty	A1	adjective, adverb
+ugly	A1	adjective
+tall	A1	adjective
+fat	A1	adjective
+thin	A1	adjective
+rich	A1	adjective
+poor	A1	adjective
+cheap	A1	adjective
+expensive	A1	adjective
+free	A1	adjective
+busy	A1	adjective
+tired	A1	adjective
+hungry	A1	adjective
+thirsty	A1	adjective
+ill	A1	adjective
+sick	A1	adjective
+fine	A1	adjective
+ready	A1	adjective
+sure	A1	adjective
+favourite	A1	adjective
+different	A1	adjective
+same	A1	adjective
+important	A1	adjective
+interesting	A1	adjective
+boring	A1	adjective
+funny	A1	adjective
+popular	A1	adjective
+famous	A1	adjective
+friendly	A1	adjective
+kind	A1	adjective, noun
+quiet	A1	adjective
+loud	A1	adjective
+dark	A1	adjective
+light	A1	noun, adjective
+full	A1	adjective
+empty	A1	adjective
+dirty	A1	adjective
+true	A1	adjective
+real	A1	adjective
+best	A1	adjective, adverb
+better	A1	adjective, adverb
+lovely	A1	adjective
+wonderful	A1	adjective
+excellent	A1	adjective
+amazing	A1	adjective
+terrible	A1	adjective
+delicious	A1	adjective
+healthy	A1	adjective
+dangerous	A1	adjective
+safe	A1	adjective
+strong	A1	adjective
+weak	A1	adjective
+married	A1	adjective
+single	A1	adjective
+alone	A1	adjective, adverb
+red	A1	adjective, noun
+blue	A1	adjective, noun
+green	A1	adjective, noun
+yellow	A1	adjective, noun
+black	A1	adjective, noun
+white	A1	adjective, noun
+brown	A1	adjective, noun
+grey	A1	adjective, noun

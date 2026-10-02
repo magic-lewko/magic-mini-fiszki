@@ -34,3 +34,17 @@ test('grade labels and swipes have a tone, icon and direction', () => {
   assert.deepEqual(Object.keys(t.SWIPES), ['right', 'left', 'up', 'down'])
   assert.equal(t.STUDY_RULES.length, 7)
 })
+
+test('markWord finds the studied word with an ending, irregular forms stay unmarked', () => {
+  const match = (sentence, word) => t.markWord(sentence, word).match
+  assert.equal(match('Where did you get that bag?', 'get'), 'get')
+  assert.equal(match('We are making dinner.', 'make'), 'making')
+  assert.equal(match('She studied hard.', 'study'), 'studied')
+  assert.equal(match('I was running late.', 'run'), 'running')
+  assert.equal(match('Sets of cups.', 'set'), 'Sets')
+  assert.equal(match('I love ice cream!', 'ice cream'), 'ice cream')
+  assert.deepEqual(t.markWord('I got it.', 'get'), { before: 'I got it.', match: '', after: '' })
+  assert.equal(match('The asset is big.', 'set'), '')
+  const parts = t.markWord('We are making dinner.', 'make')
+  assert.equal(parts.before + parts.match + parts.after, 'We are making dinner.')
+})

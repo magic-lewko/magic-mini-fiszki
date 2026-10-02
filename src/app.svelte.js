@@ -342,6 +342,7 @@ function showCard() {
   const cardData = {
     word,
     direction,
+    front: direction === 'en' ? study.frontMeaning(word, state.karty[key]?.powtorki || 0) : null,
     isNew: study.isNew(state.karty[key]),
     training: session.training,
     tip: cardsWithTip < CARDS_WITH_TIP,
@@ -874,6 +875,59 @@ export async function removeDeck(name) {
   } else if (ui.screen === 'home') {
     showHome()
   }
+}
+
+// The built-in deck: 5000 words from A1 to C1, made for this app (deck/ in the repo). It is not in the service worker
+// cache, so an app update does not download it again: it comes from the network only on "Reload words" and then
+// lives in IndexedDB like any deck.
+const BUILT_IN_DECK_URL = `${import.meta.env.BASE_URL}deck.json`
+
+// "Reload words": the built-in deck replaces all decks and progress starts again. Settings and removed words stay,
+// and the current state is kept as the emergency copy, like before loading a backup.
+export async function reloadWords() {
+  const hasProgress = words.length > 0 || Object.keys(state.karty).length > 0
+  if (
+    hasProgress &&
+    !confirm(
+      'Load the 5000 words deck again? All decks and all progress (cards, history, streak) will be reset. ' +
+        'Settings and removed words stay. The current state is kept as an emergency copy on the phone.',
+    )
+  )
+    return
+  let parsed
+  try {
+    const response = await fetch(BUILT_IN_DECK_URL, { cache: 'no-cache' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    parsed = parsePasted(await response.text())
+  } catch (error) {
+    toast(`Could not download the words: ${errorText(error)}. Check the internet connection.`, 'error')
+    return
+  }
+  if (parsed.generalError || !parsed.words.length) {
+    toast(`The words file is broken: ${parsed.generalError || 'no words'}.`, 'error')
+    return
+  }
+  try {
+    storage.keepBeforeLoad()
+  } catch (error) {
+    if (!confirm(`Could not make an emergency copy of the current state (${errorText(error)}). Reload anyway?`)) return
+  }
+  const library = { words: parsed.words, decks: addDeck([], { name: parsed.name, source: parsed.source }) }
+  try {
+    await database.saveLibrary(library)
+  } catch (error) {
+    toast(`Could not save the words: ${errorText(error)}. Nothing changed.`, 'error')
+    return
+  }
+  libraryLoaded = true
+  setLibrary(library)
+  state = storage.resetProgress(state)
+  saveState()
+  forgetUndo()
+  closeMenu()
+  closeAddWords()
+  showHome()
+  toast(`Loaded ${count(parsed.words.length, 'word', 'words')}. Remove the ones you know in Menu > Words.`, 'important')
 }
 
 // The word list: actions on a single word.

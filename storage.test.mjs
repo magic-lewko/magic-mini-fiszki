@@ -738,3 +738,30 @@ test('turned off decks are an optional field: an old save gives an empty list, a
   storage.setItem(st.KEY, JSON.stringify(saved))
   assert.deepEqual(st.load(storage).state.ustawienia.wylaczoneTalie, ['Untitled', 'Oxford 3000'])
 })
+
+test('reload words: progress goes, settings and removed words stay', () => {
+  const now = new Date(2026, 9, 2, 12, 0)
+  const state = {
+    ...st.defaultState(now),
+    karty: { 'get|en': { stan: 'powtorka' } },
+    pominiete: { apple: '2026-10-02' },
+    expRazem: 500,
+    streak: { ...EMPTY_STREAK, dni: 12, ostatniDzien: '2026-10-01' },
+    historia: { '2026-10-01': { oceny: 40 } },
+    zgloszenia: [{ id: 'get', w: 'get', pl: 'x', kiedy: '' }],
+    ustawienia: { ...st.defaultState(now).ustawienia, noweDziennie: 20, wylaczoneTalie: ['Old'] },
+    ostatniaKopia: '2026-09-30',
+  }
+  const fresh = st.resetProgress(state, now)
+  assert.deepEqual(fresh.karty, {})
+  assert.deepEqual(fresh.historia, {})
+  assert.deepEqual(fresh.zgloszenia, [])
+  assert.equal(fresh.expRazem, 0)
+  assert.equal(fresh.streak.dni, 0)
+  assert.deepEqual(fresh.pominiete, { apple: '2026-10-02' })
+  assert.equal(fresh.ustawienia.noweDziennie, 20)
+  assert.deepEqual(fresh.ustawienia.wylaczoneTalie || [], [])
+  assert.equal(fresh.ostatniaKopia, '2026-09-30')
+  assert.equal(fresh.rozproszono, 1)
+  assert.ok(st.validateState(st.packState(fresh, now), now).ok)
+})

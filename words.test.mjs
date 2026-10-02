@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { nowaKarta as newFsrsCard } from './lib/fsrs.mjs'
-import { merge, parsePasted } from './src/words.js'
+import { merge, normalizeWord, parsePasted } from './src/words.js'
 import { buildSession } from './src/study.js'
 
 const now = new Date(2026, 8, 15, 9, 0)
@@ -157,4 +157,26 @@ test('a big deck (6000 words) parses and merges fast', () => {
   assert.equal(result.added, 3000)
   assert.equal(result.unchanged, 3000)
   assert.ok(ms < 2000)
+})
+
+test('meanings: a list from two meanings, empty fields dropped, merge sees a change', () => {
+  const raw = {
+    w: 'get',
+    pl: 'dostać; dotrzeć',
+    znaczenia: [
+      { pl: 'dostać', zdanie: 'I got a letter.', zdaniePl: 'Dostałem list.' },
+      { pl: 'dotrzeć', zdanie: ' We got home late. ', zdaniePl: '' },
+      { pl: '', zdanie: 'no translation, dropped' },
+      'not an object',
+    ],
+  }
+  const { word } = normalizeWord(raw)
+  assert.deepEqual(word.znaczenia, [
+    { pl: 'dostać', zdanie: 'I got a letter.', zdaniePl: 'Dostałem list.' },
+    { pl: 'dotrzeć', zdanie: 'We got home late.' },
+  ])
+  assert.equal(normalizeWord({ w: 'cat', pl: 'kot', znaczenia: [{ pl: 'kot' }] }).word.znaczenia, undefined)
+  const changed = { ...word, znaczenia: [word.znaczenia[0], { pl: 'stawać się', zdanie: 'It got dark.' }] }
+  assert.equal(merge([word], [changed]).updated, 1)
+  assert.equal(merge([word], [word]).unchanged, 1)
 })

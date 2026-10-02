@@ -27,12 +27,14 @@ const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application
 const EXAMPLE = join(ROOT, 'data', 'example.json')
 // Engine scenarios (interference, review cap, leeches) need a big deck, and it stays local.
 const OXFORD = process.env.MMF_DECK || join(ROOT, 'talie', 'oxford3000.json')
+const BUILT_IN_DECK = join(ROOT, 'src', 'public', 'deck.json')
 const N = JSON.parse(readFileSync(EXAMPLE, 'utf8')).slowa.length
 
 for (const [what, path] of [
   ['Chrome', CHROME],
   ['the built app - run "npm run build"', join(ROOT, 'dist')],
   ['the Oxford 3000 deck - take it from a backup or build it with talie/zrodla', OXFORD],
+  ['the built-in deck - run "node deck/build.mjs"', BUILT_IN_DECK],
 ]) {
   if (existsSync(path)) continue
   console.error(`Missing ${what}: ${path}`)
@@ -266,8 +268,8 @@ const GRADE_BUTTONS = [
 ]
 const gradeButtonsOk = (list) =>
   list.length === GRADE_BUTTONS.length && GRADE_BUTTONS.every(([id, label], i) => list[i].id === id && list[i].text.endsWith(label) && list[i].onScreen && list[i].height >= 44)
-// Information the card does not show any more: only the word, the translation and the speaker stay.
-const HIDDEN_INFO = ['.ipa', '.chips', '.chip', '.sentence', '.sentence-pl', '.tip', '.training-mark', '#hint-field', '#hint-button']
+// Information the card does not show any more: the word, the translation, example sentences and the speaker stay.
+const HIDDEN_INFO = ['.ipa', '.chips', '.chip', '.tip', '.training-mark', '#hint-field', '#hint-button']
 const extraInfo = () => js(`${JSON.stringify(HIDDEN_INFO)}.filter((s) => document.querySelector('#card ' + s) || document.querySelector(s))`)
 
 const cardState = () =>
@@ -458,7 +460,7 @@ try {
   const cardBefore = await js(`document.getElementById('card').innerText`)
   check('card: no label "WHAT DOES IT MEAN?"', !/what does it mean/i.test(cardBefore), cardBefore.replace(/\n+/g, ' | '))
   check('card: no caption "Tap to reveal"', !cardBefore.includes('Tap to reveal'), cardBefore.replace(/\n+/g, ' | '))
-  check('card: no IPA, sentences, chips, tips or hints', (await extraInfo()).length === 0, JSON.stringify(await extraInfo()))
+  check('card: no IPA, chips, tips or hints', (await extraInfo()).length === 0, JSON.stringify(await extraInfo()))
   check('card: the speaker stays', await js(`!!document.querySelector('#card .speaker')`))
   check('card: no sideways or vertical scrolling', (await scrollsSideways()) === '' && (await fits('#card')))
   // The toast from the previous step goes away by itself after 3.5 s; screenshots must show only the study screen.
@@ -1369,6 +1371,50 @@ try {
   await waitForFreshCard()
   await tap('#grade-yes')
   check('save v3: the Polish habit anchor reads as the English one', await waitFor(`JSON.parse(localStorage.getItem('mmf-v1')).ustawienia.kotwica === 'after coffee'`, 4000), (await saved()).ustawienia.kotwica)
+
+  // ---------------------------------------------------------------------------------------------
+  // Reload words: the built-in deck replaces all decks, progress starts again, removed words stay
+  // ---------------------------------------------------------------------------------------------
+  const builtIn = JSON.parse(readFileSync(BUILT_IN_DECK, 'utf8'))
+  await key('Escape')
+  await waitFor(`!document.getElementById('card')`, 4000)
+  await js(`window.confirm = (text) => { window.__reloadQuestion = text; return true }`)
+  await openMenu()
+  await js(`document.getElementById('reload-words').click(); 1`)
+  check('reload words: asks first and says that progress is reset', await waitFor(`/reset/.test(String(window.__reloadQuestion || ''))`, 4000), String(await js(`window.__reloadQuestion`)))
+  check('reload words: says how many words were loaded', await waitFor(`/Loaded \\d+ words/.test(document.getElementById('toast').textContent)`, 10000), await toastText())
+  const t6 = await library()
+  check(
+    'reload words: the built-in deck is the only deck',
+    t6.slowa.length === builtIn.slowa.length && t6.talie.length === 1 && t6.talie[0].nazwa === builtIn.nazwa,
+    `${t6.slowa.length} words, decks ${JSON.stringify(t6.talie.map((d) => d.nazwa))}`,
+  )
+  const afterReload = await saved()
+  check(
+    'reload words: cards, points and history reset, removed words and settings stay',
+    Object.keys(afterReload.karty).length === 0 && afterReload.exp === 0 && Object.keys(afterReload.historia).length === 0 && afterReload.pominiete[IDS[500]] === yesterdayDate && afterReload.ustawienia.noweDziennie === 10,
+    JSON.stringify({ cards: Object.keys(afterReload.karty).length, exp: afterReload.exp, skipped: afterReload.pominiete }),
+  )
+  check('reload words: the previous state is kept as the emergency copy', await js(`JSON.parse(localStorage.getItem('mmf-v1-przed-wczytaniem') || '{}').exp >= 25140`))
+
+  // A word with different meanings: one sentence on the front, the list of meanings after revealing.
+  const many = builtIn.slowa.find((w) => w.znaczenia?.length > 1)
+  check('built-in deck: has words with different meanings', !!many)
+  if (many) {
+    await setSave({ karty: { [many.id]: [savedCard({ due: inMinutes(-60) })] } })
+    // With something due the app opens straight on a card.
+    await waitFor(`!!document.getElementById('card')`)
+    await waitForFreshCard()
+    check('meanings: the front shows one sentence with the word', await js(`!!document.getElementById('front-sentence')?.textContent.trim()`), await js(`document.getElementById('card').innerText`))
+    await key(' ')
+    check(
+      'meanings: after revealing, all meanings with sentences',
+      await waitFor(`document.querySelectorAll('#meanings .meaning').length === ${many.znaczenia.length} && document.getElementById('card').classList.contains('revealed')`),
+      await js(`document.getElementById('card').innerText`),
+    )
+    await screenshot('meanings')
+    await key('Escape')
+  }
 
   check('no JS errors in the console', consoleErrors.length === 0, consoleErrors.join(' | '))
 } catch (error) {

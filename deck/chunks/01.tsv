@@ -1,0 +1,250 @@
+the	A1	determiner
+a	A1	determiner
+an	A1	determiner
+be	A1	verb, auxiliary verb
+have	A1	verb, auxiliary verb
+do	A1	verb, auxiliary verb
+and	A1	conjunction
+or	A1	conjunction
+but	A1	conjunction
+of	A1	preposition
+to	A1	preposition
+in	A1	preposition, adverb
+on	A1	preposition, adverb
+at	A1	preposition
+for	A1	preposition
+with	A1	preposition
+from	A1	preposition
+by	A1	preposition
+about	A1	preposition, adverb
+I	A1	pronoun
+you	A1	pronoun
+he	A1	pronoun
+she	A1	pronoun
+it	A1	pronoun
+we	A1	pronoun
+they	A1	pronoun
+me	A1	pronoun
+him	A1	pronoun
+her	A1	pronoun, determiner
+us	A1	pronoun
+them	A1	pronoun
+my	A1	determiner
+your	A1	determiner
+his	A1	determiner, pronoun
+its	A1	determiner
+our	A1	determiner
+their	A1	determiner
+mine	A1	pronoun
+yours	A1	pronoun
+this	A1	determiner, pronoun
+that	A1	determiner, pronoun, conjunction
+these	A1	determiner, pronoun
+those	A1	determiner, pronoun
+what	A1	pronoun, determiner
+who	A1	pronoun
+where	A1	adverb
+when	A1	adverb, conjunction
+why	A1	adverb
+how	A1	adverb
+which	A1	pronoun, determiner
+not	A1	adverb
+no	A1	determiner, exclamation
+yes	A1	exclamation
+can	A1	modal verb
+will	A1	modal verb
+would	A1	modal verb
+could	A1	modal verb
+should	A1	modal verb
+must	A1	modal verb
+go	A1	verb
+get	A1	verb
+make	A1	verb
+know	A1	verb
+think	A1	verb
+see	A1	verb
+come	A1	verb
+want	A1	verb
+look	A1	verb, noun
+use	A1	verb, noun
+find	A1	verb
+give	A1	verb
+tell	A1	verb
+work	A1	verb, noun
+say	A1	verb
+take	A1	verb
+like	A1	verb, preposition
+need	A1	verb
+feel	A1	verb
+try	A1	verb
+leave	A1	verb
+call	A1	verb, noun
+ask	A1	verb
+help	A1	verb, noun
+put	A1	verb
+mean	A1	verb
+keep	A1	verb
+let	A1	verb
+begin	A1	verb
+start	A1	verb, noun
+show	A1	verb, noun
+hear	A1	verb
+play	A1	verb, noun
+run	A1	verb
+live	A1	verb
+bring	A1	verb
+happen	A1	verb
+write	A1	verb
+sit	A1	verb
+stand	A1	verb
+lose	A1	verb
+pay	A1	verb
+meet	A1	verb
+learn	A1	verb
+change	A1	verb, noun
+understand	A1	verb
+watch	A1	verb, noun
+stop	A1	verb
+speak	A1	verb
+read	A1	verb
+spend	A1	verb
+open	A1	verb, adjective
+walk	A1	verb, noun
+win	A1	verb
+buy	A1	verb
+wait	A1	verb
+love	A1	verb, noun
+eat	A1	verb
+drink	A1	verb, noun
+sleep	A1	verb, noun
+cook	A1	verb, noun
+swim	A1	verb
+drive	A1	verb
+sing	A1	verb
+dance	A1	verb, noun
+draw	A1	verb
+listen	A1	verb
+answer	A1	verb, noun
+close	A1	verb
+finish	A1	verb
+study	A1	verb, noun
+travel	A1	verb, noun
+visit	A1	verb, noun
+wash	A1	verb
+clean	A1	verb, adjective
+wear	A1	verb
+sell	A1	verb
+send	A1	verb
+fly	A1	verb
+ride	A1	verb
+jump	A1	verb
+carry	A1	verb
+cry	A1	verb
+laugh	A1	verb
+smile	A1	verb, noun
+remember	A1	verb
+forget	A1	verb
+hope	A1	verb, noun
+choose	A1	verb
+practise	A1	verb
+repeat	A1	verb
+spell	A1	verb
+hate	A1	verb
+enjoy	A1	verb
+prefer	A1	verb
+arrive	A1	verb
+stay	A1	verb
+move	A1	verb
+turn	A1	verb
+fall	A1	verb
+teach	A1	verb
+plan	A1	noun, verb
+book	A1	noun, verb
+time	A1	noun
+year	A1	noun
+people	A1	noun
+person	A1	noun
+way	A1	noun
+day	A1	noun
+man	A1	noun
+woman	A1	noun
+child	A1	noun
+boy	A1	noun
+girl	A1	noun
+baby	A1	noun
+thing	A1	noun
+life	A1	noun
+world	A1	noun
+house	A1	noun
+home	A1	noun, adverb
+family	A1	noun
+friend	A1	noun
+school	A1	noun
+student	A1	noun
+teacher	A1	noun
+class	A1	noun
+lesson	A1	noun
+word	A1	noun
+name	A1	noun
+question	A1	noun
+example	A1	noun
+mother	A1	noun
+father	A1	noun
+parent	A1	noun
+brother	A1	noun
+sister	A1	noun
+son	A1	noun
+daughter	A1	noun
+husband	A1	noun
+wife	A1	noun
+grandmother	A1	noun
+grandfather	A1	noun
+aunt	A1	noun
+uncle	A1	noun
+cousin	A1	noun
+mum	A1	noun
+dad	A1	noun
+water	A1	noun
+food	A1	noun
+breakfast	A1	noun
+lunch	A1	noun
+dinner	A1	noun
+meal	A1	noun
+bread	A1	noun
+milk	A1	noun
+coffee	A1	noun
+tea	A1	noun
+juice	A1	noun
+egg	A1	noun
+cheese	A1	noun
+butter	A1	noun
+meat	A1	noun
+chicken	A1	noun
+fish	A1	noun
+rice	A1	noun
+pasta	A1	noun
+soup	A1	noun
+salad	A1	noun
+sandwich	A1	noun
+pizza	A1	noun
+cake	A1	noun
+chocolate	A1	noun
+fruit	A1	noun
+apple	A1	noun
+banana	A1	noun
+orange	A1	noun, adjective
+potato	A1	noun
+tomato	A1	noun
+vegetable	A1	noun
+sugar	A1	noun
+salt	A1	noun
+ice cream	A1	noun
+restaurant	A1	noun
+cafe	A1	noun
+shop	A1	noun, verb
+supermarket	A1	noun
+market	A1	noun
+money	A1	noun
+price	A1	noun
+room	A1	noun
+kitchen	A1	noun

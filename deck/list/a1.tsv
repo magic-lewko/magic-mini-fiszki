@@ -1,0 +1,841 @@
+the	determiner
+a	determiner
+an	determiner
+be	verb, auxiliary verb
+have	verb, auxiliary verb
+do	verb, auxiliary verb
+and	conjunction
+or	conjunction
+but	conjunction
+of	preposition
+to	preposition
+in	preposition, adverb
+on	preposition, adverb
+at	preposition
+for	preposition
+with	preposition
+from	preposition
+by	preposition
+about	preposition, adverb
+I	pronoun
+you	pronoun
+he	pronoun
+she	pronoun
+it	pronoun
+we	pronoun
+they	pronoun
+me	pronoun
+him	pronoun
+her	pronoun, determiner
+us	pronoun
+them	pronoun
+my	determiner
+your	determiner
+his	determiner, pronoun
+its	determiner
+our	determiner
+their	determiner
+mine	pronoun
+yours	pronoun
+this	determiner, pronoun
+that	determiner, pronoun, conjunction
+these	determiner, pronoun
+those	determiner, pronoun
+what	pronoun, determiner
+who	pronoun
+where	adverb
+when	adverb, conjunction
+why	adverb
+how	adverb
+which	pronoun, determiner
+not	adverb
+no	determiner, exclamation
+yes	exclamation
+can	modal verb
+will	modal verb
+would	modal verb
+could	modal verb
+should	modal verb
+must	modal verb
+go	verb
+get	verb
+make	verb
+know	verb
+think	verb
+see	verb
+come	verb
+want	verb
+look	verb, noun
+use	verb, noun
+find	verb
+give	verb
+tell	verb
+work	verb, noun
+say	verb
+take	verb
+like	verb, preposition
+need	verb
+feel	verb
+try	verb
+leave	verb
+call	verb, noun
+ask	verb
+help	verb, noun
+put	verb
+mean	verb
+keep	verb
+let	verb
+begin	verb
+start	verb, noun
+show	verb, noun
+hear	verb
+play	verb, noun
+run	verb
+live	verb
+bring	verb
+happen	verb
+write	verb
+sit	verb
+stand	verb
+lose	verb
+pay	verb
+meet	verb
+learn	verb
+change	verb, noun
+understand	verb
+watch	verb, noun
+stop	verb
+speak	verb
+read	verb
+spend	verb
+open	verb, adjective
+walk	verb, noun
+win	verb
+buy	verb
+wait	verb
+love	verb, noun
+eat	verb
+drink	verb, noun
+sleep	verb, noun
+cook	verb, noun
+swim	verb
+drive	verb
+sing	verb
+dance	verb, noun
+draw	verb
+listen	verb
+answer	verb, noun
+close	verb
+finish	verb
+study	verb, noun
+travel	verb, noun
+visit	verb, noun
+wash	verb
+clean	verb, adjective
+wear	verb
+sell	verb
+send	verb
+fly	verb
+ride	verb
+jump	verb
+carry	verb
+cry	verb
+laugh	verb
+smile	verb, noun
+remember	verb
+forget	verb
+hope	verb, noun
+choose	verb
+practise	verb
+repeat	verb
+spell	verb
+hate	verb
+enjoy	verb
+prefer	verb
+arrive	verb
+stay	verb
+move	verb
+turn	verb
+fall	verb
+teach	verb
+plan	noun, verb
+book	noun, verb
+time	noun
+year	noun
+people	noun
+person	noun
+way	noun
+day	noun
+man	noun
+woman	noun
+child	noun
+boy	noun
+girl	noun
+baby	noun
+thing	noun
+life	noun
+world	noun
+house	noun
+home	noun, adverb
+family	noun
+friend	noun
+school	noun
+student	noun
+teacher	noun
+class	noun
+lesson	noun
+word	noun
+name	noun
+question	noun
+example	noun
+mother	noun
+father	noun
+parent	noun
+brother	noun
+sister	noun
+son	noun
+daughter	noun
+husband	noun
+wife	noun
+grandmother	noun
+grandfather	noun
+aunt	noun
+uncle	noun
+cousin	noun
+mum	noun
+dad	noun
+water	noun
+food	noun
+breakfast	noun
+lunch	noun
+dinner	noun
+meal	noun
+bread	noun
+milk	noun
+coffee	noun
+tea	noun
+juice	noun
+egg	noun
+cheese	noun
+butter	noun
+meat	noun
+chicken	noun
+fish	noun
+rice	noun
+pasta	noun
+soup	noun
+salad	noun
+sandwich	noun
+pizza	noun
+cake	noun
+chocolate	noun
+fruit	noun
+apple	noun
+banana	noun
+orange	noun, adjective
+potato	noun
+tomato	noun
+vegetable	noun
+sugar	noun
+salt	noun
+ice cream	noun
+restaurant	noun
+cafe	noun
+shop	noun, verb
+supermarket	noun
+market	noun
+money	noun
+price	noun
+room	noun
+kitchen	noun
+bedroom	noun
+bathroom	noun
+door	noun
+window	noun
+wall	noun
+floor	noun
+table	noun
+chair	noun
+bed	noun
+sofa	noun
+garden	noun
+flat	noun
+apartment	noun
+street	noun
+road	noun
+city	noun
+town	noun
+village	noun
+country	noun
+place	noun
+bank	noun
+hospital	noun
+hotel	noun
+station	noun
+airport	noun
+park	noun
+beach	noun
+museum	noun
+cinema	noun
+library	noun
+office	noun
+car	noun
+bus	noun
+train	noun
+plane	noun
+bike	noun
+bicycle	noun
+taxi	noun
+boat	noun
+ticket	noun
+holiday	noun
+trip	noun
+map	noun
+morning	noun
+afternoon	noun
+evening	noun
+night	noun
+week	noun
+month	noun
+weekend	noun
+hour	noun
+minute	noun
+second	noun, number
+today	adverb, noun
+tomorrow	adverb, noun
+yesterday	adverb, noun
+now	adverb
+then	adverb
+later	adverb
+soon	adverb
+always	adverb
+never	adverb
+often	adverb
+sometimes	adverb
+usually	adverb
+again	adverb
+already	adverb
+also	adverb
+too	adverb
+very	adverb
+really	adverb
+here	adverb
+there	adverb, pronoun
+well	adverb, adjective, exclamation
+only	adverb, adjective
+just	adverb
+still	adverb
+even	adverb
+so	adverb, conjunction
+because	conjunction
+if	conjunction
+than	conjunction, preposition
+before	preposition, conjunction, adverb
+after	preposition, conjunction, adverb
+up	adverb, preposition
+down	adverb, preposition
+out	adverb
+over	preposition, adverb
+under	preposition
+into	preposition
+near	preposition, adjective
+behind	preposition
+between	preposition
+around	preposition, adverb
+through	preposition
+until	preposition, conjunction
+during	preposition
+without	preposition
+together	adverb
+all	determiner, pronoun
+some	determiner, pronoun
+any	determiner, pronoun
+many	determiner, pronoun
+much	determiner, pronoun, adverb
+more	determiner, adverb
+most	determiner, adverb
+every	determiner
+each	determiner, pronoun
+other	adjective, pronoun
+another	determiner, pronoun
+both	determiner, pronoun
+few	determiner
+lot	pronoun
+something	pronoun
+anything	pronoun
+nothing	pronoun
+everything	pronoun
+someone	pronoun
+anyone	pronoun
+everyone	pronoun
+somebody	pronoun
+nobody	pronoun
+one	number, pronoun
+two	number
+three	number
+four	number
+five	number
+six	number
+seven	number
+eight	number
+nine	number
+ten	number
+eleven	number
+twelve	number
+thirteen	number
+fourteen	number
+fifteen	number
+sixteen	number
+seventeen	number
+eighteen	number
+nineteen	number
+twenty	number
+thirty	number
+forty	number
+fifty	number
+sixty	number
+seventy	number
+eighty	number
+ninety	number
+hundred	number
+thousand	number
+million	number
+first	number, adverb
+third	number
+last	determiner, adverb
+next	adjective
+half	noun
+good	adjective
+bad	adjective
+big	adjective
+small	adjective
+little	adjective, determiner
+new	adjective
+old	adjective
+young	adjective
+long	adjective
+short	adjective
+high	adjective
+low	adjective
+great	adjective
+nice	adjective
+happy	adjective
+sad	adjective
+hot	adjective
+cold	adjective, noun
+warm	adjective
+cool	adjective
+right	adjective, adverb
+wrong	adjective
+easy	adjective
+difficult	adjective
+hard	adjective, adverb
+fast	adjective, adverb
+slow	adjective
+early	adjective, adverb
+late	adjective, adverb
+beautiful	adjective
+pretty	adjective, adverb
+ugly	adjective
+tall	adjective
+fat	adjective
+thin	adjective
+rich	adjective
+poor	adjective
+cheap	adjective
+expensive	adjective
+free	adjective
+busy	adjective
+tired	adjective
+hungry	adjective
+thirsty	adjective
+ill	adjective
+sick	adjective
+fine	adjective
+ready	adjective
+sure	adjective
+favourite	adjective
+different	adjective
+same	adjective
+important	adjective
+interesting	adjective
+boring	adjective
+funny	adjective
+popular	adjective
+famous	adjective
+friendly	adjective
+kind	adjective, noun
+quiet	adjective
+loud	adjective
+dark	adjective
+light	noun, adjective
+full	adjective
+empty	adjective
+dirty	adjective
+true	adjective
+real	adjective
+best	adjective, adverb
+better	adjective, adverb
+lovely	adjective
+wonderful	adjective
+excellent	adjective
+amazing	adjective
+terrible	adjective
+delicious	adjective
+healthy	adjective
+dangerous	adjective
+safe	adjective
+strong	adjective
+weak	adjective
+married	adjective
+single	adjective
+alone	adjective, adverb
+red	adjective, noun
+blue	adjective, noun
+green	adjective, noun
+yellow	adjective, noun
+black	adjective, noun
+white	adjective, noun
+brown	adjective, noun
+grey	adjective, noun
+pink	adjective, noun
+purple	adjective, noun
+colour	noun
+body	noun
+head	noun
+face	noun
+eye	noun
+ear	noun
+nose	noun
+mouth	noun
+tooth	noun
+hair	noun
+hand	noun
+arm	noun
+leg	noun
+foot	noun
+finger	noun
+back	noun, adverb
+stomach	noun
+heart	noun
+doctor	noun
+nurse	noun
+job	noun
+police	noun
+driver	noun
+waiter	noun
+farmer	noun
+worker	noun
+actor	noun
+singer	noun
+artist	noun
+writer	noun
+engineer	noun
+manager	noun
+boss	noun
+company	noun
+business	noun
+clothes	noun
+shirt	noun
+T-shirt	noun
+dress	noun
+skirt	noun
+trousers	noun
+jeans	noun
+jacket	noun
+coat	noun
+shoe	noun
+hat	noun
+sock	noun
+bag	noun
+glasses	noun
+phone	noun
+computer	noun
+laptop	noun
+email	noun
+internet	noun
+website	noun
+online	adjective, adverb
+video	noun
+photo	noun
+picture	noun
+camera	noun
+TV	noun
+television	noun
+radio	noun
+film	noun
+movie	noun
+music	noun
+song	noun
+game	noun
+sport	noun
+football	noun
+tennis	noun
+team	noun
+ball	noun
+party	noun
+birthday	noun
+present	noun
+gift	noun
+letter	noun
+newspaper	noun
+magazine	noun
+story	noun
+page	noun
+pen	noun
+pencil	noun
+paper	noun
+notebook	noun
+dictionary	noun
+desk	noun
+board	noun
+homework	noun
+exam	noun
+test	noun
+idea	noun
+problem	noun
+number	noun
+part	noun
+end	noun
+side	noun
+top	noun
+fun	noun
+animal	noun
+dog	noun
+cat	noun
+horse	noun
+cow	noun
+pig	noun
+bird	noun
+mouse	noun
+rabbit	noun
+lion	noun
+elephant	noun
+tree	noun
+flower	noun
+plant	noun
+grass	noun
+sun	noun
+moon	noun
+star	noun
+sky	noun
+weather	noun
+rain	noun, verb
+snow	noun, verb
+wind	noun
+cloud	noun
+sea	noun
+river	noun
+lake	noun
+mountain	noun
+hill	noun
+island	noun
+forest	noun
+spring	noun
+summer	noun
+autumn	noun
+winter	noun
+Monday	noun
+Tuesday	noun
+Wednesday	noun
+Thursday	noun
+Friday	noun
+Saturday	noun
+Sunday	noun
+January	noun
+February	noun
+March	noun
+April	noun
+May	noun
+June	noun
+July	noun
+August	noun
+September	noun
+October	noun
+November	noun
+December	noun
+English	adjective, noun
+Polish	adjective, noun
+British	adjective
+American	adjective, noun
+German	adjective, noun
+French	adjective, noun
+Spanish	adjective, noun
+Italian	adjective, noun
+language	noun
+hello	exclamation
+hi	exclamation
+goodbye	exclamation
+bye	exclamation
+please	exclamation
+thanks	exclamation
+thank	verb
+sorry	adjective, exclamation
+OK	exclamation, adjective
+oh	exclamation
+key	noun
+box	noun
+bottle	noun
+cup	noun
+glass	noun
+plate	noun
+knife	noun
+fork	noun
+spoon	noun
+bowl	noun
+fridge	noun
+cooker	noun
+lamp	noun
+clock	noun
+shower	noun
+bath	noun
+toilet	noun
+towel	noun
+soap	noun
+toy	noun
+ice	noun
+fire	noun
+air	noun
+group	noun
+type	noun
+list	noun
+address	noun
+age	noun
+birth	noun
+boyfriend	noun
+girlfriend	noun
+guest	noun
+neighbour	noun
+adult	noun
+kid	noun
+hobby	noun
+tourist	noun
+passport	noun
+suitcase	noun
+north	noun, adjective
+south	noun, adjective
+east	noun, adjective
+west	noun, adjective
+left	adjective, adverb, noun
+centre	noun
+corner	noun
+bridge	noun
+building	noun
+church	noun
+castle	noun
+zoo	noun
+farm	noun
+university	noun
+college	noun
+pool	noun
+gym	noun
+club	noun
+concert	noun
+theatre	noun
+dream	noun, verb
+fact	noun
+information	noun
+message	noun
+text	noun, verb
+note	noun
+sentence	noun
+paragraph	noun
+grammar	noun
+vocabulary	noun
+meaning	noun
+mistake	noun
+point	noun
+sound	noun
+voice	noun
+noise	noun
+quick	adjective
+quickly	adverb
+slowly	adverb
+carefully	adverb
+well-known	adjective
+maybe	adverb
+perhaps	adverb
+probably	adverb
+almost	adverb
+quite	adverb
+enough	determiner, adverb
+away	adverb
+outside	adverb, preposition, noun
+inside	adverb, preposition, noun
+upstairs	adverb
+downstairs	adverb
+abroad	adverb
+everywhere	adverb
+somewhere	adverb
+anywhere	adverb
+ago	adverb
+once	adverb
+twice	adverb
+yet	adverb
+o'clock	adverb
+past	preposition, noun
+across	preposition
+along	preposition
+against	preposition
+above	preposition
+below	preposition
+opposite	preposition
+off	preposition, adverb
+per	preposition
+since	preposition, conjunction
+as	preposition, conjunction
+while	conjunction
+whose	pronoun
+whom	pronoun
+myself	pronoun
+yourself	pronoun
+himself	pronoun
+herself	pronoun
+itself	pronoun
+ourselves	pronoun
+themselves	pronoun
+hers	pronoun
+ours	pronoun
+theirs	pronoun
+none	pronoun
+wake	verb
+relax	verb
+shout	verb
+kiss	verb, noun
+hug	verb, noun
+throw	verb
+catch	verb
+climb	verb
+kick	verb
+hit	verb
+cut	verb
+break	verb
+build	verb
+paint	verb, noun
+print	verb
+download	verb
+explain	verb
+describe	verb
+agree	verb
+decide	verb
+invite	verb
+order	verb, noun
+share	verb
+join	verb
+complete	verb
+count	verb
+add	verb
+guess	verb
+improve	verb
+check	verb, noun
+fill	verb
+borrow	verb
+lend	verb
+grow	verb
+return	verb
+hurry	verb
+worry	verb
+miss	verb
+rent	verb, noun
+cost	verb, noun
+save	verb

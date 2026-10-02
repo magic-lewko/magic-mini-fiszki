@@ -571,6 +571,55 @@ p {
   color: var(--muted);
 }
 
+/* The sentence on the front of a word with different meanings, the studied word marked. */
+.front-sentence {
+  margin-top: 6px;
+}
+
+.front-sentence mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Meanings after revealing: a short list, left aligned, so 3-4 meanings fit on the card of a small phone. */
+.meanings {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 38ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.meaning {
+  padding: 6px 10px;
+  border-left: 3px solid var(--line);
+}
+
+.meaning.asked {
+  border-left-color: var(--text);
+}
+
+.meaning-pl {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.meaning .sentence {
+  font-size: 15px;
+}
+
+.meaning .sentence-pl {
+  font-size: 13px;
+}
+
 .hint {
   display: flex;
   flex-wrap: wrap;

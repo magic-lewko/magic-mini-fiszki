@@ -409,6 +409,20 @@ export function mergeStates(current, fromBackup) {
   }
 }
 
+// "Reload words": a fresh start on the built-in deck, asked for by the user. Cards, history, points, the streak and
+// reports go; settings and removed words stay (a removed word is kept by its id, so it stays out of the new deck too).
+// The due date spread is a migration of old cards, and there are none now, so it is marked as done.
+export function resetProgress(state, now = new Date()) {
+  const { wylaczoneTalie, ...settings } = state.ustawienia || {}
+  return {
+    ...defaultState(now),
+    pominiete: state.pominiete || {},
+    ustawienia: { ...DEFAULT_SETTINGS, ...settings },
+    ostatniaKopia: state.ostatniaKopia || '',
+    rozproszono: 1,
+  }
+}
+
 export const fileName = (now = new Date()) => `flashcards-backup-${localDate(now)}.json`
 
 function parse(raw, now = new Date()) {

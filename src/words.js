@@ -4,11 +4,13 @@
 // The id is `w` by default and is case sensitive: "May" (the month) and "may" (the verb) are different words.
 //
 // A word keeps the saved field names: id, w (English), pl (Polish), poziom (level), ipa, czesci (parts of speech),
-// zdanie (sentence), zdaniePl (Polish sentence), talia (deck). This is the deck file and backup format.
+// zdanie (sentence), zdaniePl (Polish sentence), znaczenia (meanings), talia (deck). This is the deck file and backup
+// format. `znaczenia` is optional: a word with different meanings (get, run, set) has a list [{ pl, zdanie, zdaniePl }],
+// one sentence for each meaning. `pl` and `zdanie` stay as the short form, so older code and decks still work.
 
 import { localDate } from './study.js'
 
-export const CONTENT_FIELDS = ['w', 'pl', 'poziom', 'ipa', 'czesci', 'zdanie', 'zdaniePl']
+export const CONTENT_FIELDS = ['w', 'pl', 'poziom', 'ipa', 'czesci', 'zdanie', 'zdaniePl', 'znaczenia']
 
 const isObject = (x) => typeof x === 'object' && x !== null && !Array.isArray(x)
 const text = (x) => (typeof x === 'string' ? x.trim() : typeof x === 'number' ? String(x) : '')
@@ -37,9 +39,23 @@ export function normalizeWord(raw, deck = '') {
   if (sentence) word.zdanie = sentence
   const sentencePl = text(raw.zdaniePl)
   if (sentencePl) word.zdaniePl = sentencePl
+  const meanings = (Array.isArray(raw.znaczenia) ? raw.znaczenia : []).filter(isObject).map(meaning).filter(Boolean)
+  // One meaning is the same as `pl` with `zdanie`, so the list is kept only from two meanings.
+  if (meanings.length > 1) word.znaczenia = meanings
   const deckName = text(deck)
   if (deckName) word.talia = deckName
   return { word }
+}
+
+function meaning(raw) {
+  const pl = text(raw.pl)
+  if (!pl) return null
+  const result = { pl }
+  const sentence = text(raw.zdanie)
+  if (sentence) result.zdanie = sentence
+  const sentencePl = text(raw.zdaniePl)
+  if (sentencePl) result.zdaniePl = sentencePl
+  return result
 }
 
 function emptyResult(format, name, source) {
@@ -104,7 +120,7 @@ export function parsePasted(input, now = new Date()) {
   return fromArray(data.slowa, 'json', text(data.nazwa) || defaultName, text(data.zrodlo))
 }
 
-const content = (word, field) => (Array.isArray(word[field]) ? word[field].join('\u0000') : word[field] ?? '')
+const content = (word, field) => (typeof word[field] === 'object' ? JSON.stringify(word[field]) : word[field] ?? '')
 
 // New words go to the end of the study order, existing ones get new content. A field missing in the import stays old,
 // so pasting "apple ; jablko" does not delete the transcription and sentences from the full list. An existing word stays

@@ -114,6 +114,33 @@ export function heatmapCaption({ today, best, studyDays }) {
 
 export const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 
+// Forms of a short word: "run" -> runs, runned, running, ran is not here (irregular).
+const shortForms = (w) => {
+  const doubled = w + w.at(-1)
+  return [w, `${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${doubled}ed`, `${doubled}ing`, `${w}er`, `${doubled}er`]
+}
+
+// Splits a sentence around the studied word, so the card can mark it: { before, match, after }. A form with an ending
+// counts too ("make" finds "making", "study" finds "studied"). An irregular form ("get" -> "got") is not found, then
+// `match` is empty and the sentence shows without a mark.
+export function markWord(sentence, word) {
+  const s = String(sentence ?? '')
+  const target = String(word ?? '').toLowerCase()
+  const none = { before: s, match: '', after: '' }
+  if (!target) return none
+  if (target.includes(' ')) {
+    const i = s.toLowerCase().indexOf(target)
+    return i < 0 ? none : { before: s.slice(0, i), match: s.slice(i, i + target.length), after: s.slice(i + target.length) }
+  }
+  const stem = target.length > 3 ? target.replace(/[ey]$/, '') : target
+  for (const m of s.matchAll(/[\p{L}'-]+/gu)) {
+    const token = m[0].toLowerCase()
+    const fits = target.length > 3 ? token.startsWith(stem) && token.length <= target.length + 4 : shortForms(target).includes(token)
+    if (fits) return { before: s.slice(0, m.index), match: m[0], after: s.slice(m.index + m[0].length) }
+  }
+  return none
+}
+
 // Parts of speech as they are in the deck, in deck order.
 export const partsOfSpeech = (word) => (word.czesci || []).join(', ')
 

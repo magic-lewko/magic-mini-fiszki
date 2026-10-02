@@ -12,9 +12,10 @@
   // direction lights up with the color and icon of the status, before the user lets go. Right "Know", left "Don't know",
   // up "Almost", down trash. Each works also on a hidden card. Below MOVE_THRESHOLD lifting the finger counts as a tap.
   // The same four actions are buttons under the card: a swipe is easy to miss, and only a tap vibrates on the iPhone.
-  // The card shows only the word and its translation, nothing else.
+  // The card shows the word and, after revealing, its meanings with example sentences. A word with different meanings
+  // (get, run, set) has one sentence on the front too, so it is clear which meaning is asked.
   import * as study from '../study.js'
-  import { SWIPES } from '../text.js'
+  import { SWIPES, markWord } from '../text.js'
   import { ui } from '../ui.svelte.js'
   import { exitToHome, gradeCard, isBusy, pronounce, reveal, skipCurrent, undoGrade } from '../app.svelte.js'
 
@@ -23,6 +24,8 @@
   // The screen is drawn again for every card (a key in App.svelte), so the card data is fixed.
   const word = $derived(data.word)
   const c = $derived(ui.card)
+  const meanings = $derived(study.meaningsOf(word))
+  const front = $derived(data.front ? markWord(data.front.zdanie, word.w) : null)
 
   let card
   let touch = null
@@ -134,6 +137,23 @@
   }
 </script>
 
+{#snippet sentences(m)}
+  {#if m.zdanie}<div class="sentence">{m.zdanie}</div>{/if}
+  {#if m.zdaniePl}<div class="sentence-pl">{m.zdaniePl}</div>{/if}
+{/snippet}
+
+<!-- The meaning asked on the front is marked, the others are there to show the whole word. -->
+{#snippet meaningList()}
+  <ol class="meanings" id="meanings">
+    {#each meanings as m}
+      <li class="meaning" class:asked={data.front?.pl === m.pl}>
+        <div class="meaning-pl">{m.pl}</div>
+        {@render sentences(m)}
+      </li>
+    {/each}
+  </ol>
+{/snippet}
+
 <!-- The card is the swipe surface. The screen reader has the same actions in hidden buttons under the card (App.svelte). -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
@@ -172,15 +192,22 @@
 >
   {#if data.direction === 'en'}
     <div class="word">{word.w}</div>
+    {#if front}<div class="sentence front-sentence" id="front-sentence">{front.before}{#if front.match}<mark>{front.match}</mark>{/if}{front.after}</div>{/if}
     <button class="speaker" type="button" aria-label="Pronunciation" onclick={() => pronounce(word.w)}>🔊</button>
     <div class="reveal">
-      <div class="translation">{word.pl}</div>
+      {#if meanings.length > 1}
+        {@render meaningList()}
+      {:else}
+        <div class="translation">{word.pl}</div>
+        {@render sentences(meanings[0])}
+      {/if}
     </div>
   {:else}
     <div class="translation big">{word.pl}</div>
     <div class="reveal">
       <div class="word">{word.w}</div>
       <div class="pronunciation"><button class="speaker" type="button" aria-label="Pronunciation" onclick={() => pronounce(word.w)}>🔊</button></div>
+      {#if meanings.length > 1}{@render meaningList()}{:else}{@render sentences(meanings[0])}{/if}
     </div>
   {/if}
   <!-- The cross ends study. It is on the card, not in the top bar: the bar must stay a clean progress bar,

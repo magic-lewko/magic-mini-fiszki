@@ -1,7 +1,8 @@
 // Builds dist/: Vite puts the app together (Svelte, src/ and lib/fsrs.mjs) into files with a hash in the name, and then
 // this script adds the service worker with the full list of files. VERSION is the start of a sha256 of the content of
 // all files, so every change gives a new cache and the update banner.
-// Words are not in dist/: the user adds them in the app (paste or file), they go to IndexedDB.
+// The built-in deck dist/deck.json is not in the service worker cache: the app downloads it only on "Reload words"
+// and keeps it in IndexedDB, so an update does not download 5000 words again. Other decks the user adds in the app.
 // Run: node build.mjs (needs npm install first)
 
 import { createHash } from 'node:crypto'
@@ -14,8 +15,8 @@ const SRC = join(ROOT, 'src')
 const PUBLIC = join(SRC, 'public')
 const DIST = join(ROOT, 'dist')
 const REQUIRED = [join(SRC, 'index.html'), join(SRC, 'main.js'), join(PUBLIC, 'manifest.webmanifest'), ...[180, 192, 512].map((n) => join(PUBLIC, `icon-${n}.png`))]
-// Files in dist/ that the service worker does not cache: itself and the marker for GitHub Pages.
-const NOT_CACHED = new Set(['sw.js', '.nojekyll'])
+// Files in dist/ that the service worker does not cache: itself, the marker for GitHub Pages and the built-in deck.
+const NOT_CACHED = new Set(['sw.js', '.nojekyll', 'deck.json'])
 // Vite gives addresses from the base (see vite.config.js).
 const BASE_RE = /^\/magic-mini-fiszki\//
 

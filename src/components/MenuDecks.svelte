@@ -1,7 +1,8 @@
 <script>
-  // Decks (H): the switch "study this deck" and removing a whole deck with its progress.
+  // Decks (H): the switch "study this deck", removing a whole deck with its progress, and "Reload words": the built-in
+  // 5000 words deck from the start, with progress reset.
   import * as study from '../study.js'
-  import { model, removeDeck, showAddWords, toggleDeck } from '../app.svelte.js'
+  import { model, reloadWords, removeDeck, showAddWords, toggleDeck } from '../app.svelte.js'
 
   const list = $derived(study.deckList({ words: model.words, cards: model.state.karty, disabledDecks: model.state.ustawienia.wylaczoneTalie || [] }))
 </script>
@@ -17,6 +18,7 @@
     </div>
   {/each}
   <div class="buttons" style="margin-top: 10px">
+    <button class="button" id="reload-words" type="button" onclick={reloadWords}>Reload words</button>
     <button class="button" id="add-deck" type="button" onclick={() => showAddWords()}>Add deck</button>
   </div>
 </div>

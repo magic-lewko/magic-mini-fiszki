@@ -1336,3 +1336,22 @@ test('a collision with a word from a turned off deck does not block a new word',
   const after = s.buildSession({ words: list, cards, settings: { mowienie: false }, today: null, now, collisions, disabledDecks: ['Mine'] })
   assert.deepEqual(after, ['text|en'])
 })
+
+test('front meaning: only for a word with different meanings, the next one at each review', () => {
+  const get = {
+    w: 'get',
+    pl: 'dostać; dotrzeć',
+    zdanie: 'I got a letter.',
+    znaczenia: [
+      { pl: 'dostać', zdanie: 'I got a letter.' },
+      { pl: 'dotrzeć', zdanie: 'We got home late.' },
+      { pl: 'stawać się' },
+    ],
+  }
+  assert.equal(s.frontMeaning(get, 0).pl, 'dostać')
+  assert.equal(s.frontMeaning(get, 1).pl, 'dotrzeć')
+  assert.equal(s.frontMeaning(get, 2).pl, 'dostać')
+  assert.equal(s.frontMeaning({ w: 'cat', pl: 'kot', zdanie: 'A cat.' }, 0), null)
+  assert.equal(s.meaningsOf(get).length, 3)
+  assert.deepEqual(s.meaningsOf({ w: 'cat', pl: 'kot', zdanie: 'A cat.' }), [{ pl: 'kot', zdanie: 'A cat.', zdaniePl: undefined }])
+})

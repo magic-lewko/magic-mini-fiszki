@@ -12,7 +12,7 @@ The review algorithm `lib/fsrs.mjs` (with its test `lib/fsrs.test.mjs`) is a cop
 2. **A tap reveals** the answer. **A double tap** (the second within 280 ms) undoes the last grade. The first tap works at once and waits for nothing.
 3. **A grade is a button under the card**: **Trash** (the word leaves study, the same as "Skip"), **Don't know**, **Not sure** (saved as "Almost") and **Know**. Every button vibrates on the iPhone, a swipe does not.
 4. **The same grades are swipes**: **right** "Know", **left** "Don't know", **up** "Almost", **down** throws the word out of study (the same as "Skip"). The card follows the finger on both axes; after the threshold is crossed (90 px horizontally, 80 px vertically or a fast flick) the direction lights up with a color and an icon, before you let go. Below the threshold the card goes back to the center. The cross on the card (or Escape) ends study and goes to the home screen.
-5. **The card shows only the word**: the English word and the translation (with the speaker button). No IPA, sentences, levels, hints, progress bar or notes during study.
+5. **The card shows the word and examples**: the English word (with the speaker button), and after revealing the translation with an example sentence. A word with different meanings (get, run) has one sentence on the front and all its meanings with sentences after revealing. No IPA, levels, hints, progress bar or notes during study.
 6. **A grade works at once, also on a hidden card**: a word you know ends with one move, without touching it first. A tap is for words you want to check - and only then the answer time counts. The exception: "Already know" (`z`) works only at the first exposure of a word.
 7. **Screen reader and keyboard**: hidden buttons in the footer (class `sr-only`) and shortcuts: space reveals, arrows in four directions match the four swipes, `z` is "Already know".
 8. **The home screen** (after a session, after the cross and when there is nothing to review): only the **Reviews** button and the three dots menu in the corner, no numbers. When there is nothing to review, **+10** next to "Reviews" adds ten new words for today.
@@ -58,7 +58,7 @@ After every 6 mistakes on a card the app shows the panel "This word is hard for 
 
 ### "Already know" and "Skip"
 
-The Oxford 3000 deck has plenty of words you already know. There are two separate ways out for them, both in **Menu > Words** (and for the screen reader also among the hidden card buttons). "Skip" is also the **Trash** button and the swipe down.
+The built-in deck has plenty of words you already know. There are two separate ways out for them, both in **Menu > Words** (and for the screen reader also among the hidden card buttons). "Skip" is also the **Trash** button and the swipe down.
 
 - **Already know** (only for a new card) is **a single check in about 45 days**. Plain FSRS after an "easy" grade would give about 8 days, so a hundred words marked in three days would come back in one wave. The card goes straight to reviews; after this one check it counts normally.
 - **Skip** (for **any** word, both directions) throws the word out of study for good: it is not in any session, in the new words limit or in "Due". Progress is not deleted - the cards of both directions stay untouched in memory, so **Menu > Words > Restore** puts the word back at exactly the same place in the schedule. Undo also works for a skip.
@@ -182,6 +182,15 @@ The phone still runs the old version until the banner. The old app shows its own
 
 ## Decks
 
+### The built-in deck "English 5000"
+
+- 5000 words from A1 to C1 in study order (level by level), made for this app: the word list, the levels, the translations and the sentences are our own, so the deck is in the repo and in the app (`dist/deck.json`). Nothing comes from a published word list.
+- A word with different meanings (get, run, take, in...) has the field `znaczenia`: 2-4 meanings, each with its own sentence and translation. Its card shows one sentence on the front, with the word underlined, so it is clear which meaning is asked; the meaning changes with each review. After revealing, the card lists all meanings with sentences. Other words show the translation and one sentence.
+- **Menu > Decks > Reload words** (and **Load 5000 words** on an empty app) downloads the deck and starts from zero: all decks and all progress (cards, history, streak, points) are reset, settings and removed words stay. The state from before goes to `mmf-v1-przed-wczytaniem`. The deck is not in the service worker cache, so an update does not download it again; after loading it lives in IndexedDB and works offline.
+- `deck/list/*.tsv`: the words by level (`word<TAB>parts of speech`), `deck/chunks/` the first 5000 split into chunks of 250, `deck/parts/NN.json` the content of each chunk. `node deck/chunks.mjs check NN` checks a part, `node deck/build.mjs` builds `src/public/deck.json` (it stops on errors). A fix of a word: change it in `deck/parts/`, build, deploy, and in the app Reload words (this resets progress).
+
+### The old Oxford deck
+
 - `talie/oxford3000.json`: 2981 words from the Oxford 3000 list (A1-B2) with our own translations and sentences, after an independent review. It does not go into the built app (`gh-pages`). The raw OUP data with definitions is in `.gitignore`. Before the first push of the sources, decide whether the deck itself should be in a public repo, because the word choice and levels come from the Oxford list.
 - `talie/zrodla/`: what the deck was made from and how (`dane/prepare.mjs` splits the list into packs, `dane/merge.mjs` merges translations and review fixes). The data files there keep their Polish names (`kolejnosc.json`, `wejscie-NN.json`, `wyjscie-NN.json`, `poprawki-N.json`). Add a fix of a single word to `FIXES` in `merge.mjs` and run `node dane/merge.mjs` from `talie/zrodla/`. The result goes to `talie/zrodla/dane/oxford3000.json`: copy it to `talie/` and load the deck again in the app. Progress stays.
 
@@ -190,7 +199,7 @@ The phone still runs the old version until the banner. The old app shows its own
 1. Safari > type the address > Share > Add to Home Screen. Leave the switch "Open as Web App" (iOS 26) ON, otherwise the icon opens a normal Safari tab.
 2. Always open it from the icon. Safari and the icon have separate data, progress from a Safari tab does not move to the app.
 3. The first opening with internet. Wait until "offline ✓" shows in the top bar (it disappears once everything is saved; the state is in Menu > Offline).
-4. Add words > Load from file > choose `oxford3000.json` from Files or iCloud Drive > check the preview > Add.
+4. Tap **Load 5000 words** (needs internet once).
 5. Menu > Save backup > Save to Files (or iCloud Drive).
 
 ### How to move a file from Windows to the iPhone
@@ -216,7 +225,7 @@ The phone still runs the old version until the banner. The old app shows its own
 
 ## On the road
 
-- If the words disappear (an empty deck): Add words > Load from file > `oxford3000.json`. Progress is saved separately by the word `id`, so it comes back with the words.
+- If the words disappear (an empty deck): Menu > Load backup gives back the words and progress. **Load 5000 words** gives the words back too, but it starts progress from zero.
 - Menu > Load backup joins the backup with the current progress: newer reviews stay, an older file undoes nothing. The list of skipped words is the sum of both sides (if a word left study on either phone, it stays out). The state from before loading also goes to `mmf-v1-przed-wczytaniem`.
 - The message "The word database does not respond": close the app in the app switcher and open it again.
 - The message "Skipped N broken cards": the rest of the progress works, the raw save is in `mmf-v1-uszkodzony`.
@@ -228,7 +237,7 @@ The phone still runs the old version until the banner. The old app shows its own
 
 ## Word formats
 
-1. A JSON object: `{ "nazwa": "Oxford 3000", "zrodlo": "...", "slowa": [ { "id", "w", "pl", "poziom", "ipa", "czesci", "zdanie", "zdaniePl" } ] }` (deck name, source, words; a word: id, English, Polish, level, IPA, parts of speech, sentence, Polish sentence).
+1. A JSON object: `{ "nazwa": "English 5000", "zrodlo": "...", "slowa": [ { "id", "w", "pl", "poziom", "ipa", "czesci", "zdanie", "zdaniePl", "znaczenia" } ] }` (deck name, source, words; a word: id, English, Polish, level, IPA, parts of speech, sentence, Polish sentence, meanings). `znaczenia` is optional: `[ { "pl", "zdanie", "zdaniePl" } ]`, kept from two meanings.
 2. A plain JSON array of words in the same shape.
 3. Text, line by line: `english ; polish` or with a tab, optionally then `; sentence ; Polish sentence`. Empty lines and lines starting with `#` are skipped.
 

@@ -145,6 +145,18 @@ export function withDefaultSettings(settings) {
   return { ...DEFAULT_SETTINGS, ...settings }
 }
 
+// Meanings of a word for the card: the list from `znaczenia`, or one meaning from `pl` and `zdanie`.
+export const meaningsOf = (word) =>
+  word.znaczenia?.length > 1 ? word.znaczenia : [{ pl: word.pl, zdanie: word.zdanie, zdaniePl: word.zdaniePl }]
+
+// The sentence on the front of a card, only for a word with different meanings: the word alone does not say which
+// meaning is asked. The meaning changes with each review, so over time every one shows up.
+export function frontMeaning(word, reviews = 0) {
+  const list = (word.znaczenia || []).filter((m) => m.zdanie)
+  if (list.length < 2) return null
+  return list[reviews % list.length]
+}
+
 // Skipped words ("Skip"): a map { id: 'YYYY-MM-DD' }. The word leaves study, but its cards stay in memory,
 // so "Restore" puts them back at exactly the same place in the schedule.
 // An entry counts even without a valid date: `fixedSkipped` in storage.js keeps a broken date as ''.

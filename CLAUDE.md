@@ -40,7 +40,8 @@ live-tests.mjs         # the deployed app on GitHub Pages
 build.mjs              # Vite build + dist/sw.js with VERSION (a content hash) and the file list
 server.mjs             # static server for dist/ on 127.0.0.1:4200 (/ redirects to /magic-mini-fiszki/)
 deploy.sh              # build and push dist/ to the gh-pages branch
-talie/                 # word decks (JSON outside the repo), talie/zrodla/ - how the Oxford deck was made
+deck/                  # the built-in deck: list/ (words by level), chunks/, parts/ (content), build.mjs, chunks.mjs
+talie/                 # the old Oxford deck (JSON outside the repo, OUP license), talie/zrodla/ - how it was made
 data/example.json      # a few words for a manual test
 tools/icons.mjs        # makes the PNG icons
 ```
@@ -80,8 +81,10 @@ npm run icons              # only when the icons change
 - **Training does not change the schedule** or the card state. Only a grade in study changes it.
 - **FSRS is shared.** `lib/fsrs.mjs` is a copy from `magic-mini-english` (a PC app, not in this folder). Do not
   change its logic or rename its exports; a fix must go to both projects - say so.
-- **Decks outside the repo.** `talie/**/*.json` is in `.gitignore` (the Oxford 3000 list, OUP license) and does not go
-  into `dist/`. Single word fixes: `FIXES` in `talie/zrodla/dane/merge.mjs` (see README, section Decks).
+- **The built-in deck is our own.** `deck/` (list, chunks, parts) builds `src/public/deck.json` with
+  `node deck/build.mjs`: 5000 words A1-C1 written for this app, so it is public in the repo and the app. Never copy
+  anything from `talie/` into it: `talie/**/*.json` is the old Oxford 3000 deck (OUP license), stays in `.gitignore`
+  and never goes into `dist/`. `deck.json` is not in the service worker cache (only "Reload words" downloads it).
 - **Buttons keep a fixed class.** `haptics.js` adds the class `with-haptic` and an invisible switch to every button
   outside Svelte, so in components a button has a static `class="..."` and changes classes only with `class:`
   directives (a dynamic `class={...}` would overwrite `with-haptic`).
