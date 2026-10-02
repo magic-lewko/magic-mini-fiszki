@@ -1,10 +1,10 @@
 // Made by build.mjs. Do not edit by hand.
-const VERSION = '65bb483f832d'
+const VERSION = 'd4d89d34b8e5'
 const FILES = [
   './',
   './index.html',
-  './assets/index-B1zo9MXI.js',
-  './assets/index-DyUqnVK3.css',
+  './assets/index-CISPUY8A.css',
+  './assets/index-Detue5M8.js',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
