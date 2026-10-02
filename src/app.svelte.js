@@ -557,7 +557,7 @@ export function skipCurrent() {
   if (ui.screen !== 'card' || busy || !session) return
   const key = study.currentCard(session)
   const { id } = study.splitKey(key)
-  const snapshot = takeSnapshot(key, state.karty[key])
+  const snapshot = { ...takeSnapshot(key, state.karty[key]), skippedId: id }
   state.pominiete = { ...state.pominiete, [id]: study.localDate() }
   session = sessionWithoutWord(session, id)
   saveState()
@@ -573,8 +573,10 @@ export function skipCurrent() {
   })
 }
 
-// A snapshot to undo: everything a grade or a skip changes. State objects are immutable, so keeping references
+// A snapshot to undo: everything a grade changes. State objects are immutable, so keeping references
 // is enough. `revealed` comes back with the state, so undo does not reveal a card that was hidden.
+// Skipped words are not in the snapshot: a skip from the word list or the leech panel after the grade
+// must survive the undo, so a skip keeps only its own word in `skippedId`.
 const takeSnapshot = (key, card) => ({
   key,
   card,
@@ -585,7 +587,6 @@ const takeSnapshot = (key, card) => ({
   streak: state.streak,
   dzis: state.dzis,
   historia: state.historia,
-  pominiete: state.pominiete,
 })
 
 function forgetUndo() {
@@ -616,8 +617,7 @@ export function undoGrade() {
   if (busy) return
   if (!undo) return
   const s = undo
-  // A skip makes a new map, a grade keeps the same reference: this is how we know what we undo.
-  const wasSkip = s.pominiete !== state.pominiete
+  const wasSkip = !!s.skippedId
   forgetUndo()
   if (s.card === undefined) delete state.karty[s.key]
   else state.karty[s.key] = s.card
@@ -625,7 +625,11 @@ export function undoGrade() {
   state.streak = s.streak
   state.dzis = s.dzis
   state.historia = s.historia
-  state.pominiete = s.pominiete
+  if (wasSkip) {
+    const rest = { ...state.pominiete }
+    delete rest[s.skippedId]
+    state.pominiete = rest
+  }
   session = s.session
   saveState()
   closeMenu()

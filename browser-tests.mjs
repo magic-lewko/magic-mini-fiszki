@@ -607,6 +607,17 @@ try {
     `${wordToTrash} -> ${await cardWord()}, skipped: ${Object.keys((await saved()).pominiete || {}).length}`,
   )
   check('the trash says nothing during study', await js(`document.getElementById('toast').hidden`), await toastText())
+  await waitForFreshCard()
+  await doubleTap('#card')
+  check(
+    'a double tap undoes the trash: the word is back in study and on the card',
+    await waitFor(
+      `document.querySelector('#card .word')?.textContent === ${JSON.stringify(wordToTrash)} && Object.keys(JSON.parse(localStorage.getItem('mmf-v1')).pominiete || {}).length === ${skippedBefore}`,
+      4000,
+    ),
+    `${await cardWord()}, skipped: ${Object.keys((await saved()).pominiete || {}).length}`,
+  )
+  check('undoing the trash says so', (await toastText()) === 'Skip undone.', await toastText())
   await tap('#card .close')
   check('the cross on the card ends study and shows the home screen', await waitFor(`!document.getElementById('card') && !!document.getElementById('play-reviews')`, 4000), (await stageText()).replace(/\n+/g, ' | '))
   await clickByText('#stage', 'Reviews')

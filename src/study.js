@@ -145,7 +145,8 @@ export function withDefaultSettings(settings) {
 
 // Skipped words ("Skip"): a map { id: 'YYYY-MM-DD' }. The word leaves study, but its cards stay in memory,
 // so "Restore" puts them back at exactly the same place in the schedule.
-export const isSkipped = (skipped, id) => !!skipped?.[id]
+// An entry counts even without a valid date: `fixedSkipped` in storage.js keeps a broken date as ''.
+export const isSkipped = (skipped, id) => !!skipped && Object.hasOwn(skipped, id)
 
 // Decks (H): a word without the `talia` field belongs to the deck with this name, so every word has a switch.
 export const UNTITLED_DECK = 'Untitled'

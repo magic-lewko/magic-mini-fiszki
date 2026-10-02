@@ -823,6 +823,8 @@ test('status "skipped" in the word list', () => {
   assert.equal(s.isSkipped({ a: '2026-09-15' }, 'a'), true)
   assert.equal(s.isSkipped({ a: '2026-09-15' }, 'b'), false)
   assert.equal(s.isSkipped(undefined, 'a'), false)
+  // A save with a broken date keeps the entry as '' (fixedSkipped), the word must stay out of study.
+  assert.equal(s.isSkipped({ a: '' }, 'a'), true)
 })
 
 // Due date fuzz
