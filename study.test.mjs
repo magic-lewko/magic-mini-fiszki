@@ -722,6 +722,12 @@ test('word search: case and Polish letters do not matter', () => {
   assert.equal(result.total, 312)
   assert.equal(result.words.length, s.MAX_RESULTS)
   assert.equal(s.searchWords(big, '').words.length, s.MAX_RESULTS)
+
+  // skipped words leave the list and have their own view
+  const skipped = { apple: '2026-10-02' }
+  assert.deepEqual(s.searchWords(index, '', 50, { skipped }).words.map((w) => w.id), ['lake', 'spoon'])
+  assert.deepEqual(s.searchWords(index, '', 50, { skipped, removed: true }), { words: [list[0]], total: 1 })
+  assert.equal(s.searchWords(index, 'jab', 50, { skipped }).total, 0)
 })
 
 test('EN card status and the mastered counter', () => {

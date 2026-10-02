@@ -4,7 +4,7 @@
 export const DAYS_TO_BACKUP_REMINDER = 7
 export const MAX_ERRORS_IN_PREVIEW = 30
 export const SECONDS_TO_UNDO = 6
-export const SKIP_TIP = 'Skipped words do not come back. You can restore them in Menu > Words.'
+export const SKIP_TIP = 'Removed words do not come back. You can restore them in Menu > Words > Removed.'
 export const FREEZE_TEXT = 'Yesterday was a day off, the streak stays.'
 // The caption "Tap to reveal" is only on the first cards after install and after the tutorial.
 export const CARDS_WITH_TIP = 3

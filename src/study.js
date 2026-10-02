@@ -41,6 +41,8 @@ export const HEATMAP_DAYS = 30
 export const RECENT_DAYS = 30
 export const PACE_DAYS = 14
 export const MAX_RESULTS = 50
+// The word list shows this many rows at first and adds the same number with "Show more".
+export const LIST_PAGE = 100
 
 // Catch-up mode after a break: it starts when the backlog is over 2x the cap and ends below the cap.
 export const CATCH_UP_FACTOR = 2
@@ -1078,13 +1080,14 @@ export const plainText = (text) =>
 // Index built once when the deck loads: with 3000 words, filtering after each key is one pass over an array.
 export const buildIndex = (words) => words.map((w) => ({ word: w, search: plainText(`${w.w} ${w.pl}`) }))
 
-export function searchWords(index, phrase, max = MAX_RESULTS) {
+// With `skipped` the list shows only the words still in study, or with `removed: true` only the skipped ones.
+export function searchWords(index, phrase, max = MAX_RESULTS, { skipped = null, removed = false } = {}) {
   const query = plainText(phrase).trim()
-  if (!query) return { words: index.slice(0, max).map((item) => item.word), total: index.length }
   const words = []
   let total = 0
   for (const item of index) {
-    if (!item.search.includes(query)) continue
+    if (query && !item.search.includes(query)) continue
+    if (skipped && isSkipped(skipped, item.word.id) !== removed) continue
     total += 1
     if (words.length < max) words.push(item.word)
   }

@@ -934,7 +934,7 @@ export function skipFromList(word) {
   saveState()
   refreshBar()
   refreshMenu()
-  toast(first ? SKIP_TIP : `"${word.w}" leaves study.`, first ? 'important' : '')
+  toast(first ? SKIP_TIP : `"${word.w}" removed.`, first ? 'important' : '')
 }
 
 // A skipped word comes back to study exactly where it was: the cards were not touched, so it is enough to take it off the list.

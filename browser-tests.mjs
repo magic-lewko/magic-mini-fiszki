@@ -739,20 +739,32 @@ try {
   await closeTutorial()
 
   await openMenu()
-  await js(`(() => { const p = document.getElementById('search'); p.value = 'apple'; p.dispatchEvent(new Event('input')) })()`)
+  // The whole deck in pages: the first page, then "Show more" adds the next one.
+  await js(`(() => { const p = document.getElementById('search'); p.value = ''; p.dispatchEvent(new Event('input')) })()`)
   await waitFor(`!!document.querySelector('#word-list .word-row')`)
+  const listTotal = Number((await js(`document.getElementById('word-count').textContent`)).match(/of (\d+)/)?.[1])
+  const firstPage = await js(`document.querySelectorAll('#word-list .word-row').length`)
+  check('words: the list shows a page of up to 100 words, not 50', firstPage === Math.min(100, listTotal), `${firstPage} of ${listTotal}`)
+  check('words: "Show more" only when words are left', (await js(`!!document.getElementById('words-more')`)) === listTotal > 100)
+  await js(`(() => { const p = document.getElementById('search'); p.value = 'apple'; p.dispatchEvent(new Event('input')) })()`)
+  await waitFor(`[...document.querySelectorAll('#word-list .word-row b')].some((b) => b.textContent === 'apple')`)
   const wordButtons = await js(
     `(() => { const w = [...document.querySelectorAll('#word-list .word-row')].find((e) => e.querySelector('b').textContent === 'apple'); return [...w.querySelectorAll('button')].map((b) => b.textContent).join(',') })()`,
   )
-  check('words: "Skip" stays available in the word list', wordButtons.includes('Skip'), wordButtons)
-  await js(`[...document.querySelectorAll('#word-list button')].find((b) => b.textContent === 'Skip').click(); 1`)
+  check('words: "Remove" is the first button of a word', wordButtons.startsWith('Remove'), wordButtons)
+  await js(`document.querySelector('#word-list button[aria-label="Remove apple"]').click(); 1`)
   check(
-    'words: "Skip" throws the word out of study',
-    await waitFor(`!!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple && /leaves study|You can restore them in Menu/.test(document.getElementById('toast').textContent)`),
+    'words: "Remove" throws the word out of study and off the list',
+    await waitFor(
+      `!!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple && ![...document.querySelectorAll('#word-list .word-row b')].some((b) => b.textContent === 'apple') && /removed|You can restore them in Menu/.test(document.getElementById('toast').textContent)`,
+    ),
     await toastText(),
   )
+  await js(`document.getElementById('words-removed').click(); 1`)
+  check('words: the view "Removed" shows the removed word', await waitFor(`document.getElementById('words-removed').textContent.startsWith('Removed (') &&[...document.querySelectorAll('#word-list .word-row b')].some((b) => b.textContent === 'apple')`), await js(`document.getElementById('word-list').textContent`))
   await js(`[...document.querySelectorAll('#word-list button')].find((b) => b.textContent === 'Restore').click(); 1`)
   check('words: "Restore" gives the word back to study', await waitFor(`!JSON.parse(localStorage.getItem('mmf-v1')).pominiete.apple`))
+  await js(`document.getElementById('words-in-study').click(); 1`)
   await js(`document.querySelector('#menu .close').click(); 1`)
   await wait(200)
 
